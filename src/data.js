@@ -1,182 +1,161 @@
-// Static game data: areas, classes, Servants, item cards.
-// Numbers follow docs/game-design.md and are starting points for balance.
+// Static game data for design v1.1: areas, Servant decks, situations, events,
+// items and church quests. Numbers are starting points for balance.
 
 export const AREAS = {
-  temple: { name: 'วัดริวโด', short: 'วัด', desc: 'มานา 2–7 · เลย์ไลน์' },
-  forest: { name: 'ป่าไอนซ์เบิร์น', short: 'ป่า', desc: 'มานา 1–4 · ฟื้น HP 10% · ซ่อนง่าย (+1)' },
-  shinto: { name: 'ย่านชินโตะ', short: 'ชินโตะ', desc: 'มานา 1–3 · การ์ด 1 ใบ (ทอย 3–6)' },
-  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', desc: 'ฟื้น HP 20% · เศษ Command Seal (ทอย 6)' },
-  school: { name: 'โรงเรียนโฮมูระฮาระ', short: 'โรงเรียน', desc: 'มานา 1–6 · กับดัก (ทอย 1 = HP −10)' },
+  temple: { name: 'วัดริวโด', short: 'วัด', kind: 'temple', day: 'แบ่งเลย์ไลน์: คนเดียว +4 · 2 คน +3 · 3 คน +2 มานา', night: '2 คนขึ้นไปสู้แย่งเลย์ไลน์ ผู้ชนะ +4 มานา' },
+  miyama: { name: 'ย่านมิยามะ', short: 'มิยามะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (เปิดหน้า)' },
+  shinto: { name: 'ย่านชินโตะ', short: 'ชินโตะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (คว่ำหน้า)' },
+  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', kind: 'church', day: 'ถวายมานาแลก Command Seal หรือรับเควส', night: 'ปลอดภัย · ดูมือผู้เล่น 1 คน' },
 };
-export const AREA_KEYS = Object.keys(AREAS);
+export const AREA_KEYS = ['temple', 'miyama', 'shinto', 'church'];
+export const FIELDS = ['miyama', 'shinto'];
 
-export const CLASSES = {
-  Saber: { hp: 100, atk: 3, def: 3, agi: 2, passive: 'ต้านเวท: ดาเมจจาก Caster ลดครึ่ง' },
-  Archer: { hp: 80, atk: 3, def: 2, agi: 3, passive: 'อิสระ: โจมตีก่อนเสมอในรอบแรก' },
-  Lancer: { hp: 85, atk: 3, def: 2, agi: 4, passive: 'ต้านเวท (อ่อน): ดาเมจจาก Caster −25%' },
-  Rider: { hp: 90, atk: 2, def: 2, agi: 4, passive: 'ขี่พาหนะ: ทอยหนี +2' },
-  Caster: { hp: 70, atk: 2, def: 2, agi: 2, passive: 'สร้างเขตแดน: มานา +2 ทุกเฟส' },
-  Assassin: { hp: 70, atk: 3, def: 1, agi: 4, passive: 'ซ่อนเร้น: ทอยซ่อน +2' },
-  Berserker: { hp: 130, atk: 4, def: 2, agi: 1, passive: 'คลั่ง: ATK +1 (รวมแล้ว) แต่ใช้สกิลส่วนตัวไม่ได้' },
+// capacity by masters left (design 3): temple, church, open battlefields
+export function capacityFor(alive) {
+  const temple = alive >= 7 ? 3 : alive === 6 ? 2 : alive === 5 ? 1 : 0;
+  const church = alive >= 3 ? 1 : 0;
+  const fields = alive >= 4 ? ['miyama', 'shinto'] : ['miyama'];
+  return { temple, church, fields };
+}
+
+export const TYPES = {
+  F: { name: 'กำลัง', icon: '⚔', color: '#ef6a5a' },
+  A: { name: 'ว่องไว', icon: '➶', color: '#5ed08f' },
+  M: { name: 'เวท', icon: '✦', color: '#a77be8' },
+  S: { name: 'พิเศษ', icon: '◆', color: '#e8c45a' },
 };
 
-// Skill kinds understood by the combat engine (see engine.js#doAction):
-//   dmg      — replaces the attack: rolls `dice` d6 (+ATK if addAtk, +bonus)
-//   buff     — applies an effect and still makes a normal attack
-//   defend2  — defend, rolling twice and keeping the better roll
-//   heal     — heals `amount` instead of attacking
-//   passive  — not selectable; handled elsewhere
+export const CLASS_HP = { Saber: 14, Archer: 12, Lancer: 12, Rider: 12, Caster: 10, Assassin: 10, Berserker: 18 };
+
+// 10 attack cards per class: the type mix hints at the class
+const ATTACKS = {
+  Saber: 'F2 F3 F4 F4 F5 A2 A3 M1 M2 M3',
+  Archer: 'A2 A3 A3 A4 A5 F2 F3 M1 M2 M3',
+  Lancer: 'A1 A2 A3 A4 A5 F2 F3 F4 M1 M2',
+  Rider: 'A1 A2 A3 A4 F2 F3 F4 F5 M1 M2',
+  Caster: 'M1 M2 M2 M3 M4 M4 M5 A1 A2 F1',
+  Assassin: 'A2 A3 A3 A4 A4 A5 F1 F2 M1 M2',
+  Berserker: 'F1 F2 F3 F3 F4 F4 F5 F5 A1 M1',
+};
+export const attackCost = (p) => (p >= 5 ? 2 : p === 4 ? 1 : 0);
+
+// Skill / NP effects, all automatic at reveal (design 5.2):
+//   pair:{type,bonus}  +bonus when the other card is that type
+//   die:n              roll n extra dice (keep the highest)
+//   reduce:n           take n less damage
+//   heal:n             heal n before damage
+//   mana:n             gain n mana after the fight
+//   foe:n              every opponent's total −n
+//   splash:n           if you win, every loser loses n more HP
+//   selfHit:n          lose n HP after the fight whatever happens
+const sk = (name, power, cost, eff, text) => ({ name, power, cost, eff, text });
+
 export const SERVANTS = {
-  artoria: {
-    name: 'Artoria Pendragon', cls: 'Saber', favored: 'forest', unfavored: 'shinto',
-    np: { name: 'Excalibur', cost: 12, special: 'extra', desc: '4d6+ATK ดาเมจ +6 (ค่า NP 12 เพราะจุดอ่อน)' },
-    weakness: 'มานาที่ใช้ NP +2',
-    skills: [
-      { id: 'mana_burst', name: 'ปลดปล่อยมานา', cost: 3, kind: 'dmg', dice: 2, addAtk: true, bonus: 2, desc: 'โจมตี 2d6+ATK+2' },
-      { id: 'instinct', name: 'สัญชาตญาณ', cost: 2, kind: 'defend2', desc: 'ป้องกัน ทอย 2 ครั้งเอาค่าดีกว่า' },
-    ],
-  },
-  siegfried: {
-    name: 'Siegfried', cls: 'Saber', favored: 'forest', unfavored: 'church',
-    np: { name: 'Balmung', cost: 10, special: 'extra', desc: '4d6+ATK ดาเมจ +6' },
-    weakness: 'ถูกซุ่มโจมตีโดยคนที่รู้ชื่อ ดาเมจ ×2',
-    skills: [
-      { id: 'dragon_blood', name: 'เลือดมังกร', cost: 2, kind: 'buff', desc: 'รับดาเมจ −5 รอบนี้ + โจมตีปกติ' },
-      { id: 'valor', name: 'ความกล้าหาญ', cost: 3, kind: 'buff', desc: 'ATK +2 สองรอบ + โจมตีปกติ' },
-    ],
-  },
-  emiya: {
-    name: 'EMIYA', cls: 'Archer', favored: 'shinto', unfavored: 'school', hp: 70,
-    np: { name: 'Unlimited Blade Works', cost: 10, special: 'pierce', desc: '4d6+ATK ทะลุการป้องกัน' },
-    weakness: 'HP ต่ำสุดในคลาส (70)',
-    skills: [
-      { id: 'hawk_eye', name: 'ตาเหยี่ยว', cost: 2, kind: 'passive', desc: 'นอกการต่อสู้: จ่าย 2 มานาอัตโนมัติ เห็นคนซ่อนตัวในพื้นที่' },
-      { id: 'broken_phantasm', name: 'ยิงดาบระเบิด', cost: 4, kind: 'dmg', dice: 3, addAtk: false, bonus: 0, desc: 'ดาเมจ 3d6' },
-    ],
-  },
-  gilgamesh: {
-    name: 'Gilgamesh', cls: 'Archer', favored: 'church', unfavored: 'forest',
-    np: { name: 'Gate of Babylon', cost: 10, special: 'pierce', desc: '4d6+ATK ทะลุการป้องกัน' },
-    weakness: 'หยิ่ง: รอบแรกป้องกันไม่ได้',
-    skills: [
-      { id: 'golden_rule', name: 'กฎทองคำ', cost: 0, kind: 'passive', desc: 'ติดตัว: มานา +2 ทุกเฟส' },
-      { id: 'gate_mini', name: 'ประตูขุมทรัพย์ย่อย', cost: 3, kind: 'dmg', dice: 2, addAtk: true, bonus: 0, desc: 'โจมตี 2d6+ATK' },
-    ],
-  },
-  cu: {
-    name: 'Cú Chulainn', cls: 'Lancer', favored: 'forest', unfavored: 'church',
-    np: { name: 'Gáe Bolg', cost: 10, special: 'pierce', desc: '4d6+ATK ทะลุการป้องกันและหลบไม่ได้' },
-    weakness: 'ห้ามหนี (geis) ตอนกลางคืน',
-    skills: [
-      { id: 'battle_cont', name: 'การรบต่อเนื่อง', cost: 0, kind: 'passive', desc: 'ติดตัว: HP < 20 ครั้งแรก ฟื้น 15' },
-      { id: 'runes', name: 'อักษรรูน', cost: 2, kind: 'buff', desc: 'DEF +2 สองรอบ + โจมตีปกติ' },
-    ],
-  },
-  diarmuid: {
-    name: 'Diarmuid Ua Duibhne', cls: 'Lancer', favored: 'forest', unfavored: 'shinto',
-    np: { name: 'Gáe Dearg & Buidhe', cost: 10, special: 'pierce', desc: '4d6+ATK ทะลุการป้องกัน' },
-    weakness: 'แพ้ทาง Saber ที่รู้ชื่อ: รับดาเมจ +3',
-    skills: [
-      { id: 'love_spot', name: 'ไฝเสน่ห์', cost: 2, kind: 'buff', desc: 'อีกฝ่าย ATK −1 รอบนี้ + โจมตีปกติ' },
-      { id: 'twin_spears', name: 'หอกคู่', cost: 3, kind: 'dmg', dice: 1, addAtk: true, bonus: 0, hits: 2, desc: 'โจมตี 2 ครั้ง ครั้งละ 1d6+ATK' },
-    ],
-  },
-  medusa: {
-    name: 'Medusa', cls: 'Rider', favored: 'school', unfavored: 'church',
-    np: { name: 'Bellerophon', cost: 10, special: 'first', desc: '4d6+ATK โจมตีก่อนเสมอ' },
-    weakness: 'ถ้าอีกฝ่ายรู้ชื่อ สายตามนตร์ใช้ไม่ได้ผล',
-    skills: [
-      { id: 'mystic_eyes', name: 'สายตามนตร์', cost: 4, kind: 'buff', desc: 'อีกฝ่ายทอย d6 ≤ 2 = เสียรอบ + โจมตีปกติ' },
-      { id: 'chains', name: 'โซ่ตรวน', cost: 2, kind: 'buff', desc: 'อีกฝ่ายหนีไม่ได้รอบนี้ + โจมตีปกติ' },
-    ],
-  },
-  iskandar: {
-    name: 'Iskandar', cls: 'Rider', favored: 'shinto', unfavored: 'forest',
-    np: { name: 'Ionioi Hetairoi', cost: 14, special: 'dice5', desc: '5d6+ATK (แพงสุด 14 มานา)' },
-    weakness: 'NP แพงสุด (14 มานา)',
-    skills: [
-      { id: 'charisma', name: 'บารมี', cost: 3, kind: 'buff', desc: 'ATK+1 DEF+1 ตลอดการต่อสู้ + โจมตีปกติ' },
-      { id: 'charge', name: 'ทะลวงทัพ', cost: 3, kind: 'dmg', dice: 2, addAtk: true, bonus: 0, first: true, desc: 'โจมตีก่อน 2d6+ATK' },
-    ],
-  },
-  medea: {
-    name: 'Medea', cls: 'Caster', favored: 'temple', unfavored: 'shinto',
-    np: { name: 'Rule Breaker', cost: 10, special: 'dispel', desc: '4d6+ATK และลบบัฟของอีกฝ่าย' },
-    weakness: 'ประชิดอ่อน: ATK −1 ในรอบแรก',
-    skills: [
-      { id: 'divine_magic', name: 'เวทเทพ', cost: 4, kind: 'dmg', dice: 3, addAtk: false, bonus: 0, desc: 'ดาเมจเวท 3d6' },
-      { id: 'temple_heal', name: 'เขตแดนวิหาร', cost: 3, kind: 'heal', amount: 15, desc: 'ฟื้น HP 15 (แทนการโจมตี)' },
-    ],
-  },
-  gilles: {
-    name: 'Gilles de Rais', cls: 'Caster', favored: 'shinto', unfavored: 'church',
-    np: { name: "Prelati's Spellbook", cost: 10, special: 'drain', desc: '4d6+ATK และฟื้น HP 15' },
-    weakness: 'ฟื้น HP จากพื้นที่ไม่ได้',
-    skills: [
-      { id: 'sea_horror', name: 'สัตว์ประหลาดใต้ทะเล', cost: 3, kind: 'dmg', dice: 2, addAtk: false, bonus: 0, dot: true, desc: 'ดาเมจ 2d6 รอบนี้และรอบหน้า' },
-      { id: 'madness', name: 'ความบ้าคลั่ง', cost: 2, kind: 'buff', desc: 'ATK +2, DEF −1 ตลอดการต่อสู้ + โจมตีปกติ' },
-    ],
-  },
-  kojiro: {
-    name: 'Sasaki Kojirō', cls: 'Assassin', favored: 'temple', unfavored: 'shinto',
-    np: { name: 'Tsubame Gaeshi', cost: 10, special: 'pierce', desc: '4d6+ATK ทะลุการป้องกัน' },
-    weakness: 'ผลลบจากพื้นที่ไม่ถนัดเป็น 2 เท่า',
-    skills: [
-      { id: 'minds_eye', name: 'ใจนิ่ง', cost: 2, kind: 'buff', desc: 'หลบทั้งรอบถ้าทอย d6 ≥ 4 + โจมตีปกติ' },
-      { id: 'swallow', name: 'เพลงดาบ', cost: 3, kind: 'dmg', dice: 2, addAtk: true, bonus: 0, desc: 'โจมตี 2d6+ATK' },
-    ],
-  },
-  hassan: {
-    name: 'Hassan of the Cursed Arm', cls: 'Assassin', favored: 'shinto', unfavored: 'church',
-    np: { name: 'Zabaniya', cost: 10, special: 'extra', desc: '4d6+ATK ดาเมจ +6' },
-    weakness: 'ถูกพบตอนซ่อนตัว = เสีย HP 15',
-    skills: [
-      { id: 'assassinate', name: 'ซุ่มสังหาร', cost: 3, kind: 'dmg', dice: 1, addAtk: true, bonus: 0, ambushX2: true, desc: '1d6+ATK ถ้าซุ่มโจมตีอยู่: ก่อน และดาเมจ ×2' },
-      { id: 'poison', name: 'วิชาพิษ', cost: 2, kind: 'buff', desc: 'อีกฝ่ายเสีย HP 5 ทุกเฟส 2 เฟส + โจมตีปกติ' },
-    ],
-  },
-  heracles: {
-    name: 'Heracles', cls: 'Berserker', favored: 'forest', unfavored: 'school',
-    np: { name: 'God Hand', cost: 10, special: 'extra', desc: '4d6+ATK ดาเมจ +6' },
-    weakness: 'หนีไม่ได้ ใช้การ์ดไม่ได้',
-    skills: [
-      { id: 'god_hand', name: 'God Hand', cost: 0, kind: 'passive', desc: 'ติดตัว: ตายครั้งแรกฟื้น HP 50%' },
-    ],
-  },
-  lancelot: {
-    name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'forest',
-    np: { name: 'Knight of Owner', cost: 10, special: 'extra', desc: '4d6+ATK ดาเมจ +6' },
-    weakness: 'ทุกรอบต้องโจมตี (ป้องกันไม่ได้)',
-    skills: [
-      { id: 'nameless', name: 'ไร้นาม', cost: 0, kind: 'passive', desc: 'ติดตัว: ชื่อจริงไม่ถูกเปิดจาก NP ครั้งแรก' },
-    ],
-  },
+  artoria: { name: 'Artoria Pendragon', cls: 'Saber', favored: 'miyama', unfavored: 'shinto',
+    skills: [sk('ปลดปล่อยมานา', 4, 3, { pair: { type: 'F', bonus: 3 } }, 'คู่กับการ์ดกำลัง +3'), sk('สัญชาตญาณ', 1, 2, { die: 1 }, 'ทอยเพิ่ม 1 ลูก')],
+    np: sk('Excalibur', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
+  siegfried: { name: 'Siegfried', cls: 'Saber', favored: 'shinto', unfavored: 'church',
+    skills: [sk('เลือดมังกร', 2, 2, { reduce: 3 }, 'รับดาเมจ −3'), sk('ความกล้าหาญ', 3, 3, { pair: { type: 'F', bonus: 3 } }, 'คู่กับการ์ดกำลัง +3')],
+    np: sk('Balmung', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
+  emiya: { name: 'EMIYA', cls: 'Archer', favored: 'shinto', unfavored: 'temple',
+    skills: [sk('ตาเหยี่ยว', 2, 2, { die: 1 }, 'ทอยเพิ่ม 1 ลูก'), sk('ยิงดาบระเบิด', 5, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Unlimited Blade Works', 9, 8, { die: 1, splash: 1 }, 'ทอยเพิ่ม 1 ลูก · ชนะแล้วผู้แพ้เสีย HP +1') },
+  gilgamesh: { name: 'Gilgamesh', cls: 'Archer', favored: 'shinto', unfavored: 'miyama',
+    skills: [sk('กฎทองคำ', 1, 2, { mana: 4 }, 'ได้มานา +4 หลังสู้'), sk('ประตูขุมทรัพย์ย่อย', 5, 3, { pair: { type: 'M', bonus: 2 } }, 'คู่กับการ์ดเวท +2')],
+    np: sk('Gate of Babylon', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
+  cu: { name: 'Cú Chulainn', cls: 'Lancer', favored: 'miyama', unfavored: 'church',
+    skills: [sk('การรบต่อเนื่อง', 2, 2, { reduce: 3 }, 'รับดาเมจ −3'), sk('อักษรรูน', 3, 2, { pair: { type: 'M', bonus: 2 } }, 'คู่กับการ์ดเวท +2')],
+    np: sk('Gáe Bolg', 9, 8, { splash: 3 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +3') },
+  diarmuid: { name: 'Diarmuid Ua Duibhne', cls: 'Lancer', favored: 'miyama', unfavored: 'shinto',
+    skills: [sk('ไฝเสน่ห์', 2, 2, { foe: 2 }, 'คู่ต่อสู้ทุกคน −2'), sk('หอกคู่', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Gáe Dearg & Buidhe', 9, 8, { foe: 2 }, 'คู่ต่อสู้ทุกคน −2') },
+  medusa: { name: 'Medusa', cls: 'Rider', favored: 'shinto', unfavored: 'church',
+    skills: [sk('สายตามนตร์', 3, 4, { foe: 2 }, 'คู่ต่อสู้ทุกคน −2'), sk('โซ่ตรวน', 2, 2, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Bellerophon', 10, 8, { die: 1 }, 'ทอยเพิ่ม 1 ลูก') },
+  iskandar: { name: 'Iskandar', cls: 'Rider', favored: 'miyama', unfavored: 'temple', hp: 13,
+    skills: [sk('บารมี', 3, 3, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ทะลวงทัพ', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Ionioi Hetairoi', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
+  medea: { name: 'Medea', cls: 'Caster', favored: 'temple', unfavored: 'shinto',
+    skills: [sk('เวทเทพ', 5, 4, { pair: { type: 'M', bonus: 2 } }, 'คู่กับการ์ดเวท +2'), sk('เขตแดนวิหาร', 1, 2, { heal: 4 }, 'ฟื้น HP 4 ก่อนคิดดาเมจ')],
+    np: sk('Rule Breaker', 8, 8, { foe: 3 }, 'คู่ต่อสู้ทุกคน −3') },
+  gilles: { name: 'Gilles de Rais', cls: 'Caster', favored: 'shinto', unfavored: 'church',
+    skills: [sk('สัตว์ประหลาดใต้ทะเล', 4, 3, { pair: { type: 'M', bonus: 2 } }, 'คู่กับการ์ดเวท +2'), sk('ความบ้าคลั่ง', 5, 2, { selfHit: 1 }, 'เสีย HP 1 หลังสู้')],
+    np: sk("Prelati's Spellbook", 8, 8, { heal: 4 }, 'ฟื้น HP 4 ก่อนคิดดาเมจ') },
+  kojiro: { name: 'Sasaki Kojirō', cls: 'Assassin', favored: 'temple', unfavored: 'shinto',
+    skills: [sk('ใจนิ่ง', 2, 2, { reduce: 3 }, 'รับดาเมจ −3'), sk('เพลงดาบ', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Tsubame Gaeshi', 9, 8, { die: 1 }, 'ทอยเพิ่ม 1 ลูก') },
+  hassan: { name: 'Hassan of the Cursed Arm', cls: 'Assassin', favored: 'shinto', unfavored: 'miyama',
+    skills: [sk('ซุ่มสังหาร', 4, 3, { pair: { type: 'A', bonus: 3 } }, 'คู่กับการ์ดว่องไว +3'), sk('วิชาพิษ', 2, 2, { foe: 1 }, 'คู่ต่อสู้ทุกคน −1')],
+    np: sk('Zabaniya', 9, 8, { splash: 3 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +3') },
+  heracles: { name: 'Heracles', cls: 'Berserker', favored: 'miyama', unfavored: 'temple', godHand: true,
+    skills: [sk('คลั่ง', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ร่างเหล็ก', 3, 3, { reduce: 2 }, 'รับดาเมจ −2')],
+    np: sk('Nine Lives', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
+  lancelot: { name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'miyama', hp: 16, nameless: true,
+    skills: [sk('อัศวินไร้ที่ติ', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ยุทธปัจจัย', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
+    np: sk('Arondight', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
 };
 export const SERVANT_KEYS = Object.keys(SERVANTS);
 
-// where: 'any' = in or out of combat, 'combat' = only in combat, 'field' = only outside, 'passive' = automatic
-export const CARDS = {
-  gem: { name: 'อัญมณีเวทของโทซากะ', rarity: 'หายาก', where: 'combat', desc: 'ระเบิด 3d6×2 ดาเมจ ทะลุการป้องกัน ไม่ใช้มานา' },
-  mana_vial: { name: 'ขวดมานา', rarity: 'ทั่วไป', where: 'any', desc: 'มานา +5' },
-  potion: { name: 'ยาสมานแผล', rarity: 'ทั่วไป', where: 'any', desc: 'ฟื้น HP 30' },
-  charm: { name: 'เครื่องรางนำโชค', rarity: 'ทั่วไป', where: 'combat', desc: 'รอบนี้ทอยลูกเต๋า 2 ชุด เอาชุดที่ดีกว่า' },
-  shroud: { name: 'ผ้าห่อศพของมาร์ติน', rarity: 'หายาก', where: 'combat', desc: 'กันดาเมจทั้งหมด 1 รอบ' },
-  familiar: { name: 'Familiar สอดแนม', rarity: 'ทั่วไป', where: 'field', desc: 'เฟสนี้เห็นคนซ่อนตัวในพื้นที่ของตัวเอง' },
-  ward_stone: { name: 'ศิลาเขตแดน', rarity: 'ทั่วไป', where: 'field', desc: 'เฟสนี้ซ่อนตัวสำเร็จแน่นอน' },
-  scroll: { name: 'ม้วนคาถาเคลื่อนย้าย', rarity: 'หายาก', where: 'combat', desc: 'หนีออกจากการต่อสู้ทันที' },
-  black_keys: { name: 'ดาบดำ (Black Keys)', rarity: 'ทั่วไป', where: 'combat', desc: 'ปา (1d6+2)×2 ดาเมจ ทะลุการป้องกัน' },
-  hero_record: { name: 'บันทึกวีรชน', rarity: 'หายาก', where: 'field', desc: 'รู้ชื่อจริง + จุดอ่อนของเป้าหมาย (รู้คนเดียว)' },
-  origin_bullet: { name: 'กระสุนต้นกำเนิด', rarity: 'ตำนาน', where: 'passive', desc: 'อัตโนมัติ: ยกเลิก NP ของอีกฝ่าย 1 ครั้ง' },
-  catalyst: { name: 'วัตถุเชื่อมโยง', rarity: 'ตำนาน', where: 'passive', desc: 'อัตโนมัติ: อัญเชิญครั้งถัดไปเลือก Servant เอง' },
+export function buildDeck(key) {
+  const sv = SERVANTS[key];
+  const cards = ATTACKS[sv.cls].split(' ').map((c) => ({
+    kind: 'atk', type: c[0], power: Number(c[1]), cost: attackCost(Number(c[1])), name: `${TYPES[c[0]].name} ${c[1]}`, eff: {},
+  }));
+  sv.skills.forEach((s) => cards.push({ kind: 'skill', type: 'S', power: s.power, cost: s.cost, name: s.name, eff: s.eff, text: s.text }));
+  cards.push({ kind: 'np', type: 'S', power: sv.np.power, cost: sv.np.cost, name: sv.np.name, eff: sv.np.eff, text: sv.np.text, reveal: true });
+  return cards;
+}
+
+export const SITUATIONS = {
+  force: { name: 'คืนแห่งพละกำลัง', text: 'การ์ดกำลัง +2 พลัง' },
+  speed: { name: 'คืนแห่งความเร็ว', text: 'การ์ดว่องไว +2 พลัง' },
+  magic: { name: 'คืนแห่งเวทมนตร์', text: 'การ์ดเวท +2 พลัง · ทุกคน +2 มานาตอนเช้า' },
+  moon: { name: 'จันทร์เต็มดวง', text: 'ทุกคนทอยเพิ่ม 1 ลูก' },
+  fog: { name: 'หมอกหนา', text: 'ห้ามย้ายแบบจ่ายมานาคืนนี้ ("หนี!" ยังใช้ได้)' },
+  shadow: { name: 'เงาดำจากจอก', text: 'มอนสเตอร์พลัง 12+1d6 ร่วมสู้ที่สนามรบที่ประกาศ' },
+  onemind: { name: 'ใจเดียว', text: 'ลง 2 ใบประเภทเดียวกัน +3 พลัง' },
+  blood: { name: 'คืนเลือด', text: 'ผู้ชนะที่ฆ่าได้ยึดมานาทั้งหมด' },
 };
-// Draw weights: common 3, rare 2, legendary 1
-export const CARD_POOL = Object.entries(CARDS).flatMap(([k, c]) =>
-  Array(c.rarity === 'ทั่วไป' ? 3 : c.rarity === 'หายาก' ? 2 : 1).fill(k));
+export const SITUATION_KEYS = Object.keys(SITUATIONS);
+
+export const EVENTS = [
+  { name: 'มานา +5', mana: 5 },
+  { name: 'การ์ดไอเท็ม 1 ใบ', items: 1 },
+  { name: 'ฟื้น HP 5', heal: 5 },
+  { name: 'จั่วการ์ด 2 ใบ', draw: 2 },
+  { name: 'ไอเท็ม 1 ใบ + มานา 2', items: 1, mana: 2 },
+];
+
+// phase: 'day' = day choice, 'fight' = card play, 'move' = night move, 'auto' = automatic
+export const ITEMS = {
+  mana_vial: { name: 'ขวดมานา', phase: 'day', text: 'มานา +5 (กลางวัน)' },
+  potion: { name: 'ยาสมานแผล', phase: 'day fight', text: 'ฟื้น HP 5 (กลางวัน หรือ ตอนลงการ์ด)' },
+  gem: { name: 'อัญมณีของโทซากะ', phase: 'fight', text: 'พลังรวม +4 ไม่เสียมานา' },
+  charm: { name: 'เครื่องรางนำโชค', phase: 'fight', text: 'ทอยเพิ่ม 1 ลูก' },
+  shroud: { name: 'ผ้าห่อศพของมาร์ติน', phase: 'fight', text: 'แพ้คืนนี้ไม่เสีย HP' },
+  scroll: { name: 'ม้วนคาถาเคลื่อนย้าย', phase: 'move', text: 'ใช้ "หนี!" โดยไม่เสีย Command Seal' },
+  hero_record: { name: 'บันทึกวีรชน', phase: 'day', text: 'ดูการ์ด Servant ของผู้เล่น 1 คน (กลางวัน)' },
+  catalyst: { name: 'วัตถุเชื่อมโยง', phase: 'auto', text: 'อัญเชิญครั้งถัดไปเลือก 1 ใน 3' },
+};
+export const ITEM_KEYS = Object.keys(ITEMS);
+
+export const QUESTS = {
+  bounty: { name: 'ล่าค่าหัว', text: 'ชนะการต่อสู้ที่มี Servant ตาย ภายใน 2 วัน', days: 2, need: 1 },
+  fields: { name: 'ชนะสนามรบ', text: 'ชนะการต่อสู้ที่มิยามะหรือชินโตะ 2 ครั้ง ภายใน 3 วัน', days: 3, need: 2 },
+  revealed: { name: 'ล่าวีรชนที่เปิดเผยแล้ว', text: 'ชนะการต่อสู้กับ Servant ที่ชื่อจริงถูกเปิดแล้ว ภายใน 3 วัน', days: 3, need: 1 },
+  offering: { name: 'เครื่องบูชา', text: 'มอบการ์ดไอเท็ม 2 ใบ (สำเร็จทันที)', days: 0, need: 0 },
+};
+export const QUEST_KEYS = Object.keys(QUESTS);
 
 export const MASTER_NAMES = ['โทซากะ', 'มาโต้', 'ไอนซ์เบิร์น', 'โคโตมิเนะ', 'อาร์ชิบอลด์', 'เวลเว็ต', 'อุริว'];
 
+export const MANA_START = 5;
 export const MANA_MAX = 20;
-export const CARD_MAX = 3;
+export const HAND_SIZE = 3;
+export const ITEM_MAX = 2;
 export const SEAL_MAX = 3;
 export const DEATHS_FOR_GRAIL = 7;
-export const MAX_ROUNDS = 3;
+export const MOVE_COST = 2;
+export const OFFER_PRICES = [10, 14, 18];
+export const QUEST_DEPOSIT = 2;
+export const MONSTER_BASE = 12;

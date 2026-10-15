@@ -1,139 +1,146 @@
-// "Normal" difficulty bot from design section 12. Bots answer through the same
-// decide() interface as the human, so a bot can take over a disconnected seat.
+// "Normal" difficulty bot from design v1.1 section 12. Bots answer through the
+// same decide() interface as the human, so a bot can take over a seat (and
+// plays the human's cards when their timer runs out).
 
-import { MANA_MAX } from './data.js';
+import { MANA_MAX, SEAL_MAX, MOVE_COST, QUEST_DEPOSIT } from './data.js';
 
-const AREA_VALUE = { temple: 4.5, forest: 2.3, shinto: 2.4, church: 0.6, school: 3.2 };
-const CATALYST_PREF = ['heracles', 'artoria', 'gilgamesh', 'iskandar', 'cu', 'emiya', 'siegfried'];
-
-function strength(pl) {
-  const s = pl.servant;
-  if (!s) return 0;
-  return s.hp + pl.mana * 3 + s.atk * 6 + s.def_ * 3;
-}
+const CATALYST_PREF = ['heracles', 'artoria', 'gilgamesh', 'iskandar', 'lancelot', 'cu', 'emiya', 'siegfried'];
+const EVENT_VALUE = (ev) => (ev ? (ev.mana || 0) + (ev.items ? 3.5 : 0) + (ev.heal ? 2.5 : 0) + (ev.draw ? 2 : 0) : 2);
 
 export function botDecide(game, pl, kind, ctx) {
   switch (kind) {
-    case 'area': return chooseArea(game, pl);
-    case 'encounter': return chooseTarget(game, pl, ctx.targets);
-    case 'combat': return chooseMove(game, pl, ctx);
-    case 'summon': return true;
+    case 'day': return chooseDay(game, pl);
+    case 'move': return chooseMove(game, pl, ctx.opts);
+    case 'cards': return chooseCards(game, pl, ctx);
     case 'catalyst': return CATALYST_PREF.find((k) => ctx.choices.includes(k)) ?? ctx.choices[0];
     default: return null;
   }
 }
 
-function fieldActions(game, pl) {
+function dayActions(game, pl) {
   const s = pl.servant;
-  const has = (c) => pl.cards.includes(c);
-  if (has('mana_vial') && pl.mana <= MANA_MAX - 6) game.useFieldCard(pl, 'mana_vial');
-  if (has('potion') && s.hp <= s.maxHp - 30) game.useFieldCard(pl, 'potion');
-  const keep = game.grail.appeared ? 1 : 2;
-  if (s.hp < s.maxHp * 0.35 && pl.seals > keep) game.sealHeal(pl);
+  const has = (k) => pl.items.includes(k);
+  if (has('mana_vial') && pl.mana <= MANA_MAX - 5) game.useDayItem(pl, 'mana_vial');
+  if (has('potion') && s.hp <= s.maxHp - 6) game.useDayItem(pl, 'potion');
   if (has('hero_record')) {
     const unknown = game.alive().filter((x) => x !== pl && !game.knowsName(pl, x));
-    if (unknown.length) game.useFieldCard(pl, 'hero_record', game.pick(unknown).id);
-  }
-  if (has('familiar') && game.rng() < 0.4) game.useFieldCard(pl, 'familiar');
-}
-
-function chooseArea(game, pl) {
-  fieldActions(game, pl);
-  const s = pl.servant;
-  const hpPct = s.hp / s.maxHp;
-  const holder = game.grail.holder;
-  const scores = game.open.map((a) => {
-    let v = AREA_VALUE[a];
-    if (a === 'forest') v += (1 - hpPct) * 3;
-    if (a === 'church') v += (1 - hpPct) * 6 + (pl.seals < 3 ? 1.5 : 0);
-    if (a === 'shinto' && pl.cards.length >= 3) v -= 1.5;
-    if (s.def.favored === a) v += game.rng() < 0.6 ? 2 : 0; // not every phase, so others can't read it
-    if (s.def.unfavored === a) v -= 2;
-    if (a === 'temple' && hpPct < 0.5) v -= 1.5; // popular spot = fights
-    if (game.grail.appeared) {
-      const strong = strength(pl) > 110;
-      if (!holder && a === game.grail.area) v += strong ? 6 : 2;
-      if (holder && holder !== pl && a === holder.area && strong) v += 4;
-    }
-    return { a, v: v + game.rng() * 1.5 };
-  });
-  scores.sort((x, y) => y.v - x.v);
-  const area = (game.rng() < 0.75 ? scores[0] : scores[Math.min(1, scores.length - 1)]).a;
-  let stance = hpPct < 0.4 ? 'hide' : 'gather';
-  if (holder === pl) stance = 'gather';
-  if (stance === 'hide' && pl.cards.includes('ward_stone')) game.useFieldCard(pl, 'ward_stone');
-  return { area, stance };
-}
-
-function chooseTarget(game, pl, targets) {
-  const s = pl.servant;
-  const hpPct = s.hp / s.maxHp;
-  const mine = strength(pl) * (pl.hidden ? 1.25 : 1) * (game.areaMod(pl) > 0 ? 1.15 : game.areaMod(pl) < 0 ? 0.85 : 1);
-  let best = null, bestEdge = -Infinity;
-  for (const t of targets) {
-    let edge = mine / Math.max(1, strength(t) * 0.92); // bots can't see enemy mana, assume a bit less
-    if (game.grail.holder === t) edge += 0.35;
-    if (t.servant.hp < 30) edge += 0.2;
-    if (edge > bestEdge) { bestEdge = edge; best = t; }
-  }
-  const aggressive = game.grail.appeared || game.day >= 6;
-  const need = aggressive ? 0.95 : 1.1;
-  if (hpPct < 0.35 && game.grail.holder !== best) return null;
-  if (pl.mana >= 4 && bestEdge >= need) return best.id;
-  if (hpPct > 0.6 && game.rng() < (aggressive ? 0.3 : 0.15)) return best.id;
-  return null;
-}
-
-function chooseMove(game, pl, ctx) {
-  const { side, moves, cards } = ctx;
-  const s = side.s, foe = side.enemy;
-  const hpPct = s.hp / s.maxHp;
-  const foeHp = foe.s.hp;
-  const get = (t, id) => moves.find((m) => m.type === t && (!id || m.skillId === id));
-  const out = { type: 'attack' };
-  const r = game.rng();
-
-  // cards first (free actions)
-  const hasCard = (c) => cards.includes(c);
-  const losing = hpPct < 0.3 && foeHp > s.hp * 1.4;
-
-  if (losing) {
-    if (hasCard('scroll')) return { type: 'attack', card: 'scroll' };
-    if (get('seal_flee') && pl.seals >= 2) return { type: 'seal_flee' };
-    if (get('flee')) return { type: 'flee', card: hasCard('charm') ? 'charm' : null };
-  }
-
-  const np = get('np');
-  if (np) {
-    const finisher = foeHp <= 55;
-    const desperate = hpPct < 0.45;
-    if (pl.mana >= np.cost && (finisher || desperate || game.grail.appeared || r < 0.25)) {
-      out.type = 'np';
-    } else if (pl.seals >= 3 && (finisher || game.grail.holder === foe.pl) && r < 0.5) {
-      out.type = 'np'; out.boost = true;
-    }
-  }
-  if (out.type === 'attack') {
-    const skills = moves.filter((m) => m.type === 'skill' && m.cost <= pl.mana);
-    const dmg = skills.filter((m) => /d6/.test(m.desc) && !/โจมตีปกติ/.test(m.desc));
-    const other = skills.filter((m) => !dmg.includes(m));
-    if (dmg.length && r < 0.65) Object.assign(out, { type: 'skill', skillId: game.pick(dmg).skillId });
-    else if (other.length && r < 0.85) {
-      const m = game.pick(other);
-      if (!(m.skillId === 'temple_heal' && hpPct > 0.7)) Object.assign(out, { type: 'skill', skillId: m.skillId });
-    } else if (hpPct < 0.4 && get('defend') && pl.mana >= 1 && r < 0.95) out.type = 'defend';
-  }
-
-  if (!out.card) {
-    if (hasCard('gem')) out.card = 'gem';
-    else if (hasCard('black_keys')) out.card = 'black_keys';
-    else if (hasCard('shroud') && hpPct < 0.4) out.card = 'shroud';
-    else if (hasCard('charm') && out.type === 'np') out.card = 'charm';
-    else if (hasCard('potion') && s.hp <= s.maxHp - 30) out.card = 'potion';
-    else if (hasCard('mana_vial') && np && pl.mana < np.cost) out.card = 'mana_vial';
+    if (unknown.length) game.useDayItem(pl, 'hero_record', game.pick(unknown).id);
   }
   const keep = game.grail.appeared ? 1 : 2;
-  if (hpPct < 0.25 && pl.seals > keep + (out.boost ? 1 : 0)) out.sealHeal = true;
+  if (s.hp <= s.maxHp * 0.35 && pl.seals > keep) game.sealHeal(pl);
+}
+
+function fieldScore(game, pl, f) {
+  const s = pl.servant;
+  let v = EVENT_VALUE(game.events[f]) + game.rng() * 2;
+  if (s.def.favored === f) v += 2;
+  if (s.def.unfavored === f) v -= 2.5;
+  if (game.flags[f] === pl.id) v += 2.5;
+  if (game.shadowArea === f) v -= 3;
+  if (game.grail.appeared && !game.grail.holder && game.grail.area === f) v += 6;
+  const holder = game.grail.holder;
+  if (holder && holder !== pl && holder.lastField === f && s.hp > s.maxHp * 0.6) v += 3;
+  return v;
+}
+
+function chooseDay(game, pl) {
+  dayActions(game, pl);
+  const s = pl.servant;
+  const fields = [...game.cap.fields].sort((a, b) => fieldScore(game, pl, b) - fieldScore(game, pl, a));
+  const backup = fields[0];
+  const holder = game.grail.holder === pl;
+  if (holder) return { area: backup, backup };
+  // church: buy a seal when low and rich, or pick up a quest now and then
+  if (game.cap.church && !pl.quest) {
+    const price = game.offerPrice(pl);
+    if (pl.seals <= 1 && pl.mana >= price && pl.seals < SEAL_MAX) return { area: 'church', backup, church: { type: 'offer' } };
+    if (pl.seals < SEAL_MAX && pl.items.length >= 2 && game.quests.includes('offering') && pl.mana >= QUEST_DEPOSIT)
+      return { area: 'church', backup, church: { type: 'quest', quest: 'offering' } };
+    if (s.hp <= s.maxHp * 0.3 && pl.seals <= 1) return { area: 'church', backup, church: pl.mana >= price ? { type: 'offer' } : null };
+  }
+  const wantGrail = game.grail.appeared && !game.grail.holder;
+  if (game.cap.temple && !wantGrail && (pl.mana < 8 || s.hp <= s.maxHp * 0.4) && game.rng() < 0.8) return { area: 'temple', backup };
+  return { area: backup, backup };
+}
+
+function strengthGuess(game, pl) {
+  // what a bot can reasonably read about a rival: HP, class, flag
+  const s = pl.servant;
+  return s.hp + (game.flags[pl.area] === pl.id ? 3 : 0);
+}
+
+function chooseMove(game, pl, opts) {
+  const s = pl.servant;
+  const out = { type: 'stay' };
+  if (opts.view.length) {
+    const rivals = game.alive().filter((x) => x !== pl);
+    out.view = game.pick(rivals).id;
+  }
+  const here = game.alive().filter((x) => x !== pl && x.area === pl.area);
+  const hpPct = s.hp / s.maxHp;
+  // escape when nearly dead and seals to spare
+  if (here.length && hpPct <= 0.25 && opts.escape.length && (pl.seals >= 2 || pl.items.includes('scroll')) && game.grail.holder !== pl) {
+    const safe = opts.escape.includes('church') ? 'church' : opts.escape.find((a) => !game.alive().some((x) => x.area === a)) ?? null;
+    if (safe) return { ...out, type: 'escape', to: safe, scroll: pl.items.includes('scroll') };
+  }
+  // move only when free and the other battlefield looks weaker / emptier
+  if (opts.move.length && pl.mana >= MOVE_COST + 2) {
+    for (const f of opts.move) {
+      const there = game.alive().filter((x) => x.area === f);
+      const theirs = there.reduce((a, x) => Math.max(a, strengthGuess(game, x)), 0);
+      const grailHere = game.grail.appeared && !game.grail.holder && game.grail.area === f;
+      const holderThere = game.grail.holder && game.grail.holder !== pl && there.includes(game.grail.holder);
+      if ((grailHere || holderThere) && hpPct > 0.5) return { ...out, type: 'move', to: f };
+      if (there.length === 1 && theirs < s.hp - 3 && game.rng() < 0.5 && f !== game.shadowArea) return { ...out, type: 'move', to: f };
+    }
+  }
   return out;
 }
 
+function evalCombo(game, pl, cards, area) {
+  const parts = [...game.cardParts(cards), ...game.fixedParts(pl, area)];
+  let v = parts.reduce((a, p) => a + p.v, 0);
+  const extra = game.extraDice(pl, cards, []);
+  v += [3.5, 4.47, 4.96, 5.24][Math.min(3, extra)];
+  for (const c of cards) {
+    const e = c.eff;
+    v += (e.foe || 0) + (e.reduce || 0) * 0.4 + (e.heal || 0) * 0.4 + (e.mana || 0) * 0.5 + (e.splash || 0) * 0.5 - (e.selfHit || 0) * 0.5;
+  }
+  return v;
+}
+
+export function chooseCards(game, pl, ctx) {
+  const { fight } = ctx;
+  const cards = ctx.cards || game.playable(pl);
+  const s = pl.servant;
+  const hpPct = s.hp / s.maxHp;
+  const grailFight = (game.grail.appeared && !game.grail.holder && game.grail.area === fight.area) ||
+    (game.grail.holder && fight.players.includes(game.grail.holder));
+  const foes = fight.players.length - 1 + (fight.monster ? 1 : 0);
+  const combos = [[]];
+  for (let i = 0; i < cards.length; i++) {
+    combos.push([cards[i]]);
+    for (let j = i + 1; j < cards.length; j++) combos.push([cards[i], cards[j]]);
+  }
+  let best = null, bestScore = -Infinity;
+  for (const combo of combos) {
+    const cost = combo.reduce((a, c) => a + c.cost, 0);
+    if (cost > pl.mana) continue;
+    const hasNp = combo.some((c) => c.kind === 'np');
+    let total = evalCombo(game, pl, combo, fight.area);
+    // mana is score at the end, so spend it only when it matters
+    let score = total - cost * (grailFight || hpPct < 0.5 ? 0.25 : 0.55);
+    if (hasNp && !grailFight && !s.revealed && hpPct > 0.4 && total < 17) score -= 3; // keep the true name hidden
+    if (score > bestScore) { bestScore = score; best = { combo, total }; }
+  }
+  const out = { cards: best.combo.map((c) => c.id), boost: false, sealHeal: false, items: [] };
+  const keep = game.grail.appeared ? 0 : 1;
+  if (grailFight && pl.seals > keep + 1) out.boost = true;
+  if (hpPct <= 0.3 && pl.seals > keep + (out.boost ? 1 : 0)) out.sealHeal = true;
+  const has = (k) => pl.items.includes(k);
+  if (has('gem') && (grailFight || foes >= 2 || game.rng() < 0.5)) out.items.push('gem');
+  if (has('charm') && (grailFight || game.rng() < 0.5)) out.items.push('charm');
+  if (has('shroud') && hpPct <= 0.5) out.items.push('shroud');
+  if (has('potion') && s.hp <= s.maxHp - 5) out.items.push('potion');
+  return out;
+}
