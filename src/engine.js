@@ -28,6 +28,8 @@ export class Game {
     this.over = false;
     this.eliminatedOrder = [];
     this.logs = [];
+    this.history = []; // per phase: { deaths, grail, closing }
+    this.fightAreas = new Set();
     this.players = [];
     const names = [...MASTER_NAMES];
     for (let i = 0; i < 8; i++) {
@@ -202,6 +204,7 @@ export class Game {
     if (this.grail.appeared) return;
     if (this.deaths < DEATHS_FOR_GRAIL && this.day < 8) return;
     this.grail.appeared = true;
+    this.grail.appearedAt = this.p;
     this.grail.area = this.pick(this.open);
     this.closingNext = this.closingNext.filter((a) => a !== this.grail.area);
     this.grail.endP = this.day < 8 ? Math.min(this.p + 3, TOTAL_PHASES - 1) : TOTAL_PHASES - 1;
@@ -221,20 +224,25 @@ export class Game {
     }
     this.maybeGrail();
     this.log(`── ${label} ──`, null, 'phase');
+    const deathsBefore = this.deaths;
     for (const pl of this.players) {
       Object.assign(pl, { hidden: false, fled: false, died: false, familiar: false, ward: false, hawk: false });
     }
+    this.fightAreas = new Set();
     this.emit('phase');
 
     // ① choose area + stance (bots also use field cards / seals inside decide)
     const choices = new Map();
-    for (const pl of this.alive()) {
+    this.choosing = true;
+    const order = [...this.alive()].sort((x, y) => x.isHuman - y.isHuman); // bots lock in first
+    for (const pl of order) {
       const c = await this.ask(pl, 'area', {});
       let area = this.open.includes(c?.area) ? c.area : (this.open.includes(pl.area) ? pl.area : this.pick(this.open));
       let stance = c?.stance === 'hide' ? 'hide' : 'gather';
       if (this.grail.holder === pl) stance = 'gather';
       choices.set(pl, { area, stance });
     }
+    this.choosing = false;
     for (const [pl, c] of choices) { pl.area = c.area; pl.stance = c.stance; }
 
     // ② hide rolls, then reveal
@@ -312,6 +320,7 @@ export class Game {
       this.closingNext = cand.slice(0, excess);
       this.log(`⚠ เฟสหน้าเขตแดนหด: ${this.closingNext.map((a) => AREAS[a].name).join(', ')} จะปิด`, null, 'sys');
     }
+    this.history[this.p] = { deaths: this.deaths - deathsBefore, grail: this.grail.appeared && this.grail.appearedAt === this.p, closing: this.closingNext.length > 0 };
     this.emit('update');
     if (!this.checkOver()) await this.ask(this.human, 'phaseEnd', { label });
   }
@@ -348,6 +357,7 @@ export class Game {
       if (a.servant.hp <= 0 || t.servant.hp <= 0) continue;
       const ambush = a.hidden && !t.familiar && !t.hawk;
       this.log(`⚔ ${a.name} ${ambush ? 'ซุ่มโจมตี' : 'โจมตี'} ${t.name} ที่${AREAS[a.area].name}`, null, 'fight');
+      this.fightAreas.add(a.area);
       await this.fight(a, t, ambush);
       a.hidden = false;
       this.emit('update');
@@ -523,7 +533,8 @@ export class Game {
     return {
       id: side.pl.id, name: side.pl.name, label: this.servantLabel(viewer, side.pl),
       cls: side.s.cls, hp: Math.max(0, side.s.hp), maxHp: side.s.maxHp,
-      mana: viewer === side.pl ? side.pl.mana : null, seals: side.pl.seals,
+      // other masters' Command Seals stay hidden
+      mana: viewer === side.pl ? side.pl.mana : null, seals: viewer === side.pl ? side.pl.seals : null,
     };
   }
 
@@ -534,7 +545,8 @@ export class Game {
     fight.sides = [A, B];
     const watcher = [a, b].find((x) => x.isHuman && !x.autopilot);
     fight.watcher = watcher;
-    const line = (t, cls = '') => fight.lines.push({ t, cls });
+    // every line carries an HP snapshot (and optional fx) so the UI can replay the fight step by step
+    const line = (t, cls = '', fx = null) => fight.lines.push({ t, cls, fx, hp: { [a.id]: Math.max(0, A.s.hp), [b.id]: Math.max(0, B.s.hp) } });
 
     // initiative
     const ia = this.rollDice(1, this.areaMod(a), false).total + a.servant.agi;
@@ -593,21 +605,21 @@ export class Game {
       const { pl, s, move } = side;
       const f = flags.get(side);
       const name = pl.name;
-      if (move.type === 'np' && move.boost) { pl.seals--; line(`${name} ใช้ Command Seal "เพิ่มพลัง!" ปลดปล่อย NP โดยไม่เสียมานา`, 'seal'); }
+      if (move.type === 'np' && move.boost) { pl.seals--; line(`${name} ใช้ Command Seal "เพิ่มพลัง!" ปลดปล่อย NP โดยไม่เสียมานา`, 'seal', { k: 'seal', who: pl.id, label: 'เพิ่มพลัง!' }); }
       else {
         pl.mana -= move.cost;
-        if (move.boost) { pl.seals--; line(`${name} ใช้ Command Seal "เพิ่มพลัง!" (+2 ทุกลูกเต๋ารอบนี้)`, 'seal'); }
+        if (move.boost) { pl.seals--; line(`${name} ใช้ Command Seal "เพิ่มพลัง!" (+2 ทุกลูกเต๋ารอบนี้)`, 'seal', { k: 'seal', who: pl.id, label: 'เพิ่มพลัง!' }); }
       }
       if (move.type === 'seal_flee') pl.seals--;
       if (move.sealHeal) {
         pl.seals--;
         this.heal(s, Math.round(s.maxHp * 0.6));
-        line(`${name} ใช้ Command Seal "รักษา!" HP → ${s.hp}`, 'seal');
+        line(`${name} ใช้ Command Seal "รักษา!" HP → ${s.hp}`, 'seal', { k: 'heal', to: pl.id, label: 'รักษา!' });
       }
       if (move.card) {
         const c = move.card;
         pl.cards.splice(pl.cards.indexOf(c), 1);
-        line(`${name} ใช้การ์ด ${CARDS[c].name}`, 'card');
+        line(`${name} ใช้การ์ด ${CARDS[c].name}`, 'card', { k: 'card', who: pl.id, label: CARDS[c].name });
         if (c === 'mana_vial') this.gainMana(pl, 5);
         if (c === 'potion') this.heal(s, 30);
         if (c === 'charm') f.lucky = true;
@@ -635,13 +647,13 @@ export class Game {
         if (id === 'minds_eye') {
           const r = this.d6();
           f.dodge = r >= 4;
-          line(`${name}: ใจนิ่ง ทอย ${r} ${f.dodge ? '→ หลบได้ทั้งรอบ' : '→ ไม่สำเร็จ'}`);
+          line(`${name}: ใจนิ่ง ทอย [${r}] ${f.dodge ? '→ หลบได้ทั้งรอบ' : '→ ไม่สำเร็จ'}`, '', f.dodge ? { k: 'buff', who: pl.id, label: 'หลบ!' } : null);
         }
         if (id === 'mystic_eyes') {
           if (this.knowsName(side.enemy.pl, pl)) line(`${side.enemy.pl.name} รู้ชื่อจริงของ Medusa สายตามนตร์ไม่ได้ผล`);
           else {
             const r = this.d6();
-            if (r <= 2) { foe.canceled = true; line(`สายตามนตร์! ${side.enemy.pl.name} ทอย ${r} → กลายเป็นหิน เสียรอบนี้`, 'bad'); }
+            if (r <= 2) { foe.canceled = true; line(`สายตามนตร์! ${side.enemy.pl.name} ทอย [${r}] → กลายเป็นหิน เสียรอบนี้`, 'bad', { k: 'stun', to: side.enemy.pl.id }); }
             else line(`สายตามนตร์: ${side.enemy.pl.name} ทอย ${r} ต้านได้`);
           }
         }
@@ -654,7 +666,7 @@ export class Game {
       if (side.move.type === 'seal_flee' || side.fled) {
         side.fled = true;
         side.pl.fled = true;
-        line(`${side.pl.name} ${side.move.type === 'seal_flee' ? 'ใช้ Command Seal "หนี!"' : 'ใช้ม้วนคาถา'} หายตัวไปจากการต่อสู้`, 'seal');
+        line(`${side.pl.name} ${side.move.type === 'seal_flee' ? 'ใช้ Command Seal "หนี!"' : 'ใช้ม้วนคาถา'} หายตัวไปจากการต่อสู้`, 'seal', { k: 'flee', who: side.pl.id });
         fight.over = true;
         fight.result = `${side.pl.name} หนีจากการต่อสู้กับ ${side.enemy.pl.name}`;
       }
@@ -692,7 +704,7 @@ export class Game {
       const lucky = f.lucky || side.move.skillId === 'instinct';
       const r = this.rollDice(1, mod, lucky);
       f.defendRoll = r.total + this.stat(side, 'def') * 2;
-      line(`${side.pl.name} ตั้งป้องกัน ทอย [${r.dice.join(',')}] → ลดดาเมจ ${f.defendRoll}`);
+      line(`${side.pl.name} ตั้งป้องกัน ทอย [${r.dice.join(',')}] → ลดดาเมจ ${f.defendRoll}`, '', { k: 'guard', who: side.pl.id });
     }
 
     // action order
@@ -758,7 +770,7 @@ export class Game {
       const theirs = this.rollDice(1, this.areaMod(foe.pl), false).total + foe.s.agi;
       if (mine > theirs) {
         side.fled = true; pl.fled = true; fight.over = true;
-        line(`${pl.name} หนี! ทอย ${mine} ชนะ ${theirs} → หนีสำเร็จ`, 'seal');
+        line(`${pl.name} หนี! ทอย ${mine} ชนะ ${theirs} → หนีสำเร็จ`, 'seal', { k: 'flee', who: pl.id });
         fight.result = `${pl.name} หนีจากการต่อสู้กับ ${foe.pl.name}`;
       } else line(`${pl.name} พยายามหนี ทอย ${mine} แพ้ ${theirs} → หนีไม่พ้น`, 'bad');
       return;
@@ -767,7 +779,7 @@ export class Game {
       const sk = s.def.skills.find((x) => x.id === move.skillId);
       if (sk.kind === 'heal') {
         this.heal(s, sk.amount);
-        line(`${pl.name}: ${sk.name} ฟื้น HP ${sk.amount} → ${s.hp}`, 'good');
+        line(`${pl.name}: ${sk.name} ฟื้น HP ${sk.amount} → ${s.hp}`, 'good', { k: 'heal', to: pl.id, label: sk.name });
         return;
       }
       if (sk.kind === 'dmg') {
@@ -788,6 +800,7 @@ export class Game {
     if (move.type === 'np') {
       side.npUsed = true;
       const np = s.def.np;
+      line(`${pl.name} ปลดปล่อย Noble Phantasm!`, 'np', { k: 'np', who: pl.id, name: np.name });
       this.revealByNP(side, line);
       const bi = foe.pl.cards.indexOf('origin_bullet');
       if (bi >= 0) {
@@ -803,7 +816,7 @@ export class Game {
       dmg = this.mitigate(fight, side, foe, dmg, ff, pierce, np.name === 'Gáe Bolg');
       if (np.special === 'dispel') { foe.atkBuffs.length = 0; foe.defBuffs.length = 0; }
       this.damage(fight, side, foe, dmg, line, `✸ ${pl.name}: Noble Phantasm "${np.name}" ทอย [${r.dice.join(',')}] → ${val} → ดาเมจ ${dmg}`, 'np');
-      if (np.special === 'drain') { this.heal(s, 15); line(`${pl.name} ดูดพลังฟื้น HP 15`); }
+      if (np.special === 'drain') { this.heal(s, 15); line(`${pl.name} ดูดพลังฟื้น HP 15`, 'good', { k: 'heal', to: pl.id }); }
       return;
     }
     // normal attack (also after buff skills)
@@ -836,26 +849,26 @@ export class Game {
       return;
     }
     s.revealed = true;
-    line(`ชื่อจริงถูกเปิดเผย: ${s.def.name}! จุดอ่อน: ${s.def.weakness}`, 'reveal');
+    line(`ชื่อจริงถูกเปิดเผย: ${s.def.name}! จุดอ่อน: ${s.def.weakness}`, 'reveal', { k: 'reveal', who: side.pl.id, name: s.def.name });
     this.log(`✸ ${side.pl.name} ปลดปล่อย ${s.def.np.name} — Servant คือ ${s.def.name} (${s.cls})`, null, 'reveal');
   }
 
   damage(fight, src, dst, dmg, line, text, cls = '') {
     dst.s.hp -= dmg;
-    line(`${text} · ${dst.pl.name} HP ${Math.max(0, dst.s.hp)}/${dst.s.maxHp}`, cls);
+    line(`${text} · ${dst.pl.name} HP ${Math.max(0, dst.s.hp)}/${dst.s.maxHp}`, cls, { k: 'hit', from: src.pl.id, to: dst.pl.id, amt: dmg, big: cls === 'np' });
     const s = dst.s;
     if (s.hp > 0 && s.hp < 20 && s.key === 'cu' && !s.battleContUsed) {
       s.battleContUsed = true;
       this.heal(s, 15);
-      line(`${dst.pl.name}: การรบต่อเนื่อง ฟื้น HP 15 → ${s.hp}`, 'good');
+      line(`${dst.pl.name}: การรบต่อเนื่อง ฟื้น HP 15 → ${s.hp}`, 'good', { k: 'heal', to: dst.pl.id });
     }
     if (s.hp <= 0) {
       const died = this.servantDies(dst.pl, src.pl);
       if (died) {
         fight.over = true;
         fight.result = `${src.pl.name} กำจัด Servant ของ ${dst.pl.name}`;
-        line(`☠ Servant ของ ${dst.pl.name} พ่ายแพ้!`, 'death');
-      } else line(`${dst.pl.name}: God Hand! ฟื้นคืนชีพ HP ${s.hp}`, 'good');
+        line(`☠ Servant ของ ${dst.pl.name} พ่ายแพ้!`, 'death', { k: 'death', to: dst.pl.id });
+      } else line(`${dst.pl.name}: God Hand! ฟื้นคืนชีพ HP ${s.hp}`, 'good', { k: 'heal', to: dst.pl.id, label: 'God Hand!' });
     }
   }
 }
