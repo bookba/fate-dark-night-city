@@ -432,3 +432,23 @@ ul { margin: 0; padding: 0; list-style: none; }
   .anode .evcard { display: none; }
   .verdict { font-size: 20px; }
 }
+
+/* map: areas in a cross grid so panels never overlap */
+.ring.map { aspect-ratio: auto; height: auto; max-height: none; width: min(100%, 720px); border-radius: 24px; padding: 6px;
+  display: grid; gap: 10px; align-items: center; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  grid-template-areas: "temple temple temple" "miyama core shinto" "church church church"; }
+.ring.map::before { inset: 4% 14%; border-radius: 50%; }
+.ring.map::after { inset: 18% 30%; }
+.ring.map .ring-core { position: static; inset: auto; }
+.ring.map .anode { position: relative; transform: none; left: auto; top: auto; width: 100%; max-width: 280px; justify-self: center; }
+.ring.map .anode[data-area="temple"], .ring.map .anode[data-area="church"] { width: min(280px, 48%); }
+#stage { overflow-y: auto; align-items: center; }
+@media (max-width: 700px) {
+  .ring.map { width: 100%; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 6px; }
+  .ring.map .anode { width: 100%; padding: 5px; }
+  .ring.map .anode[data-area="temple"], .ring.map .anode[data-area="church"] { width: 62%; }
+  .ring.map .ring-core .moon { font-size: 20px; }
+  .ring.map .ring-core b { display: none; }
+}
+.ring.map .anode { padding: 6px 8px; }
+.ring.map .tokens { margin-top: 2px; }

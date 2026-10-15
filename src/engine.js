@@ -21,6 +21,7 @@ export class Game {
     this.onEvent = onEvent;
     this.day = 1;
     this.half = 'day';
+    this.nightNo = 0;
     this.stage = 'setup';
     this.deaths = 0;
     this.uid = 0;
@@ -74,7 +75,7 @@ export class Game {
   alive() { return this.players.filter((x) => !x.out); }
   emit(type, data = {}) { this.onEvent({ type, ...data }); }
   log(text, to = null, cls = '') {
-    const entry = { text, to, cls, day: this.day, half: this.half };
+    const entry = { text, to, cls, day: this.day, half: this.half, night: this.half === 'night' ? this.nightNo : 0 };
     this.logs.push(entry);
     this.emit('log', { entry });
   }
@@ -184,7 +185,9 @@ export class Game {
     await this.ask(this.human, 'intro', {});
     for (this.day = 1; this.day <= LAST_DAY; this.day++) {
       await this.runDay();
-      await this.runNight();
+      await this.runNight(1);
+      if (this.alive().length <= 1) break;
+      await this.runNight(2);
       if (this.checkOver()) break;
     }
     this.finish();
@@ -196,6 +199,7 @@ export class Game {
 
   morning() {
     this.half = 'day';
+    this.nightNo = 0;
     this.cap = capacityFor(this.alive().length);
     // the Grail is announced the morning after it appears, face up on a battlefield
     if ((this.grail.pending || this.day === LAST_DAY) && !this.grail.appeared) {
@@ -353,11 +357,13 @@ export class Game {
     return opts;
   }
 
-  async runNight() {
+  async runNight(n) {
     this.half = 'night';
+    this.nightNo = n;
     this.shintoOpen = true;
-    this.log(`── วันที่ ${this.day} · กลางคืน ──`, null, 'phase');
-    if (this.events.shinto) this.log(`การ์ดอีเวนต์ที่ชินโตะเปิดแล้ว: ${this.events.shinto.name}`, null, 'sys');
+    this.log(`── วันที่ ${this.day} · กลางคืน ${n}/2 ──`, null, 'phase');
+    if (n === 2) this.prepSecondNight();
+    else if (this.events.shinto) this.log(`การ์ดอีเวนต์ที่ชินโตะเปิดแล้ว: ${this.events.shinto.name}`, null, 'sys');
     // ② move at once
     this.stage = 'move';
     this.emit('phase');
@@ -394,6 +400,22 @@ export class Game {
     for (const pl of this.alive().filter((x) => x.servant && x.servant.hp <= 0)) await this.resummon(pl);
     this.history[this.day] = { deaths: this.deathsToday, grail: this.grail.appearedDay === this.day };
     if (!this.grail.appeared && this.deaths >= DEATHS_FOR_GRAIL) this.grail.pending = true;
+    this.emit('update');
+  }
+
+  // night 2: everyone counts as settled where night 1 left them, hands
+  // refill and both battlefields get a fresh face-up event card
+  prepSecondNight() {
+    this.cap = capacityFor(this.alive().length);
+    for (const f of FIELDS) if (!this.cap.fields.includes(f)) this.flags[f] = null;
+    this.events = {};
+    for (const f of this.cap.fields) this.events[f] = this.pick(EVENTS);
+    for (const pl of this.alive()) {
+      if (!this.areaOpen(pl.area)) pl.area = this.cap.fields.includes(pl.lastField) ? pl.lastField : this.cap.fields[0];
+      Object.assign(pl, { dayArea: pl.area, settled: true, move: null, play: null, peek: null });
+      this.draw(pl, HAND_SIZE - pl.hand.length);
+    }
+    this.log(`การ์ดอีเวนต์ใหม่: ${this.cap.fields.map((f) => `${AREAS[f].short} ${this.events[f].name}`).join(' · ')}`, null, 'sys');
     this.emit('update');
   }
 

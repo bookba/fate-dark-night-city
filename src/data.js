@@ -25,7 +25,8 @@ export const TYPES = {
   S: { name: 'พิเศษ', icon: '◆', color: '#e8c45a' },
 };
 
-export const CLASS_HP = { Saber: 14, Archer: 12, Lancer: 12, Rider: 12, Caster: 10, Assassin: 10, Berserker: 18 };
+// lowered so Servants die more often (B's request after v1.1)
+export const CLASS_HP = { Saber: 11, Archer: 9, Lancer: 9, Rider: 9, Caster: 8, Assassin: 8, Berserker: 14 };
 
 // 10 attack cards per class: the type mix hints at the class
 const ATTACKS = {
@@ -72,7 +73,7 @@ export const SERVANTS = {
   medusa: { name: 'Medusa', cls: 'Rider', favored: 'shinto', unfavored: 'church',
     skills: [sk('สายตามนตร์', 3, 4, { foe: 2 }, 'คู่ต่อสู้ทุกคน −2'), sk('โซ่ตรวน', 2, 2, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
     np: sk('Bellerophon', 10, 8, { die: 1 }, 'ทอยเพิ่ม 1 ลูก') },
-  iskandar: { name: 'Iskandar', cls: 'Rider', favored: 'miyama', unfavored: 'temple', hp: 13,
+  iskandar: { name: 'Iskandar', cls: 'Rider', favored: 'miyama', unfavored: 'temple', hp: 10,
     skills: [sk('บารมี', 3, 3, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ทะลวงทัพ', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
     np: sk('Ionioi Hetairoi', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
   medea: { name: 'Medea', cls: 'Caster', favored: 'temple', unfavored: 'shinto',
@@ -90,7 +91,7 @@ export const SERVANTS = {
   heracles: { name: 'Heracles', cls: 'Berserker', favored: 'miyama', unfavored: 'temple', godHand: true,
     skills: [sk('คลั่ง', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ร่างเหล็ก', 3, 3, { reduce: 2 }, 'รับดาเมจ −2')],
     np: sk('Nine Lives', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
-  lancelot: { name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'miyama', hp: 16, nameless: true,
+  lancelot: { name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'miyama', hp: 12, nameless: true,
     skills: [sk('อัศวินไร้ที่ติ', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ยุทธปัจจัย', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
     np: sk('Arondight', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
 };

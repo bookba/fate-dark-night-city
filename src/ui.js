@@ -16,8 +16,6 @@ const FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DAY_SECONDS = 30, MOVE_SECONDS = 15, CARD_SECONDS = 20;
 const PLAYER_COLORS = ['#5b8def', '#e0c341', '#e0565b', '#5ec48a', '#f08a3c', '#a77be8', '#c98a5a', '#8d93a6'];
-// ring positions (percent) for the four areas on the stage
-const RING = { temple: { x: 50, y: 21 }, miyama: { x: 17, y: 52 }, shinto: { x: 83, y: 52 }, church: { x: 50, y: 82 } };
 
 // turn "ทอย [3,5]" into dice glyphs
 function fmt(text) {
@@ -93,14 +91,17 @@ export class UI {
     const g = this.game;
     const nodes = [];
     for (let d = 1; d <= LAST_DAY; d++) {
-      for (const half of ['day', 'night']) {
+      // each day: day phase, night 1, night 2
+      for (const step of [0, 1, 2]) {
+        const half = step ? 'night' : 'day';
         const h = g.history[d];
         const icons = [];
-        if (half === 'day' && g.grail.appearedDay === d) icons.push('<i class="ic grail">✦</i>');
-        if (half === 'night' && h?.deaths) icons.push(`<i class="ic death">☠${h.deaths > 1 ? h.deaths : ''}</i>`);
-        if (half === 'night' && g.grail.appeared && d === g.grail.endDay) icons.push('<i class="ic end">★</i>');
-        const now = d === g.day && half === g.half;
-        const past = d < g.day || (d === g.day && half === 'day' && g.half === 'night');
+        if (!step && g.grail.appearedDay === d) icons.push('<i class="ic grail">✦</i>');
+        if (step === 2 && h?.deaths) icons.push(`<i class="ic death">☠${h.deaths > 1 ? h.deaths : ''}</i>`);
+        if (step === 2 && g.grail.appeared && d === g.grail.endDay) icons.push('<i class="ic end">★</i>');
+        const cur = g.half === 'night' ? g.nightNo : 0;
+        const now = d === g.day && step === cur;
+        const past = d < g.day || (d === g.day && step < cur);
         nodes.push(`<div class="node ${past ? 'past' : now ? 'now' : 'future'} ${half}">
           <div class="icons">${icons.join('')}</div><b></b><small>${half === 'day' ? d : ''}</small></div>`);
       }
@@ -122,7 +123,7 @@ export class UI {
       pill = `<span class="pill-tag">WAR</span><b>ตายรวม ${g.deaths}/${DEATHS_FOR_GRAIL}</b> ครบแล้วจอกศักดิ์สิทธิ์ปรากฏ`;
     }
     const sit = g.situation ? SITUATIONS[g.situation] : null;
-    $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? '☾ กลางคืน' : '☀ กลางวัน'} · วันที่ ${g.day}/${LAST_DAY} · ${this.stageName()}</div>
+    $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}/2` : '☀ กลางวัน'} · วันที่ ${g.day}/${LAST_DAY} · ${this.stageName()}</div>
       <div class="pill">${pill}</div>
       ${sit ? `<div class="sit"><span class="pill-tag warn">คืนนี้</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
   }
@@ -214,15 +215,15 @@ export class UI {
       }
       if (a === 'temple' && !closed) ev = '<div class="evcard ley">เลย์ไลน์ มานา</div>';
       const monster = g.shadowArea === a ? `<i class="mk fight" title="มอนสเตอร์ ${MONSTER_BASE}+1d6">👁 มอนสเตอร์</i>` : '';
-      return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="left:${RING[a].x}%;top:${RING[a].y}%" ${closed || !choosing ? 'tabindex="-1"' : ''}>
+      return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="grid-area:${a}" ${closed || !choosing ? 'tabindex="-1"' : ''}>
         <div class="an-name">${AREAS[a].name}</div>
         <div class="an-flags">${fav}${cap}${flag}${grailHere ? '<i class="mk grail">✦ จอก</i>' : ''}${monster}${fight ? '<i class="mk fight">⚔</i>' : ''}</div>
         ${ev}
         <div class="tokens">${tokens}</div>
       </button>`;
     }).join('');
-    $('#stage').innerHTML = `<div class="ring ${night ? 'night' : 'day'}">
-      <div class="ring-core"><div class="moon">${night ? '☾' : '☀'}</div><b>ฟุยุกิ</b><small>วันที่ ${g.day}/${LAST_DAY}</small></div>
+    $('#stage').innerHTML = `<div class="ring map ${night ? 'night' : 'day'}">
+      <div class="ring-core" style="grid-area:core"><div class="moon">${night ? '☾' : '☀'}</div><b>ฟุยุกิ</b></div>
       ${nodes}</div>`;
     $('#stage').querySelectorAll('.anode').forEach((b) => b.addEventListener('click', () => {
       if (this.mode !== 'day' || b.classList.contains('closed')) return;
@@ -411,6 +412,7 @@ export class UI {
   // ---------- ② night: move ----------
   dayLines() {
     const g = this.game, me = this.me;
+    if (g.nightNo !== 1) return [];
     return g.logs.filter((e) => e.day === g.day && e.half === 'day' && e.to && e.to.includes(me.id));
   }
 
@@ -445,7 +447,7 @@ export class UI {
           `<button class="small ${this.sel.view === id ? 'on' : ''}" data-view="${id}">${esc(g.players[id].name)}</button>`).join('')}</div></div>` : '';
         const daySum = this.dayLines().map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('');
         this.setChoice(`
-          <div class="hud-tag">กลางคืน · ย้ายพื้นที่</div>
+          <div class="hud-tag">กลางคืน ${g.nightNo}/2 · ย้ายพื้นที่</div>
           ${daySum ? `<div class="summary small">${daySum}</div>` : ''}
           <p class="note">${here.length ? `อยู่ด้วยกัน: ${here.map((x) => `${esc(x.name)} [${esc(g.servantLabel(me, x))}]`).join(', ')}` : 'ตอนนี้คุณอยู่คนเดียว'}${why ? ` · ${why}` : ''}</p>
           <div class="arows">${rows}</div>
@@ -547,7 +549,7 @@ export class UI {
     const mine = results.find((r) => r.entries.some((e) => e.id === me.id));
     const order = mine ? [mine, ...results.filter((r) => r !== mine)] : results;
     if (order.length) await this.playFights(order);
-    const lines = g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.cls !== 'phase'
+    const lines = g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.night === g.nightNo && e.cls !== 'phase'
       && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)));
     this.renderAll();
     const box = (l) => `<div class="summary">${l.map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('') || '<div class="muted">คืนนี้เงียบสงบ</div>'}</div>`;
@@ -560,8 +562,9 @@ export class UI {
         return;
       }
       const last = g.checkOver();
-      this.setChoice(`<div class="hud-tag">สรุปคืนวันที่ ${g.day}</div>${box(lines)}
-        <button class="primary wide" id="nx">${last ? 'ดูผลตอนจบ ›' : `วันที่ ${g.day + 1} ›`}</button>`);
+      const next = g.nightNo === 1 ? (g.alive().length <= 1 ? 'ดูผลตอนจบ ›' : 'กลางคืน 2 ›') : last ? 'ดูผลตอนจบ ›' : `วันที่ ${g.day + 1} ›`;
+      this.setChoice(`<div class="hud-tag">สรุปคืนวันที่ ${g.day} · ${g.nightNo}/2</div>${box(lines)}
+        <button class="primary wide" id="nx">${next}</button>`);
       $('#nx').onclick = () => { this.setChoice(''); resolve(null); };
     });
   }
@@ -759,10 +762,10 @@ export class UI {
       const sh = this.modal(`
         <div class="title-art">${Object.keys(CLASS_ART).map((c) => `<img src="${art(c)}" alt="${c}">`).join('')}</div>
         <h1 class="logo">Fate <span>Battle Royale</span></h1>
-        <p class="muted">เดโมออฟไลน์ (กติกา v1.1): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน</p>
+        <p class="muted">เดโมออฟไลน์ (กติกา v1.1): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน วันละ 1 กลางวัน + 2 กลางคืน</p>
         <ul class="rules">
           <li><b>กลางวัน</b> ทุกคนเลือกพื้นที่พร้อมกัน: <b>วัดริวโด</b> (มานา) · <b>มิยามะ / ชินโตะ</b> (สนามรบ) · <b>โบสถ์</b> (Command Seal, เควส)</li>
-          <li><b>กลางคืน</b> ย้ายได้ถ้าไม่มีใครอยู่ด้วย แล้วคนที่อยู่พื้นที่เดียวกัน <b>ลงการ์ด 2 ใบ + ทอย 1d6</b> พร้อมกัน พลังรวมสูงสุดชนะ</li>
+          <li><b>กลางคืน 2 รอบ</b> แต่ละรอบย้ายได้ถ้าไม่มีใครอยู่ด้วย แล้วคนที่อยู่พื้นที่เดียวกัน <b>ลงการ์ด 2 ใบ + ทอย 1d6</b> พร้อมกัน พลังรวมสูงสุดชนะ</li>
           <li>ผู้แพ้เสีย HP เท่าส่วนต่าง · อยู่สนามรบตั้งแต่กลางวัน = <b>ตั้งหลัก +1</b> · ชนะแล้วได้ <b>ธง +3</b> ถ้าอยู่ต่อ</li>
           <li><b>Noble Phantasm</b> แรงที่สุด แต่ <b>ชื่อจริงถูกเปิด</b> พลัง −2 ทุกการต่อสู้ต่อจากนั้น</li>
           <li>Servant ตาย → ใช้ <b>Command Seal</b> อัญเชิญใหม่อัตโนมัติ · หมด Seal = ตกรอบ · คนอื่นไม่รู้ว่าคุณเหลือกี่ดวง</li>
