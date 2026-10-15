@@ -1,4 +1,4 @@
-// Game engine for design v1.1: owns all state, shuffles, rolls and resolves.
+// Game engine for design v1.3: owns all state, shuffles, rolls and resolves.
 // No DOM code, so it can run in the browser, in scripts/sim.js, or on a server.
 //
 // Every step is a simultaneous choice: the engine asks every player through
@@ -6,10 +6,10 @@
 // Promise), and only then resolves everything in one go.
 
 import {
-  AREAS, AREA_KEYS, FIELDS, capacityFor, SERVANTS, SERVANT_KEYS, CLASS_HP, buildDeck, TYPES,
-  SITUATIONS, SITUATION_KEYS, EVENTS, ITEMS, ITEM_KEYS, QUESTS, QUEST_KEYS, MASTER_NAMES,
-  MANA_START, MANA_MAX, HAND_SIZE, ITEM_MAX, SEAL_MAX, DEATHS_FOR_GRAIL, MOVE_COST, OFFER_PRICES,
-  QUEST_DEPOSIT, MONSTER_BASE,
+  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, capacityFor, SERVANTS, SERVANT_KEYS, CLASS_HP, buildDeck, TYPES,
+  DAILY, DAILY_KEYS, REWARDS, ITEMS, ITEM_KEYS, QUESTS, QUEST_KEYS, MASTER_NAMES,
+  MANA_START, MANA_MAX, HAND_SIZE, ITEM_MAX, SEAL_MAX, DEATHS_FOR_GRAIL, MOVE_COST, OFFER_PRICE,
+  FORGE_MANA, QUEST_DEPOSIT, MONSTER_BASE,
 } from './data.js';
 
 export const LAST_DAY = 8;
@@ -30,6 +30,7 @@ export class Game {
     this.flags = { miyama: null, shinto: null };
     this.grail = { appeared: false, pending: false, area: null, holder: null, endDay: LAST_DAY, appearedDay: null };
     this.situation = null;
+    this.dailyDeck = [];
     this.shadowArea = null;
     this.events = {};
     this.shintoOpen = false;
@@ -54,7 +55,7 @@ export class Game {
       out: false,
       known: new Set(),
       area: null, dayArea: null, settled: false,
-      buys: 0, churchToday: false, quest: null,
+      churchToday: false, quest: null, resting: false,
       catalystPending: false,
       kills: 0,
     }));
@@ -83,11 +84,16 @@ export class Game {
   gainMana(pl, n) { pl.mana = Math.max(0, Math.min(MANA_MAX, pl.mana + n)); }
   heal(s, n) { s.hp = Math.min(s.maxHp, s.hp + n); }
   areaOpen(a) {
-    if (a === 'temple') return this.cap.temple > 0;
-    if (a === 'church') return this.cap.church > 0;
+    if (a === 'temple' || a === 'church' || a === 'mansion') return this.cap[a] > 0;
     return this.cap.fields.includes(a);
   }
-  capOf(a) { return a === 'temple' ? this.cap.temple : a === 'church' ? this.cap.church : Infinity; }
+  capOf(a) { return FIELDS.includes(a) ? Infinity : this.cap[a]; }
+  get daily() { return DAILY[this.situation] || {}; }
+  cardCost(c) { return c.kind === 'np' && this.daily.npCost ? this.daily.npCost : c.cost; }
+  moveCost() { return this.daily.calm ? 0 : MOVE_COST; }
+  handSize() { return this.daily.handSize || HAND_SIZE; }
+  // who wins a full area: lowest mana (temple, mansion) or fewest seals then mana (church)
+  priority(a) { return a === 'church' ? (x, y) => x.seals - y.seals || x.mana - y.mana : (x, y) => x.mana - y.mana; }
 
   knowsName(viewer, target) {
     const s = target.servant;
@@ -175,7 +181,8 @@ export class Game {
     return true;
   }
 
-  offerPrice(pl) { return OFFER_PRICES[Math.min(pl.buys, OFFER_PRICES.length - 1)]; }
+  offerPrice() { return OFFER_PRICE; }
+  forgeMana() { return this.daily.forge || FORGE_MANA; }
 
   // ---------- match flow ----------
   async run() {
@@ -213,26 +220,28 @@ export class Game {
     if (this.grail.area && !this.cap.fields.includes(this.grail.area) && !this.grail.holder) this.grail.area = this.cap.fields[0];
     for (const f of FIELDS) if (!this.cap.fields.includes(f)) this.flags[f] = null;
 
-    this.situation = this.pick(SITUATION_KEYS);
-    this.shadowArea = this.situation === 'shadow' ? this.pick(this.cap.fields) : null;
+    // daily event deck: no repeats until the 17 cards run out
+    if (!this.dailyDeck.length) this.dailyDeck = this.shuffle(DAILY_KEYS);
+    this.situation = this.dailyDeck.pop();
+    this.shadowArea = this.daily.shadow ? this.pick(this.cap.fields) : null;
     this.events = {};
-    for (const f of this.cap.fields) this.events[f] = this.pick(EVENTS);
+    for (const f of this.cap.fields) this.events[f] = this.pick(REWARDS);
     this.shintoOpen = false;
     this.deathsToday = 0;
     this.quests = this.shuffle(QUEST_KEYS).slice(0, 3);
     for (const pl of this.alive()) {
-      Object.assign(pl, { churchToday: false, area: null, settled: false, dayArea: null, choice: null, move: null, play: null, peek: null });
-      if (this.situation === 'magic') this.gainMana(pl, 2);
-      this.draw(pl, HAND_SIZE - pl.hand.length);
+      Object.assign(pl, { churchToday: false, area: null, settled: false, dayArea: null, choice: null, move: null, play: null, peek: null, resting: false });
+      if (this.daily.morningMana) this.gainMana(pl, this.daily.morningMana);
+      this.draw(pl, this.handSize() - pl.hand.length);
       while (pl.items.length > ITEM_MAX) {
         const k = pl.items.shift();
         this.log(`ไอเท็มเกิน ${ITEM_MAX} ใบ ทิ้ง ${ITEMS[k].name}`, [pl.id], 'me');
       }
     }
-    const sit = SITUATIONS[this.situation];
+    const sit = this.daily;
     this.log(`── วันที่ ${this.day} · กลางวัน ──`, null, 'phase');
-    this.log(`การ์ดสถานการณ์คืนนี้: ${sit.name} (${sit.text})${this.shadowArea ? ` ที่${AREAS[this.shadowArea].name}` : ''}`, null, 'sys');
-    if (this.events.miyama) this.log(`การ์ดอีเวนต์ที่มิยามะ: ${this.events.miyama.name}`, null, 'sys');
+    this.log(`อีเวนต์ประจำวัน: ${sit.name} (${sit.text})${this.shadowArea ? ` ที่${AREAS[this.shadowArea].name}` : ''}`, null, 'sys');
+    if (this.events.miyama) this.log(`การ์ดรางวัลที่มิยามะ: ${this.events.miyama.name}`, null, 'sys');
   }
 
   async runDay() {
@@ -259,7 +268,7 @@ export class Game {
     let backup = fields.includes(c.backup) ? c.backup : (fields.includes(pl.lastField) ? pl.lastField : this.pick(fields));
     let area = AREA_KEYS.includes(c.area) && this.areaOpen(c.area) ? c.area : backup;
     if (holder && !fields.includes(area)) area = backup;
-    return { area, backup, church: c.church || null };
+    return { area, backup, church: c.church || null, forge: Array.isArray(c.forge) ? c.forge : [] };
   }
 
   resolveDay() {
@@ -277,8 +286,7 @@ export class Game {
         }
       });
     };
-    admit('temple', (a, b) => a.mana - b.mana);
-    admit('church', (a, b) => a.seals - b.seals || a.mana - b.mana);
+    for (const a of ['temple', 'church', 'mansion']) admit(a, this.priority(a));
     for (const pl of alive) if (!assign.has(pl)) assign.set(pl, want.get(pl).area);
     for (const pl of alive) {
       pl.area = pl.dayArea = assign.get(pl);
@@ -291,22 +299,34 @@ export class Game {
     }
     // day results
     const temple = alive.filter((pl) => pl.area === 'temple');
-    const share = temple.length === 1 ? 4 : temple.length === 2 ? 3 : 2;
+    const share = (temple.length === 1 ? 4 : temple.length === 2 ? 3 : 2) + (this.daily.ley || 0);
     for (const pl of temple) { this.gainMana(pl, share); this.log(`วัดริวโด: แบ่งเลย์ไลน์ มานา +${share}`, [pl.id], 'me'); }
     for (const pl of alive.filter((x) => x.area === 'church')) {
       const ch = want.get(pl).church;
       if (!ch || this.grail.holder === pl || pl.churchToday) continue;
       this.churchAction(pl, ch);
     }
+    for (const pl of alive.filter((x) => x.area === 'mansion')) this.forge(pl, want.get(pl).forge);
+  }
+
+  // Tohsaka mansion: melt 1-2 non-NP hand cards for mana, then redraw
+  forge(pl, ids) {
+    const cards = [...new Set(ids)].slice(0, 2).map((id) => pl.hand.find((c) => c.id === id)).filter((c) => c && c.kind !== 'np');
+    if (!cards.length) return;
+    for (const c of cards) { pl.hand.splice(pl.hand.indexOf(c), 1); pl.discard.push(c); }
+    const m = cards.length * this.forgeMana();
+    this.gainMana(pl, m);
+    this.draw(pl, cards.length);
+    this.log(`คฤหาสน์โทซากะ: หลอม ${cards.map((c) => c.name).join(', ')} ได้มานา +${m} แล้วจั่วใหม่ ${cards.length} ใบ`, [pl.id], 'me');
   }
 
   churchAction(pl, ch) {
     pl.churchToday = true;
     if (ch.type === 'offer') {
-      const price = this.offerPrice(pl);
+      const price = this.offerPrice();
       if (pl.seals >= SEAL_MAX) return this.log('Command Seal เต็มแล้ว ถวายมานาไม่ได้', [pl.id], 'me');
       if (pl.mana < price) return this.log(`มานาไม่พอถวาย (ต้องใช้ ${price})`, [pl.id], 'bad');
-      pl.mana -= price; pl.seals++; pl.buys++;
+      pl.mana -= price; pl.seals++;
       this.log(`โบสถ์: ถวายมานา ${price} ได้ Command Seal 1 ดวง`, [pl.id], 'me');
       this.log(`${pl.name} ทำธุระที่โบสถ์`, null);
       return;
@@ -341,13 +361,13 @@ export class Game {
 
   // ---------- night ----------
   tiedDown(pl) {
-    return this.alive().filter((x) => x.dayArea === pl.dayArea).length > 1;
+    return pl.dayArea != null && this.alive().filter((x) => x.dayArea === pl.dayArea).length > 1;
   }
 
   moveOptions(pl) {
     const opts = { stay: true, move: [], escape: [], view: [] };
     const holder = this.grail.holder === pl;
-    if (!this.tiedDown(pl) && this.situation !== 'fog' && pl.mana >= MOVE_COST) {
+    if (!this.tiedDown(pl) && !this.daily.fog && pl.mana >= this.moveCost()) {
       opts.move = this.cap.fields.filter((f) => f !== pl.area);
     }
     if (pl.seals > 0 || pl.items.includes('scroll')) {
@@ -363,11 +383,11 @@ export class Game {
     this.shintoOpen = true;
     this.log(`── วันที่ ${this.day} · กลางคืน ${n}/2 ──`, null, 'phase');
     if (n === 2) this.prepSecondNight();
-    else if (this.events.shinto) this.log(`การ์ดอีเวนต์ที่ชินโตะเปิดแล้ว: ${this.events.shinto.name}`, null, 'sys');
+    else if (this.events.shinto) this.log(`การ์ดรางวัลที่ชินโตะเปิดแล้ว: ${this.events.shinto.name}`, null, 'sys');
     // ② move at once
     this.stage = 'move';
     this.emit('phase');
-    const alive = this.alive();
+    const alive = this.alive().filter((x) => !x.resting);
     const order = [...alive].sort((a, b) => a.isHuman - b.isHuman);
     for (const pl of order) {
       const opts = this.moveOptions(pl);
@@ -392,30 +412,43 @@ export class Game {
     // ④ reveal and resolve everything in one go
     this.results = this.fights.map((f) => this.resolveFight(f));
     this.soloRewards();
-    this.endNight();
+    this.endNight(n);
     this.stage = 'result';
     this.emit('night', { results: this.results });
     await this.ask(this.human, 'nightEnd', { results: this.results });
     // ⑤ automatic resummons
-    for (const pl of this.alive().filter((x) => x.servant && x.servant.hp <= 0)) await this.resummon(pl);
+    for (const pl of this.alive().filter((x) => x.servant && x.servant.hp <= 0)) {
+      await this.resummon(pl);
+      // a Servant summoned after night 1 rests through night 2 (design 4.3)
+      if (n === 1 && !pl.out) pl.resting = true;
+    }
     this.history[this.day] = { deaths: this.deathsToday, grail: this.grail.appearedDay === this.day };
     if (!this.grail.appeared && this.deaths >= DEATHS_FOR_GRAIL) this.grail.pending = true;
     this.emit('update');
   }
 
-  // night 2: everyone counts as settled where night 1 left them, hands
-  // refill and both battlefields get a fresh face-up event card
+  // night 2 (design 4.3): starting positions are where night 1 ended, hands
+  // refill, every open battlefield gets a new face-up reward card, and
+  // Masters whose Servant died in night 1 leave the map until morning
   prepSecondNight() {
-    this.cap = capacityFor(this.alive().length);
-    for (const f of FIELDS) if (!this.cap.fields.includes(f)) this.flags[f] = null;
     this.events = {};
-    for (const f of this.cap.fields) this.events[f] = this.pick(EVENTS);
+    for (const f of this.cap.fields) this.events[f] = this.pick(REWARDS);
     for (const pl of this.alive()) {
-      if (!this.areaOpen(pl.area)) pl.area = this.cap.fields.includes(pl.lastField) ? pl.lastField : this.cap.fields[0];
+      if (pl.resting) {
+        for (const f of FIELDS) if (this.flags[f] === pl.id) this.flags[f] = null;
+        if (this.grail.holder === pl) {
+          this.grail.holder = null;
+          this.grail.area = this.cap.fields.includes(pl.area) ? pl.area : this.cap.fields[0];
+          this.log(`✦ ${pl.name} พักฟื้น จอกวางอยู่ที่${AREAS[this.grail.area].name}`, null, 'grail');
+        }
+        Object.assign(pl, { area: null, dayArea: null, settled: false, move: null, play: null, peek: null, peekTarget: null });
+        this.log(`${pl.name} พักฟื้น Servant ตนใหม่จนถึงเช้า`, null, 'sys');
+        continue;
+      }
       Object.assign(pl, { dayArea: pl.area, settled: true, move: null, play: null, peek: null });
       this.draw(pl, HAND_SIZE - pl.hand.length);
     }
-    this.log(`การ์ดอีเวนต์ใหม่: ${this.cap.fields.map((f) => `${AREAS[f].short} ${this.events[f].name}`).join(' · ')}`, null, 'sys');
+    this.log(`การ์ดรางวัลใหม่: ${this.cap.fields.map((f) => `${AREAS[f].short} ${this.events[f].name}`).join(' · ')}`, null, 'sys');
     this.emit('update');
   }
 
@@ -429,7 +462,7 @@ export class Game {
       if (m?.view != null && opts.view.includes(m.view)) pl.peekTarget = m.view; else pl.peekTarget = null;
       if (!m || m.type === 'stay') continue;
       if (m.type === 'move' && opts.move.includes(m.to)) {
-        pl.mana -= MOVE_COST;
+        pl.mana -= this.moveCost();
         pl.area = m.to; pl.settled = false;
         this.log(`${pl.name} ย้ายไป${AREAS[m.to].name}`, null, 'move');
       } else if (m.type === 'escape' && opts.escape.includes(m.to)) {
@@ -445,9 +478,9 @@ export class Game {
       this.log(`${e.pl.name} ${e.scroll ? 'ใช้ม้วนคาถา' : 'ใช้ Command Seal "หนี!"'} ไป${AREAS[e.to].name}`, null, 'seal');
     };
     for (const e of escapes.filter((x) => FIELDS.includes(x.to))) go(e);
-    for (const a of ['temple', 'church']) {
-      const list = escapes.filter((x) => x.to === a)
-        .sort((x, y) => (a === 'temple' ? x.pl.mana - y.pl.mana : x.pl.seals - y.pl.seals || x.pl.mana - y.pl.mana) || this.rng() - 0.5);
+    for (const a of ['temple', 'church', 'mansion']) {
+      const prio = this.priority(a);
+      const list = escapes.filter((x) => x.to === a).sort((x, y) => prio(x.pl, y.pl) || this.rng() - 0.5);
       let free = Math.max(0, this.capOf(a) - dayCount(a));
       for (const e of list) {
         if (free > 0) { free--; go(e); } else this.log(`${AREAS[a].name}ไม่มีที่ว่าง ${e.pl.name} อยู่ที่เดิม`, [e.pl.id], 'bad');
@@ -460,13 +493,13 @@ export class Game {
   planFights() {
     const fights = [];
     for (const a of AREA_KEYS) {
-      if (a === 'church' || !this.areaOpen(a)) continue;
+      if (SAFE_AREAS.includes(a) || !this.areaOpen(a)) continue;
       const players = this.alive().filter((x) => x.area === a);
       const monster = a === this.shadowArea;
       if (players.length + (monster ? 1 : 0) >= 2 && players.length >= 1) fights.push({ area: a, players, monster });
     }
     // the church occupant sees one master's hand at the start of card play
-    for (const pl of this.alive().filter((x) => x.area === 'church' && x.peekTarget != null)) {
+    for (const pl of this.alive().filter((x) => x.area === 'church' && x.peekTarget != null && !this.players[x.peekTarget].out)) {
       const t = this.players[pl.peekTarget];
       pl.peek = { id: t.id, name: t.name, cards: this.playable(t).map((c) => c.name) };
       this.log(`โบสถ์: มือของ ${t.name} คือ ${pl.peek.cards.join(', ') || '(ว่าง)'}`, [pl.id], 'me');
@@ -493,20 +526,19 @@ export class Game {
   // card part of the total, shared by the UI preview and bots
   cardParts(cards) {
     const parts = [];
-    const sit = this.situation;
-    const typeBonus = { force: 'F', speed: 'A', magic: 'M' }[sit];
+    const sit = this.daily;
     cards.forEach((c, i) => {
       parts.push({ label: c.name, v: c.power });
-      if (typeBonus && c.type === typeBonus) parts.push({ label: SITUATIONS[sit].name, v: 2 });
+      if (sit.type?.[c.type]) parts.push({ label: sit.name, v: sit.type[c.type] });
       const other = cards[1 - i];
       if (c.eff.pair && other && other.type === c.eff.pair.type) parts.push({ label: `${c.name} คู่${TYPES[other.type].name}`, v: c.eff.pair.bonus });
     });
-    if (sit === 'onemind' && cards.length === 2 && cards[0].type === cards[1].type) parts.push({ label: 'ใจเดียว', v: 3 });
+    if (sit.onemind && cards.length === 2 && cards[0].type === cards[1].type) parts.push({ label: 'ใจเดียว', v: sit.onemind });
     return parts;
   }
 
   extraDice(pl, cards, items) {
-    let n = this.situation === 'moon' ? 1 : 0;
+    let n = this.daily.extraDie || 0;
     for (const c of cards) n += c.eff.die || 0;
     if (items.includes('charm')) n++;
     return n;
@@ -517,7 +549,8 @@ export class Game {
     const ids = [...new Set((play?.cards || []).slice(0, 2))];
     let cards = ids.map((id) => playable.find((c) => c.id === id)).filter(Boolean);
     // drop cards the player cannot pay for (most expensive first)
-    while (cards.reduce((a, c) => a + c.cost, 0) > pl.mana) cards = cards.sort((a, b) => a.cost - b.cost).slice(0, -1);
+    const cost = (list) => list.reduce((a, c) => a + this.cardCost(c), 0);
+    while (cost(cards) > pl.mana) cards = cards.sort((a, b) => this.cardCost(a) - this.cardCost(b)).slice(0, -1);
     const boost = !!play?.boost && pl.seals > 0;
     const sealHeal = !!play?.sealHeal && pl.seals > (boost ? 1 : 0) && pl.servant.hp < pl.servant.maxHp;
     const items = [...new Set(play?.items || [])].filter((k) => pl.items.includes(k) && ITEMS[k].phase.includes('fight'));
@@ -531,7 +564,7 @@ export class Game {
       const s = pl.servant;
       const e = { pl, id: pl.id, name: pl.name, cls: s.cls, label: null, play, cards: play.cards.map((c) => ({ ...c })), hpBefore: s.hp, maxHp: s.maxHp, parts: [] };
       // pay
-      pl.mana -= play.cards.reduce((a, c) => a + c.cost, 0);
+      pl.mana -= play.cards.reduce((a, c) => a + this.cardCost(c), 0);
       if (play.boost) pl.seals--;
       if (play.sealHeal) pl.seals--;
       for (const k of play.items) pl.items.splice(pl.items.indexOf(k), 1);
@@ -592,6 +625,7 @@ export class Game {
       if (e.total < max) {
         let d = Math.max(1, max - e.total);
         if (unique) for (const c of unique.play.cards) d += c.eff.splash || 0;
+        d += this.daily.lossHp || 0;
         for (const c of e.play.cards) d -= c.eff.reduce || 0;
         if (e.play.items.includes('shroud')) d = 0;
         e.dmg = Math.max(0, d);
@@ -624,7 +658,7 @@ export class Game {
     else this.giveReward(f, top, ents.length + (f.monster ? 1 : 0), res);
     if (unique && dead.length) {
       for (const d of dead) {
-        const take = this.situation === 'blood' ? d.pl.mana : Math.floor(d.pl.mana / 2);
+        const take = this.daily.blood ? d.pl.mana : Math.floor(d.pl.mana / 2);
         d.pl.mana -= take;
         this.gainMana(unique.pl, take);
         let itemText = '';
@@ -705,7 +739,7 @@ export class Game {
     for (const e of top) {
       const pl = e.pl;
       let got;
-      if (f.area === 'temple') { const m = Math.ceil(4 / n); this.gainMana(pl, m); got = `เลย์ไลน์ มานา +${m}`; }
+      if (f.area === 'temple') { const m = Math.ceil((4 + (this.daily.ley || 0)) / n); this.gainMana(pl, m); got = `เลย์ไลน์ มานา +${m}`; }
       else got = this.applyEvent(pl, this.events[f.area], n);
       if (size >= 3) { const b = Math.ceil(2 / n); this.gainMana(pl, b); got += ` · ตะลุมบอน +${b} มานา`; }
       if (f.monster && n === 1) { const k = this.addItem(pl); got += ` · ปราบมอนสเตอร์ได้${ITEMS[k].name}`; }
@@ -728,13 +762,13 @@ export class Game {
     }
   }
 
-  endNight() {
+  endNight(n) {
     for (const f of FIELDS) {
       const owner = this.flags[f];
       if (owner != null && this.players[owner].area !== f) this.flags[f] = null;
     }
     for (const pl of this.alive()) {
-      if (pl.quest && this.day >= pl.quest.until) {
+      if (n === 2 && pl.quest && this.day >= pl.quest.until) {
         this.log(`เควส "${QUESTS[pl.quest.key].name}" หมดเวลา เสียมัดจำ`, [pl.id], 'bad');
         pl.quest = null;
       }

@@ -1,27 +1,30 @@
-// Static game data for design v1.1: areas, Servant decks, situations, events,
-// items and church quests. Numbers are starting points for balance.
+// Static game data for design v1.3: areas, Servant decks, daily events,
+// reward cards, items and church quests. Numbers are starting points for balance.
 
 export const AREAS = {
   temple: { name: 'วัดริวโด', short: 'วัด', kind: 'temple', day: 'แบ่งเลย์ไลน์: คนเดียว +4 · 2 คน +3 · 3 คน +2 มานา', night: '2 คนขึ้นไปสู้แย่งเลย์ไลน์ ผู้ชนะ +4 มานา' },
   miyama: { name: 'ย่านมิยามะ', short: 'มิยามะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (เปิดหน้า)' },
   shinto: { name: 'ย่านชินโตะ', short: 'ชินโตะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (คว่ำหน้า)' },
-  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', kind: 'church', day: 'ถวายมานาแลก Command Seal หรือรับเควส', night: 'ปลอดภัย · ดูมือผู้เล่น 1 คน' },
+  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', kind: 'church', day: 'ถวาย 5 มานาแลก Command Seal หรือรับเควส', night: 'ปลอดภัย · ดูมือผู้เล่น 1 คน' },
+  mansion: { name: 'คฤหาสน์โทซากะ', short: 'คฤหาสน์', kind: 'mansion', day: 'หลอมการ์ด: ทิ้ง 1–2 ใบ ใบละ +2 มานา แล้วจั่วใหม่', night: 'ปลอดภัย · ไม่มีรางวัล' },
 };
-export const AREA_KEYS = ['temple', 'miyama', 'shinto', 'church'];
+export const AREA_KEYS = ['temple', 'miyama', 'shinto', 'church', 'mansion'];
+export const SAFE_AREAS = ['church', 'mansion'];
 export const FIELDS = ['miyama', 'shinto'];
 
-// capacity by masters left (design 3): temple, church, open battlefields
+// capacity by masters left (design 3), worked out each morning only
 export function capacityFor(alive) {
   const temple = alive >= 7 ? 3 : alive === 6 ? 2 : alive === 5 ? 1 : 0;
   const church = alive >= 3 ? 1 : 0;
+  const mansion = alive >= 6 ? 1 : 0;
   const fields = alive >= 4 ? ['miyama', 'shinto'] : ['miyama'];
-  return { temple, church, fields };
+  return { temple, church, mansion, fields };
 }
 
 export const TYPES = {
-  F: { name: 'กำลัง', icon: '⚔', color: '#ef6a5a' },
-  A: { name: 'ว่องไว', icon: '➶', color: '#5ed08f' },
-  M: { name: 'เวท', icon: '✦', color: '#a77be8' },
+  F: { name: 'Buster', th: 'กำลัง', icon: '⚔', color: '#ef6a5a' },
+  A: { name: 'Quick', th: 'ว่องไว', icon: '➶', color: '#5ed08f' },
+  M: { name: 'Arts', th: 'เวท', icon: '✦', color: '#a77be8' },
   S: { name: 'พิเศษ', icon: '◆', color: '#e8c45a' },
 };
 
@@ -107,19 +110,33 @@ export function buildDeck(key) {
   return cards;
 }
 
-export const SITUATIONS = {
-  force: { name: 'คืนแห่งพละกำลัง', text: 'การ์ดกำลัง +2 พลัง' },
-  speed: { name: 'คืนแห่งความเร็ว', text: 'การ์ดว่องไว +2 พลัง' },
-  magic: { name: 'คืนแห่งเวทมนตร์', text: 'การ์ดเวท +2 พลัง · ทุกคน +2 มานาตอนเช้า' },
-  moon: { name: 'จันทร์เต็มดวง', text: 'ทุกคนทอยเพิ่ม 1 ลูก' },
-  fog: { name: 'หมอกหนา', text: 'ห้ามย้ายแบบจ่ายมานาคืนนี้ ("หนี!" ยังใช้ได้)' },
-  shadow: { name: 'เงาดำจากจอก', text: 'มอนสเตอร์พลัง 12+1d6 ร่วมสู้ที่สนามรบที่ประกาศ' },
-  onemind: { name: 'ใจเดียว', text: 'ลง 2 ใบประเภทเดียวกัน +3 พลัง' },
-  blood: { name: 'คืนเลือด', text: 'ผู้ชนะที่ฆ่าได้ยึดมานาทั้งหมด' },
+// daily event deck (design 7): 17 cards, effect lasts the whole day
+//   type:{F|A|M:n} card type bonus · morningMana · npCost · extraDie · onemind
+//   lossHp extra HP lost by losers · blood · shadow · fog · calm (free move)
+//   ley (+1 temple mana) · forge (mansion mana per card) · handSize
+export const DAILY = {
+  buster_day: { name: 'วันแห่ง Buster', text: 'การ์ด Buster (กำลัง) +1 พลัง', type: { F: 1 } },
+  quick_day: { name: 'วันแห่ง Quick', text: 'การ์ด Quick (ว่องไว) +1 พลัง', type: { A: 1 } },
+  arts_day: { name: 'วันแห่ง Arts', text: 'การ์ด Arts (เวท) +1 พลัง', type: { M: 1 } },
+  force: { name: 'คืนแห่งพละกำลัง', text: 'การ์ด Buster (กำลัง) +2 พลัง', type: { F: 2 } },
+  speed: { name: 'คืนแห่งความเร็ว', text: 'การ์ด Quick (ว่องไว) +2 พลัง', type: { A: 2 } },
+  magic: { name: 'คืนแห่งเวทมนตร์', text: 'การ์ด Arts (เวท) +2 พลัง · ทุกคน +2 มานาตอนเช้า', type: { M: 2 }, morningMana: 2 },
+  legend: { name: 'วันแห่งตำนาน', text: 'การ์ด NP ใช้มานา 6 แทน 8', npCost: 6 },
+  moon: { name: 'จันทร์เต็มดวง', text: 'ทุกคนทอยเพิ่ม 1 ลูก', extraDie: 1 },
+  onemind: { name: 'ใจเดียว', text: 'ลง 2 ใบประเภทเดียวกัน +3 พลัง', onemind: 3 },
+  brutal: { name: 'ศึกเลือดเดือด', text: 'ผู้แพ้เสีย HP เพิ่ม 1', lossHp: 1 },
+  blood: { name: 'คืนเลือด', text: 'ผู้ชนะที่ฆ่าได้ยึดมานาทั้งหมด', blood: true },
+  shadow: { name: 'เงาดำจากจอก', text: 'มอนสเตอร์พลัง 12+1d6 ร่วมสู้ทั้ง 2 เฟสกลางคืน', shadow: true },
+  fog: { name: 'หมอกหนา', text: 'ห้ามย้ายแบบจ่ายมานาทั้งวัน ("หนี!" ยังใช้ได้)', fog: true },
+  calm: { name: 'ลมสงบ', text: 'ย้ายแบบจ่ายมานาไม่เสียมานา', calm: true },
+  ley: { name: 'เลย์ไลน์ล้น', text: 'มานาที่ได้จากวัดริวโด +1', ley: 1 },
+  forge: { name: 'เตาหลอมร้อนแรง', text: 'คฤหาสน์โทซากะหลอมการ์ดได้ใบละ 3 มานา', forge: 3 },
+  blessing: { name: 'พรของจอก', text: 'ตอนเช้าจั่วเพิ่มอีก 1 ใบ (มือ 4 ใบ)', handSize: 4 },
 };
-export const SITUATION_KEYS = Object.keys(SITUATIONS);
+export const DAILY_KEYS = Object.keys(DAILY);
 
-export const EVENTS = [
+// reward cards on the battlefields, one per field per night phase
+export const REWARDS = [
   { name: 'มานา +5', mana: 5 },
   { name: 'การ์ดไอเท็ม 1 ใบ', items: 1 },
   { name: 'ฟื้น HP 5', heal: 5 },
@@ -142,7 +159,7 @@ export const ITEM_KEYS = Object.keys(ITEMS);
 
 export const QUESTS = {
   bounty: { name: 'ล่าค่าหัว', text: 'ชนะการต่อสู้ที่มี Servant ตาย ภายใน 2 วัน', days: 2, need: 1 },
-  fields: { name: 'ชนะสนามรบ', text: 'ชนะการต่อสู้ที่มิยามะหรือชินโตะ 2 ครั้ง ภายใน 3 วัน', days: 3, need: 2 },
+  fields: { name: 'ชนะสนามรบ', text: 'ชนะการต่อสู้ที่มิยามะหรือชินโตะ 3 ครั้ง ภายใน 3 วัน (อยู่คนเดียวไม่นับ)', days: 3, need: 3 },
   revealed: { name: 'ล่าวีรชนที่เปิดเผยแล้ว', text: 'ชนะการต่อสู้กับ Servant ที่ชื่อจริงถูกเปิดแล้ว ภายใน 3 วัน', days: 3, need: 1 },
   offering: { name: 'เครื่องบูชา', text: 'มอบการ์ดไอเท็ม 2 ใบ (สำเร็จทันที)', days: 0, need: 0 },
 };
@@ -157,6 +174,7 @@ export const ITEM_MAX = 2;
 export const SEAL_MAX = 3;
 export const DEATHS_FOR_GRAIL = 7;
 export const MOVE_COST = 2;
-export const OFFER_PRICES = [10, 14, 18];
+export const OFFER_PRICE = 5;
+export const FORGE_MANA = 2;
 export const QUEST_DEPOSIT = 2;
 export const MONSTER_BASE = 12;

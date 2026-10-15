@@ -1,10 +1,10 @@
-// DOM front end for design v1.1. Renders the HUD from game state and answers
+// DOM front end for design v1.3. Renders the HUD from game state and answers
 // the human's decisions by returning Promises that resolve when the player
 // clicks (or the timer runs out). Night fights are replayed in the battle scene.
 
 import {
-  AREAS, AREA_KEYS, FIELDS, SERVANTS, TYPES, SITUATIONS, ITEMS, QUESTS,
-  MANA_MAX, DEATHS_FOR_GRAIL, SEAL_MAX, HAND_SIZE, ITEM_MAX, MOVE_COST, QUEST_DEPOSIT, MONSTER_BASE,
+  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, SERVANTS, TYPES, DAILY, ITEMS, QUESTS,
+  MANA_MAX, DEATHS_FOR_GRAIL, SEAL_MAX, HAND_SIZE, ITEM_MAX, QUEST_DEPOSIT, MONSTER_BASE,
 } from './data.js';
 import { LAST_DAY } from './engine.js';
 import { chooseCards } from './bot.js';
@@ -36,12 +36,12 @@ const portrait = (cls, size = '') => cls
   : `<span class="pt ${size} empty">?</span>`;
 
 // one Servant card as a small tile
-function cardTile(c, { sel = false, off = false, back = false, attrs = '', extra = '' } = {}) {
+function cardTile(c, { sel = false, off = false, back = false, attrs = '', extra = '', cost = c.cost } = {}) {
   const t = TYPES[c.type];
   if (back) return `<div class="gcard back"><span>?</span></div>`;
   return `<button class="gcard k-${c.kind} ${sel ? 'sel' : ''} ${extra}" style="--tc:${t.color}" ${off ? 'disabled' : ''} ${attrs}
-    title="${esc(c.name)} · พลัง ${c.power} · ${c.cost} มานา${c.text ? ' · ' + esc(c.text) : ''}">
-    <i class="gc-type">${t.icon}</i><b class="gc-pow">${c.power}</b><em class="gc-cost">${c.cost ? c.cost + '◈' : 'ฟรี'}</em>
+    title="${esc(c.name)}${t.th ? ` (${t.th})` : ''} · พลัง ${c.power} · ${cost} มานา${c.text ? ' · ' + esc(c.text) : ''}">
+    <i class="gc-type">${t.icon}</i><b class="gc-pow">${c.power}</b><em class="gc-cost">${cost ? cost + '◈' : 'ฟรี'}</em>
     <span class="gc-name">${esc(c.name)}</span>${c.text ? `<small>${esc(c.text)}</small>` : ''}</button>`;
 }
 
@@ -122,10 +122,10 @@ export class UI {
     } else {
       pill = `<span class="pill-tag">WAR</span><b>ตายรวม ${g.deaths}/${DEATHS_FOR_GRAIL}</b> ครบแล้วจอกศักดิ์สิทธิ์ปรากฏ`;
     }
-    const sit = g.situation ? SITUATIONS[g.situation] : null;
+    const sit = g.situation ? DAILY[g.situation] : null;
     $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}/2` : '☀ กลางวัน'} · วันที่ ${g.day}/${LAST_DAY} · ${this.stageName()}</div>
       <div class="pill">${pill}</div>
-      ${sit ? `<div class="sit"><span class="pill-tag warn">คืนนี้</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
+      ${sit ? `<div class="sit"><span class="pill-tag warn">อีเวนต์วันนี้</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
   }
 
   renderStatus() {
@@ -137,7 +137,7 @@ export class UI {
         ${stat('❤', 'hp', s ? Math.max(0, s.hp) : 0, s ? s.maxHp : 0)}
         ${stat('◈', 'mana', pl.mana, MANA_MAX)}
         ${stat('◆', 'seal', pl.seals, SEAL_MAX)}
-        ${stat('▤', 'card', pl.hand.length, HAND_SIZE)}
+        ${stat('▤', 'card', pl.hand.length, Math.max(HAND_SIZE, g.handSize()))}
         ${stat('☠', 'death', g.deaths, DEATHS_FOR_GRAIL)}
         <div class="stat box">เหลือ<br><b>${g.alive().length}/8</b> มาสเตอร์</div>
       </div>`;
@@ -161,11 +161,11 @@ export class UI {
   renderItems() {
     const me = this.me;
     const hand = this.game.playable(me);
-    const handHtml = hand.length ? hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"' })).join('') : '<p class="muted">ไม่มีการ์ดในมือ</p>';
+    const handHtml = hand.length ? hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"', cost: this.game.cardCost(c) })).join('') : '<p class="muted">ไม่มีการ์ดในมือ</p>';
     const items = me.items.length
       ? me.items.map((k) => `<li title="${esc(ITEMS[k].text)}"><b>${esc(ITEMS[k].name)}</b><small>${esc(ITEMS[k].text)}</small></li>`).join('')
       : '<li class="muted">ยังไม่มีไอเท็ม · ได้จากการ์ดอีเวนต์หรือปราบมอนสเตอร์</li>';
-    $('#items').innerHTML = `<div class="hud-tag">HAND ${me.hand.length}/${HAND_SIZE}${me.npSide ? ' + NP' : ''}</div>
+    $('#items').innerHTML = `<div class="hud-tag">HAND ${me.hand.length}/${Math.max(HAND_SIZE, this.game.handSize())}${me.npSide ? ' + NP' : ''}</div>
       <div class="hand mini">${handHtml}</div>
       <div class="hud-tag" style="margin-top:8px">ITEMS ${me.items.length}/${ITEM_MAX}</div><ul class="items">${items}</ul>`;
   }
@@ -206,14 +206,15 @@ export class UI {
       const fight = g.stage === 'cards' || g.stage === 'result' ? (g.fights || []).some((f) => f.area === a) : false;
       const def = me.servant?.def;
       const fav = def && def.favored === a ? '<i class="mk good">ถนัด</i>' : def && def.unfavored === a ? '<i class="mk bad">ไม่ถนัด</i>' : '';
-      const cap = closed ? '<i class="mk">ปิด</i>' : a === 'temple' ? `<i class="mk">รับ ${g.cap.temple}</i>` : a === 'church' ? '<i class="mk">รับ 1</i>' : '';
+      const cap = closed ? '<i class="mk">ปิด</i>' : FIELDS.includes(a) ? '' : `<i class="mk">รับ ${g.capOf(a)}</i>`;
       const flagOwner = FIELDS.includes(a) && g.flags[a] != null ? g.players[g.flags[a]] : null;
       const flag = flagOwner ? `<i class="mk flag" style="--pc:${this.color(flagOwner)}" title="ธงยึดครองของ ${esc(flagOwner.name)}">⚑ ${esc(flagOwner.name)}</i>` : '';
       let ev = '';
       if (FIELDS.includes(a) && g.events[a] && !closed) {
-        ev = a === 'shinto' && !g.shintoOpen ? '<div class="evcard back">อีเวนต์ (คว่ำ)</div>' : `<div class="evcard">${esc(g.events[a].name)}</div>`;
+        ev = a === 'shinto' && !g.shintoOpen ? '<div class="evcard back">รางวัล (คว่ำ)</div>' : `<div class="evcard">รางวัล: ${esc(g.events[a].name)}</div>`;
       }
       if (a === 'temple' && !closed) ev = '<div class="evcard ley">เลย์ไลน์ มานา</div>';
+      if (a === 'mansion' && !closed) ev = `<div class="evcard ley">หลอมการ์ด ใบละ ${g.forgeMana()} มานา</div>`;
       const monster = g.shadowArea === a ? `<i class="mk fight" title="มอนสเตอร์ ${MONSTER_BASE}+1d6">👁 มอนสเตอร์</i>` : '';
       return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="grid-area:${a}" ${closed || !choosing ? 'tabindex="-1"' : ''}>
         <div class="an-name">${AREAS[a].name}</div>
@@ -235,6 +236,7 @@ export class UI {
   playerStatus(x) {
     const g = this.game;
     if (x.out) return 'ตกรอบ';
+    if (x.resting && g.half === 'night') return 'พักฟื้น';
     if (['choose', 'move', 'cards'].includes(g.stage)) {
       if (g.stage === 'cards' && !(g.fights || []).some((f) => f.players.includes(x))) return x.area ? AREAS[x.area].short : '';
       if (x === this.me && this.mode) return '<span class="hl">กำลังเลือก</span>';
@@ -316,7 +318,7 @@ export class UI {
     const g = this.game, me = this.me;
     const fields = g.cap.fields;
     this.mode = 'day';
-    this.sel = { area: null, backup: fields.includes(me.lastField) ? me.lastField : fields[0], church: { type: 'offer' }, hero: false };
+    this.sel = { area: null, backup: fields.includes(me.lastField) ? me.lastField : fields[0], church: { type: 'offer' }, forge: [], hero: false };
     this.renderAll();
     return new Promise((resolve) => {
       this.resolveDay = resolve;
@@ -335,12 +337,12 @@ export class UI {
   confirmDay(timeout = false) {
     if (!this.resolveDay) return;
     clearInterval(this.timer);
-    const { area, backup, church } = this.sel;
+    const { area, backup, church, forge } = this.sel;
     this.mode = null;
     this.setChoice('<div class="waiting">รอทุกคนเลือก แล้วเปิดเผยพร้อมกัน…</div>');
     const r = this.resolveDay; this.resolveDay = null;
     // design: no choice in time = previous battlefield (or a random one)
-    r(timeout && !area ? {} : { area, backup, church: area === 'church' ? church : null });
+    r(timeout && !area ? {} : { area, backup, church: area === 'church' ? church : null, forge: area === 'mansion' ? forge : [] });
   }
 
   renderDayChoice() {
@@ -350,20 +352,21 @@ export class UI {
     const rows = AREA_KEYS.map((a) => {
       const closed = !g.areaOpen(a) || (holder && !FIELDS.includes(a));
       const tag = def.favored === a ? '<i class="mk good">ถนัด</i>' : def.unfavored === a ? '<i class="mk bad">ไม่ถนัด</i>' : '';
-      const cap = a === 'temple' ? `รับ ${g.cap.temple} คน · มานาน้อยสุดได้ก่อน` : a === 'church' ? 'รับ 1 คน · Seal น้อยสุดได้ก่อน' : 'ไม่จำกัดคน';
+      const cap = FIELDS.includes(a) ? 'ไม่จำกัดคน' : `รับ ${g.capOf(a)} คน · ${a === 'church' ? 'Seal น้อยสุดได้ก่อน' : 'มานาน้อยสุดได้ก่อน'}`;
       const flag = g.flags[a] === me.id ? '<i class="mk warn">⚑ ธงของคุณ +3</i>' : '';
       const grail = g.grail.appeared && !g.grail.holder && g.grail.area === a ? '<i class="mk grail">✦ จอก</i>' : '';
+      const text = a === 'mansion' ? `หลอมการ์ด: ทิ้ง 1–2 ใบ ใบละ +${g.forgeMana()} มานา แล้วจั่วใหม่` : AREAS[a].day;
       return `<button class="arow ${this.sel.area === a ? 'sel' : ''}" data-area="${a}" ${closed ? 'disabled' : ''}>
         <b>${AREAS[a].name}</b> ${tag}${flag}${grail}${closed ? '<i class="mk">ปิด</i>' : ''}
-        <span>${esc(AREAS[a].day)}</span><small class="cap">${cap}</small></button>`;
+        <span>${esc(text)}</span><small class="cap">${cap}</small></button>`;
     }).join('');
     const fields = g.cap.fields;
-    const needBackup = this.sel.area === 'temple' || this.sel.area === 'church';
+    const needBackup = this.sel.area && !FIELDS.includes(this.sel.area);
     const backup = needBackup && fields.length > 1 ? `<div class="sub"><small>ถ้าเต็ม ไปสนามรบสำรอง:</small>
       <div class="seg">${fields.map((f) => `<button data-backup="${f}" class="${this.sel.backup === f ? 'on' : ''}">${AREAS[f].name}</button>`).join('')}</div></div>` : '';
     let church = '';
     if (this.sel.area === 'church') {
-      const price = g.offerPrice(me);
+      const price = g.offerPrice();
       const ch = this.sel.church;
       const quests = g.quests.map((k) => {
         const off = me.quest || me.mana < QUEST_DEPOSIT || (k === 'offering' && (me.items.length < 2 || me.seals >= SEAL_MAX));
@@ -372,6 +375,15 @@ export class UI {
       church = `<div class="sub"><small>ทำอะไรที่โบสถ์ (ทำได้ 1 อย่าง)</small><div class="tools col">
         <button class="small ${ch.type === 'offer' ? 'on' : ''}" data-offer="1" ${me.mana < price || me.seals >= SEAL_MAX ? 'disabled' : ''}>ถวายมานา ${price} → Command Seal +1</button>
         ${quests}</div><small class="muted">รับเควสวางมัดจำ ${QUEST_DEPOSIT} มานา (ได้คืนเมื่อสำเร็จ) · ถ้าเข้าโบสถ์ไม่ได้ ไปสนามรบสำรอง</small></div>`;
+    }
+    let forge = '';
+    if (this.sel.area === 'mansion') {
+      const melt = me.hand.filter((c) => c.kind !== 'np');
+      forge = `<div class="sub"><small>เลือกการ์ดที่จะหลอม 1–2 ใบ (ใบละ +${g.forgeMana()} มานา แล้วจั่วใหม่)</small>
+        <div class="hand">${melt.map((c) => {
+          const on = this.sel.forge.includes(c.id);
+          return cardTile(c, { sel: on, off: !on && this.sel.forge.length >= 2, attrs: `data-forge="${c.id}"`, cost: g.cardCost(c) });
+        }).join('')}</div></div>`;
     }
     const dayItems = [...new Set(me.items)].filter((k) => g.dayItemUsable(me, k));
     const itemBtns = dayItems.map((k) => `<button class="small" data-item="${k}" title="${esc(ITEMS[k].text)}">ใช้ ${esc(ITEMS[k].name)}</button>`).join('');
@@ -382,7 +394,7 @@ export class UI {
       <div class="hud-tag">กลางวัน · เลือกพื้นที่</div>
       <p class="note">ทุกคนเลือกพร้อมกันแบบลับ แล้วเปิดเผยพร้อมกัน · อยู่สนามรบตั้งแต่กลางวัน = ตั้งหลัก +1 คืนนี้${holder ? ' · <b class="grail">คุณถือจอก: ไปได้แค่สนามรบ</b>' : ''}</p>
       <div class="arows">${rows}</div>
-      ${backup}${church}
+      ${backup}${church}${forge}
       ${g.canSealHeal(me) || itemBtns ? `<div class="tools">${g.canSealHeal(me) ? '<button class="small seal" data-seal="heal">◆ Command Seal: รักษา! (50%)</button>' : ''}${itemBtns}</div>` : ''}
       ${heroPick}
       <div class="confirm-row">
@@ -394,6 +406,11 @@ export class UI {
     el.querySelectorAll('[data-backup]').forEach((b) => b.onclick = () => { this.sel.backup = b.dataset.backup; this.renderDayChoice(); });
     el.querySelectorAll('[data-offer]').forEach((b) => b.onclick = () => { this.sel.church = { type: 'offer' }; this.renderDayChoice(); });
     el.querySelectorAll('[data-quest]').forEach((b) => b.onclick = () => { this.sel.church = { type: 'quest', quest: b.dataset.quest }; this.renderDayChoice(); });
+    el.querySelectorAll('[data-forge]').forEach((b) => b.onclick = () => {
+      const id = Number(b.dataset.forge);
+      this.sel.forge = this.sel.forge.includes(id) ? this.sel.forge.filter((x) => x !== id) : [...this.sel.forge, id];
+      this.renderDayChoice();
+    });
     el.querySelectorAll('[data-seal]').forEach((b) => b.onclick = () => { g.sealHeal(me); this.renderAll(); this.renderDayChoice(); });
     el.querySelectorAll('[data-item]').forEach((b) => b.onclick = () => {
       const k = b.dataset.item;
@@ -434,13 +451,13 @@ export class UI {
       const draw = () => {
         const here = g.alive().filter((x) => x !== me && x.area === me.area);
         const why = !opts.move.length
-          ? (g.situation === 'fog' ? 'หมอกหนา: ย้ายแบบจ่ายมานาไม่ได้' : g.tiedDown(me) ? 'ถูกตรึง: มีคนอยู่พื้นที่เดียวกันตั้งแต่กลางวัน ย้ายแบบจ่ายมานาไม่ได้' : me.mana < MOVE_COST ? `มานาไม่พอย้าย (ต้องใช้ ${MOVE_COST})` : '')
+          ? (g.daily.fog ? 'หมอกหนา: ย้ายแบบจ่ายมานาไม่ได้ทั้งวัน' : g.tiedDown(me) ? `ติดพัน: มีคนอยู่พื้นที่เดียวกันตั้งแต่${g.nightNo === 2 ? 'จบกลางคืน 1' : 'กลางวัน'} ย้ายแบบจ่ายมานาไม่ได้` : me.mana < g.moveCost() ? `มานาไม่พอย้าย (ต้องใช้ ${g.moveCost()})` : '')
           : '';
         const hasScroll = me.items.includes('scroll');
         const opt = (type, to, label, sub, off = false) => `<button class="arow ${this.sel.type === type && this.sel.to === to ? 'sel' : ''}" data-type="${type}" data-to="${to ?? ''}" ${off ? 'disabled' : ''}><b>${label}</b><span>${sub}</span></button>`;
         const rows = [
           opt('stay', null, `อยู่ที่${AREAS[me.area].name}`, FIELDS.includes(me.area) ? (g.flags[me.area] === me.id ? 'ธง +3' : 'ตั้งหลัก +1') : 'ไม่เสียอะไร'),
-          ...opts.move.map((f) => opt('move', f, `ย้ายไป${AREAS[f].name}`, `−${MOVE_COST} มานา · บุกเข้าไป ไม่มีโบนัสพื้นที่`)),
+          ...opts.move.map((f) => opt('move', f, `ย้ายไป${AREAS[f].name}`, `${g.moveCost() ? `−${g.moveCost()} มานา` : 'ฟรี (ลมสงบ)'} · บุกเข้าไป ไม่มีโบนัสพื้นที่`)),
           ...(here.length || !opts.move.length ? opts.escape : []).map((a) => opt('escape', a, `"หนี!" ไป${AREAS[a].name}`, hasScroll && (this.sel.scroll || me.seals <= 0) ? 'ใช้ม้วนคาถา' : '−1 Command Seal')),
         ].join('');
         const view = opts.view.length ? `<div class="sub"><small>โบสถ์: ดูมือของ 1 คนตอนเริ่มลงการ์ด</small><div class="tools">${opts.view.map((id) =>
@@ -471,7 +488,7 @@ export class UI {
     const g = this.game, me = this.me;
     if (me.out || (g.fights || []).some((f) => f.players.includes(me))) return;
     const peek = me.peek ? `<p class="note">โบสถ์: มือของ <b>${esc(me.peek.name)}</b> คือ ${esc(me.peek.cards.join(', ') || '(ว่าง)')}</p>` : '';
-    const where = me.area === 'church' ? 'คุณปลอดภัยอยู่ในโบสถ์' : `คืนนี้ไม่มีใครมาสู้กับคุณที่${AREAS[me.area].name}`;
+    const where = !me.area ? 'Servant ตนใหม่กำลังพักฟื้น กลับมาเลือกพื้นที่ได้ตอนเช้า' : SAFE_AREAS.includes(me.area) ? `คุณปลอดภัยอยู่ใน${AREAS[me.area].name}` : `เฟสนี้ไม่มีใครมาสู้กับคุณที่${AREAS[me.area].name}`;
     this.setChoice(`<div class="hud-tag">กลางคืน · ลงการ์ด</div>${peek}<div class="waiting">${where} · รอการต่อสู้ที่อื่น…</div>`);
   }
 
@@ -492,13 +509,13 @@ export class UI {
       this.startTimer(CARD_SECONDS, () => done(chooseCards(g, me, ctx)));
       const draw = () => {
         const chosen = this.sel.cards.map((id) => cards.find((c) => c.id === id));
-        const spent = chosen.reduce((a, c) => a + c.cost, 0);
+        const spent = chosen.reduce((a, c) => a + g.cardCost(c), 0);
         const foes = fight.players.filter((x) => x !== me).map((x) => `<span class="foe">${portrait(x.servant.cls, 'xs')} <b>${esc(x.name)}</b> ${esc(g.servantLabel(me, x))} · HP ${Math.max(0, x.servant.hp)}/${x.servant.maxHp}</span>`);
         if (fight.monster) foes.push(`<span class="foe">👁 <b>มอนสเตอร์</b> ${MONSTER_BASE}+1d6</span>`);
         const hand = cards.map((c) => {
           const on = this.sel.cards.includes(c.id);
-          const off = !on && (this.sel.cards.length >= 2 || spent + c.cost > me.mana);
-          return cardTile(c, { sel: on, off, attrs: `data-card="${c.id}"` });
+          const off = !on && (this.sel.cards.length >= 2 || spent + g.cardCost(c) > me.mana);
+          return cardTile(c, { sel: on, off, attrs: `data-card="${c.id}"`, cost: g.cardCost(c) });
         }).join('');
         const fightItems = [...new Set(me.items)].filter((k) => ITEMS[k].phase.includes('fight'));
         const sealsLeft = me.seals - (this.sel.boost ? 1 : 0) - (this.sel.sealHeal ? 1 : 0);
@@ -615,7 +632,7 @@ export class UI {
     </div>` : '';
     const n = res.entries.length + (res.monster ? 1 : 0);
     el.innerHTML = `<div class="bt-sky"></div>
-      <div class="bt-top"><span class="hud-tag">BATTLE ${idx + 1}/${count}</span> <b>${AREAS[res.area].name}</b> · ${esc(SITUATIONS[g.situation].name)}<div class="verdict"></div></div>
+      <div class="bt-top"><span class="hud-tag">BATTLE ${idx + 1}/${count}</span> <b>${AREAS[res.area].name}</b> · ${esc(DAILY[g.situation].name)}<div class="verdict"></div></div>
       <div class="arena multi n${Math.min(n, 5)}">${res.entries.map(fighter).join('')}${monster}</div>
       <div class="np-banner"></div>
       <div class="bt-bottom"><div class="bt-log"></div><div class="bt-controls"><div class="waiting">เปิดการ์ดพร้อมกัน… <small>(แตะสนามเพื่อเร่ง)</small></div></div></div>`;
@@ -762,13 +779,14 @@ export class UI {
       const sh = this.modal(`
         <div class="title-art">${Object.keys(CLASS_ART).map((c) => `<img src="${art(c)}" alt="${c}">`).join('')}</div>
         <h1 class="logo">Fate <span>Battle Royale</span></h1>
-        <p class="muted">เดโมออฟไลน์ (กติกา v1.1): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน วันละ 1 กลางวัน + 2 กลางคืน</p>
+        <p class="muted">เดโมออฟไลน์ (กติกา v1.3): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน วันละ 1 กลางวัน + 2 กลางคืน</p>
         <ul class="rules">
-          <li><b>กลางวัน</b> ทุกคนเลือกพื้นที่พร้อมกัน: <b>วัดริวโด</b> (มานา) · <b>มิยามะ / ชินโตะ</b> (สนามรบ) · <b>โบสถ์</b> (Command Seal, เควส)</li>
+          <li>ทุกเช้าเปิด <b>อีเวนต์ประจำวัน</b> มีผลทั้งวัน เช่น "วันแห่ง Arts" การ์ดเวท +1</li>
+          <li><b>กลางวัน</b> ทุกคนเลือกพื้นที่พร้อมกัน: <b>วัดริวโด</b> (มานา) · <b>มิยามะ / ชินโตะ</b> (สนามรบ) · <b>โบสถ์</b> (Command Seal 5 มานา, เควส) · <b>คฤหาสน์โทซากะ</b> (หลอมการ์ดเป็นมานา)</li>
           <li><b>กลางคืน 2 รอบ</b> แต่ละรอบย้ายได้ถ้าไม่มีใครอยู่ด้วย แล้วคนที่อยู่พื้นที่เดียวกัน <b>ลงการ์ด 2 ใบ + ทอย 1d6</b> พร้อมกัน พลังรวมสูงสุดชนะ</li>
           <li>ผู้แพ้เสีย HP เท่าส่วนต่าง · อยู่สนามรบตั้งแต่กลางวัน = <b>ตั้งหลัก +1</b> · ชนะแล้วได้ <b>ธง +3</b> ถ้าอยู่ต่อ</li>
           <li><b>Noble Phantasm</b> แรงที่สุด แต่ <b>ชื่อจริงถูกเปิด</b> พลัง −2 ทุกการต่อสู้ต่อจากนั้น</li>
-          <li>Servant ตาย → ใช้ <b>Command Seal</b> อัญเชิญใหม่อัตโนมัติ · หมด Seal = ตกรอบ · คนอื่นไม่รู้ว่าคุณเหลือกี่ดวง</li>
+          <li>Servant ตาย → ใช้ <b>Command Seal</b> อัญเชิญใหม่อัตโนมัติ (ตายกลางคืน 1 พักฟื้นถึงเช้า) · หมด Seal = ตกรอบ · คนอื่นไม่รู้ว่าคุณเหลือกี่ดวง</li>
           <li>ตายรวม 7 ครั้งหรือถึงวันที่ 8 → <b>จอกศักดิ์สิทธิ์</b> ปรากฏบนสนามรบ · ถือจอกตอนจบชนะ</li>
         </ul>
         <label>ชื่อมาสเตอร์ <input id="nm" value="เอมิยะ" maxlength="16"></label>

@@ -1,8 +1,8 @@
-// "Normal" difficulty bot from design v1.1 section 12. Bots answer through the
+// "Normal" difficulty bot from design v1.3 section 12. Bots answer through the
 // same decide() interface as the human, so a bot can take over a seat (and
 // plays the human's cards when their timer runs out).
 
-import { MANA_MAX, SEAL_MAX, MOVE_COST, QUEST_DEPOSIT } from './data.js';
+import { MANA_MAX, SEAL_MAX, QUEST_DEPOSIT } from './data.js';
 
 const CATALYST_PREF = ['heracles', 'artoria', 'gilgamesh', 'iskandar', 'lancelot', 'cu', 'emiya', 'siegfried'];
 const EVENT_VALUE = (ev) => (ev ? (ev.mana || 0) + (ev.items ? 3.5 : 0) + (ev.heal ? 2.5 : 0) + (ev.draw ? 2 : 0) : 2);
@@ -50,15 +50,21 @@ function chooseDay(game, pl) {
   const backup = fields[0];
   const holder = game.grail.holder === pl;
   if (holder) return { area: backup, backup };
-  // church: buy a seal when low and rich, or pick up a quest now and then
+  // church: buy a seal when short and able to pay, or pick up a quest now and then
+  if (game.cap.church) {
+    const price = game.offerPrice();
+    if (pl.seals < SEAL_MAX && pl.mana >= price && (pl.seals <= 1 || game.rng() < 0.5)) return { area: 'church', backup, church: { type: 'offer' } };
+  }
   if (game.cap.church && !pl.quest) {
-    const price = game.offerPrice(pl);
-    if (pl.seals <= 1 && pl.mana >= price && pl.seals < SEAL_MAX) return { area: 'church', backup, church: { type: 'offer' } };
+    const price = game.offerPrice();
     if (pl.seals < SEAL_MAX && pl.items.length >= 2 && game.quests.includes('offering') && pl.mana >= QUEST_DEPOSIT)
       return { area: 'church', backup, church: { type: 'quest', quest: 'offering' } };
     if (s.hp <= s.maxHp * 0.3 && pl.seals <= 1) return { area: 'church', backup, church: pl.mana >= price ? { type: 'offer' } : null };
   }
   const wantGrail = game.grail.appeared && !game.grail.holder;
+  // mansion: melt weak cards (power 1-2) for mana when holding two or more
+  const weak = pl.hand.filter((c) => c.kind === 'atk' && c.power <= 2);
+  if (game.cap.mansion && !wantGrail && weak.length >= 2 && game.rng() < 0.7) return { area: 'mansion', backup, forge: weak.slice(0, 2).map((c) => c.id) };
   if (game.cap.temple && !wantGrail && (pl.mana < 8 || s.hp <= s.maxHp * 0.4) && game.rng() < 0.8) return { area: 'temple', backup };
   return { area: backup, backup };
 }
@@ -78,20 +84,24 @@ function chooseMove(game, pl, opts) {
   }
   const here = game.alive().filter((x) => x !== pl && x.area === pl.area);
   const hpPct = s.hp / s.maxHp;
-  // escape when nearly dead and seals to spare
-  if (here.length && hpPct <= 0.25 && opts.escape.length && (pl.seals >= 2 || pl.items.includes('scroll')) && game.grail.holder !== pl) {
-    const safe = opts.escape.includes('church') ? 'church' : opts.escape.find((a) => !game.alive().some((x) => x.area === a)) ?? null;
+  // escape when badly hurt (worse in night 2: tied down with whoever just won); never the last seal
+  const danger = game.nightNo === 2 ? 0.4 : 0.25;
+  if (here.length && hpPct <= danger && opts.escape.length && (pl.seals >= 2 || pl.items.includes('scroll')) && game.grail.holder !== pl) {
+    const empty = (a) => !game.alive().some((x) => x.area === a);
+    const safe = ['church', 'mansion'].find((a) => opts.escape.includes(a) && empty(a)) ?? opts.escape.find(empty) ?? null;
     if (safe) return { ...out, type: 'escape', to: safe, scroll: pl.items.includes('scroll') };
   }
   // move only when free and the other battlefield looks weaker / emptier
-  if (opts.move.length && pl.mana >= MOVE_COST + 2) {
+  if (opts.move.length && pl.mana >= game.moveCost() + 2) {
     for (const f of opts.move) {
       const there = game.alive().filter((x) => x.area === f);
       const theirs = there.reduce((a, x) => Math.max(a, strengthGuess(game, x)), 0);
       const grailHere = game.grail.appeared && !game.grail.holder && game.grail.area === f;
       const holderThere = game.grail.holder && game.grail.holder !== pl && there.includes(game.grail.holder);
       if ((grailHere || holderThere) && hpPct > 0.5) return { ...out, type: 'move', to: f };
-      if (there.length === 1 && theirs < s.hp - 3 && game.rng() < 0.5 && f !== game.shadowArea) return { ...out, type: 'move', to: f };
+      // hunt a wounded rival sitting alone on the other battlefield
+      const wounded = there.length === 1 && there[0].servant.hp <= there[0].servant.maxHp * 0.5;
+      if (there.length === 1 && (theirs < s.hp - 3 || wounded) && game.rng() < 0.6 && f !== game.shadowArea) return { ...out, type: 'move', to: f };
     }
   }
   return out;
@@ -124,7 +134,7 @@ export function chooseCards(game, pl, ctx) {
   }
   let best = null, bestScore = -Infinity;
   for (const combo of combos) {
-    const cost = combo.reduce((a, c) => a + c.cost, 0);
+    const cost = combo.reduce((a, c) => a + game.cardCost(c), 0);
     if (cost > pl.mana) continue;
     const hasNp = combo.some((c) => c.kind === 'np');
     let total = evalCombo(game, pl, combo, fight.area);
