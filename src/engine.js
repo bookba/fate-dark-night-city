@@ -582,7 +582,7 @@ export class Game {
     const ents = f.players.map((pl) => {
       const play = this.sanitizePlay(pl, pl.play);
       const s = pl.servant;
-      const e = { pl, id: pl.id, name: pl.name, cls: s.cls, label: null, play, cards: play.cards.map((c) => ({ ...c })), hpBefore: s.hp, maxHp: s.maxHp, parts: [] };
+      const e = { pl, id: pl.id, name: pl.name, key: s.key, cls: s.cls, label: null, play, cards: play.cards.map((c) => ({ ...c })), hpBefore: s.hp, maxHp: s.maxHp, parts: [] };
       // pay
       pl.mana -= play.cards.reduce((a, c) => a + this.cardCost(c), 0);
       if (play.boost) pl.seals--;

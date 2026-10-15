@@ -9,6 +9,7 @@ import {
 import { LAST_DAY } from './engine.js';
 import { chooseCards } from './bot.js';
 import { CLASS_ART, CLASS_COLOR } from './portraits.js';
+import { servantArt } from './servant-art.js';
 import { QUICKSTART, TERMS, DAY, MOVE, CARDS, FIRST_DAY } from './help.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -31,9 +32,12 @@ function bar(cur, max, cls, label = true) {
 
 const seals = (n) => `<span class="seals" title="Command Seal">${'◆'.repeat(n)}${'◇'.repeat(Math.max(0, SEAL_MAX - n))}</span>`;
 const hiddenSeals = '<span class="seals hidden" title="Command Seal ของคนอื่นเป็นความลับ">◆ ?</span>';
-const art = (cls) => (cls && CLASS_ART[cls]) || '';
-const portrait = (cls, size = '') => cls
-  ? `<img class="pt ${size}" src="${art(cls)}" alt="${cls}">`
+// pass `key` only when the viewer knows the Servant's true name; otherwise the
+// class art keeps it hidden. A missing or broken image falls back to the class art.
+const art = (cls, key) => servantArt(key) || (cls && CLASS_ART[cls]) || '';
+const fallback = (cls) => (cls && CLASS_ART[cls] ? ` onerror="this.onerror=null;this.src='${CLASS_ART[cls]}'"` : '');
+const portrait = (cls, size = '', key) => cls
+  ? `<img class="pt ${size}" src="${art(cls, key)}" alt="${cls}"${fallback(cls)}>`
   : `<span class="pt ${size} empty">?</span>`;
 
 // one Servant card as a small tile; `why` explains a disabled card
@@ -284,7 +288,7 @@ export class UI {
     const def = s.def;
     const skills = def.skills.map((k) => `<li title="${esc(k.text)}"><b>${esc(k.name)}</b><em>พลัง ${k.power} · ${k.cost}◈</em></li>`).join('');
     $('#charcard').innerHTML = `<div class="ccard cls-${s.cls}" style="--cc:${CLASS_COLOR[s.cls]}">
-      <div class="cc-art" style="background-image:url('${art(s.cls)}')">
+      <div class="cc-art" style="background-image:url('${art(s.cls, s.key)}')">
         <span class="cc-cls">${s.cls}${def.alter ? ' · Alter' : ''}</span>
         <span class="cc-stats">HP ${s.maxHp}${def.godHand ? ' · God Hand' : ''}${def.nameless ? ' · ไร้นาม' : ''}</span>
       </div>
@@ -308,7 +312,7 @@ export class UI {
       const grailHere = g.grail.appeared && !g.grail.holder && g.grail.area === a;
       const people = g.alive().filter((x) => x.area === a && x.servant);
       const tokens = people.map((x) => `<span class="token ${x === me ? 'me' : ''} ${g.grail.holder === x ? 'holder' : ''}" style="--pc:${this.color(x)}" title="${esc(x.name)} · ${esc(g.servantLabel(me, x))}">
-        ${portrait(x.servant.cls, 'xs')}<small>${esc(x.name)}</small></span>`).join('');
+        ${portrait(x.servant.cls, 'xs', g.knowsName(me, x) && x.servant.key)}<small>${esc(x.name)}</small></span>`).join('');
       const sel = choosing && this.sel.area === a;
       const mine = !choosing && !me.out && me.area === a;
       const fight = g.stage === 'cards' || g.stage === 'result' ? (g.fights || []).some((f) => f.area === a) : false;
@@ -373,7 +377,7 @@ export class UI {
       const known = s && x !== me && g.knowsName(me, x);
       return `<li class="prow ${x.out ? 'out' : ''} ${x === me ? 'me' : ''}" style="--pc:${this.color(x)}">
         <div class="pr-num">${i + 1}</div>
-        ${portrait(s?.cls, 'sm')}
+        ${portrait(s?.cls, 'sm', s && g.knowsName(me, x) && s.key)}
         <div class="pr-main">
           <div class="pr-name"><b>${esc(x.name)}</b>${x === me ? '<span class="you">คุณ</span>' : ''}${g.grail.holder === x ? '<span class="grail"> ✦</span>' : ''}</div>
           <div class="pr-sv">${esc(label)}${s?.def.alter && known ? ' <small class="bad">Alter</small>' : ''}${known ? ` <small class="bad" ${help(s.revealed ? 'revealed' : 'favored')}>${s.revealed ? 'เปิดชื่อแล้ว −2' : 'รู้ชื่อจริง'}</small>` : ''}</div>
@@ -669,7 +673,7 @@ export class UI {
         const chosen = this.sel.cards.map((id) => cards.find((c) => c.id === id));
         const spent = chosen.reduce((a, c) => a + g.cardCost(c), 0);
         const full = this.sel.cards.length >= 2;
-        const foes = fight.players.filter((x) => x !== me).map((x) => `<span class="foe">${portrait(x.servant.cls, 'xs')} <b>${esc(x.name)}</b> ${esc(g.servantLabel(me, x))} · HP ${Math.max(0, x.servant.hp)}/${x.servant.maxHp}</span>`);
+        const foes = fight.players.filter((x) => x !== me).map((x) => `<span class="foe">${portrait(x.servant.cls, 'xs', g.knowsName(me, x) && x.servant.key)} <b>${esc(x.name)}</b> ${esc(g.servantLabel(me, x))} · HP ${Math.max(0, x.servant.hp)}/${x.servant.maxHp}</span>`);
         if (fight.monster) foes.push(`<span class="foe">👁 <b>มอนสเตอร์</b> ${MONSTER_BASE}+1d6</span>`);
         const cardWhy = (c) => {
           if (this.sel.cards.includes(c.id)) return '';
@@ -841,7 +845,7 @@ export class UI {
         <div class="f-label">${esc(preLabel(e))}</div>
         <div class="hpbar"><i class="lag"></i><i class="cur"></i><span></span></div>
       </div>
-      <div class="f-body"><img src="${art(e.cls)}" alt="${e.cls}"><div class="fx-layer"></div></div>
+      <div class="f-body"><img src="${art(e.cls, preLabel(e) !== e.cls && e.key)}" alt="${e.cls}"${fallback(e.cls)}><div class="fx-layer"></div></div>
       <div class="f-cards">${e.cards.length ? e.cards.map((c) => cardTile(c, { back: true })).join('') : '<small class="muted">ไม่ลงการ์ด</small>'}</div>
       <div class="f-total"><span class="dicebox"></span><b class="f-sum">?</b></div>
       <small class="f-parts"></small>
@@ -1019,7 +1023,7 @@ export class UI {
   servantCard(s) {
     const def = s.def;
     return `<div class="summon">
-      <img class="summon-art" src="${art(s.cls)}" alt="${s.cls}">
+      <img class="summon-art" src="${art(s.cls, s.key)}" alt="${s.cls}"${fallback(s.cls)}>
       <div>
         <div class="sv-head"><span class="badge" style="background:${CLASS_COLOR[s.cls]}">${s.cls}</span>${def.alter ? ' <span class="badge alter">Alter</span>' : ''} <b>${esc(def.name)}</b></div>
         <div class="muted">HP ${s.maxHp} · สำรับ 12 ใบ: โจมตี 10 · สกิล 2</div>
@@ -1050,7 +1054,7 @@ export class UI {
         <p class="muted">ควรเลือกเมื่อ: ${esc(DAY.catalyst[1])}</p>
         <div class="grid">${choices.map((k) => {
           const d = SERVANTS[k];
-          return `<button data-k="${k}" class="pick-sv"><img src="${art(d.cls)}" alt=""><b>${esc(d.name)}</b><small>${d.cls}${d.alter ? ' · Alter' : ''}</small>
+          return `<button data-k="${k}" class="pick-sv"><img src="${art(d.cls, k)}" alt=""${fallback(d.cls)}><b>${esc(d.name)}</b><small>${d.cls}${d.alter ? ' · Alter' : ''}</small>
             <small class="desc">ถนัด ${AREAS[d.favored].short} · ไม่ถนัด ${AREAS[d.unfavored].short} · NP ${esc(d.np.name)}</small></button>`;
         }).join('')}</div>`);
       sh.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { this.closeModal(); resolve(b.dataset.k); });
@@ -1064,7 +1068,7 @@ export class UI {
     this.setChoice('');
     const rank = g.ranking.indexOf(me) + 1;
     return new Promise((resolve) => {
-      const rows = g.ranking.map((x, i) => `<li class="${x === me ? 'me' : ''}">${portrait(x.servant?.cls, 'sm')}<b>#${i + 1} ${esc(x.name)}</b>
+      const rows = g.ranking.map((x, i) => `<li class="${x === me ? 'me' : ''}">${portrait(x.servant?.cls, 'sm', x.servant?.key)}<b>#${i + 1} ${esc(x.name)}</b>
         <span>${x.servant ? `${esc(x.servant.def.name)} (${x.servant.cls})` : 'ตกรอบ'} · มานา ${x.mana} · กำจัด ${x.kills}${x === g.grail.holder ? ' ✦' : ''}</span></li>`).join('');
       const sh = this.modal(`<h2>${g.winner === me ? '🏆 คุณคว้าจอกศักดิ์สิทธิ์!' : `จบสงคราม · คุณได้อันดับ ${rank}`}</h2>
         <p>ผู้ชนะ: <b>${esc(g.winner.name)}</b> ${g.grail.holder === g.winner ? '(ถือจอกศักดิ์สิทธิ์)' : '(มานามากที่สุด เพราะไม่มีใครถือจอก)'}</p>
