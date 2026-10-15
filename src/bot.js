@@ -1,4 +1,4 @@
-// "Normal" difficulty bot from design v1.3 section 12. Bots answer through the
+// "Normal" difficulty bot from design v1.6 section 12. Bots answer through the
 // same decide() interface as the human, so a bot can take over a seat (and
 // plays the human's cards when their timer runs out).
 
@@ -114,7 +114,7 @@ function evalCombo(game, pl, cards, area) {
   v += [3.5, 4.47, 4.96, 5.24][Math.min(3, extra)];
   for (const c of cards) {
     const e = c.eff;
-    v += (e.foe || 0) + (e.reduce || 0) * 0.4 + (e.heal || 0) * 0.4 + (e.mana || 0) * 0.5 + (e.splash || 0) * 0.5 - (e.selfHit || 0) * 0.5;
+    v += (e.foe || 0) + (e.reduce || 0) * 0.4 + (e.heal || 0) * 0.4 + (e.mana || 0) * 0.5 + (e.splash || 0) * 0.5 - ((e.selfHit || 0) + (e.darkHit || 0)) * 0.5;
   }
   return v;
 }

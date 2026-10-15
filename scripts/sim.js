@@ -4,7 +4,7 @@ import { Game } from '../src/engine.js';
 import { botDecide } from '../src/bot.js';
 
 const N = Number(process.argv[2] || 200);
-const stats = { deaths: 0, out: 0, days: 0, grailEarly: 0, grailWin: 0, fights: 0, reveals: 0, finalAlive: 0 };
+const stats = { deaths: 0, out: 0, days: 0, grailEarly: 0, grailWin: 0, fights: 0, reveals: 0, alters: 0, finalAlive: 0 };
 const wins = {};
 const areas = {};
 for (let i = 0; i < N; i++) {
@@ -13,6 +13,7 @@ for (let i = 0; i < N; i++) {
   g.onEvent = (e) => {
     if (e.type !== 'log') return;
     if (e.entry.cls === 'reveal') stats.reveals++;
+    if (e.entry.text.startsWith('กองกลางหมดแล้ว')) stats.alters++;
     if (e.entry.text.startsWith('⚔')) stats.fights++;
     if (e.entry.cls === 'map') { const a = e.entry.text.split(':')[0]; areas[a] = (areas[a] || 0) + e.entry.text.split(',').length; }
   };

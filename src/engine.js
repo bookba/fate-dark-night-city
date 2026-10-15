@@ -1,4 +1,4 @@
-// Game engine for design v1.3: owns all state, shuffles, rolls and resolves.
+// Game engine for design v1.6: owns all state, shuffles, rolls and resolves.
 // No DOM code, so it can run in the browser, in scripts/sim.js, or on a server.
 //
 // Every step is a simultaneous choice: the engine asks every player through
@@ -6,7 +6,7 @@
 // Promise), and only then resolves everything in one go.
 
 import {
-  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, capacityFor, SERVANTS, SERVANT_KEYS, CLASS_HP, buildDeck, TYPES,
+  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, capacityFor, SERVANTS, SERVANT_KEYS, ALTER_KEYS, CLASS_HP, buildDeck, npCard, TYPES,
   DAILY, DAILY_KEYS, REWARDS, ITEMS, ITEM_KEYS, QUESTS, QUEST_KEYS, MASTER_NAMES,
   MANA_START, MANA_MAX, HAND_SIZE, ITEM_MAX, SEAL_MAX, DEATHS_FOR_GRAIL, MOVE_COST, OFFER_PRICE,
   FORGE_MANA, QUEST_DEPOSIT, MONSTER_BASE,
@@ -27,6 +27,7 @@ export class Game {
     this.uid = 0;
     this.cardId = 0;
     this.pool = [...SERVANT_KEYS];
+    this.alterPool = [...ALTER_KEYS];
     this.flags = { miyama: null, shinto: null };
     this.grail = { appeared: false, pending: false, area: null, holder: null, endDay: LAST_DAY, appearedDay: null };
     this.situation = null;
@@ -51,7 +52,7 @@ export class Game {
       seals: 3,
       items: [],
       servant: null,
-      deck: [], discard: [], hand: [], npSide: null,
+      deck: [], discard: [], hand: [],
       out: false,
       known: new Set(),
       area: null, dayArea: null, settled: false,
@@ -109,19 +110,38 @@ export class Game {
   makeServant(key) {
     const def = SERVANTS[key];
     const maxHp = def.hp ?? CLASS_HP[def.cls];
-    return { uid: ++this.uid, key, def, cls: def.cls, maxHp, hp: maxHp, revealed: false, pendingReveal: false, godHandUsed: false, namelessUsed: false, shown: [] };
+    return { uid: ++this.uid, key, def, cls: def.cls, maxHp, hp: maxHp, revealed: false, pendingReveal: false, godHandUsed: false, namelessUsed: false, shown: [], np: npCard(key, ++this.cardId) };
+  }
+
+  // summon order (design 9): unused central pool, then unused Alters, then
+  // (repeats allowed) any dead Servant nobody is using
+  summonSource() {
+    if (this.pool.length) return this.pool;
+    if (this.alterPool.length) return this.alterPool;
+    const inUse = new Set(this.alive().map((x) => x.servant?.key).filter(Boolean));
+    return [...SERVANT_KEYS, ...ALTER_KEYS].filter((k) => !inUse.has(k));
+  }
+
+  // catalyst: 3 picks from the pile in use, topped up from the Alter pile
+  catalystChoices() {
+    const src = this.summonSource();
+    let out = this.shuffle(src).slice(0, 3);
+    if (out.length < 3 && src === this.pool) out = [...out, ...this.shuffle(this.alterPool).slice(0, 3 - out.length)];
+    return out;
   }
 
   summon(pl, key) {
-    const choices = this.pool.length ? this.pool : SERVANT_KEYS;
-    if (!key || !choices.includes(key)) key = this.pick(choices);
+    const src = this.summonSource();
+    const ok = key && (src.includes(key) || this.pool.includes(key) || this.alterPool.includes(key));
+    if (!ok) key = this.pick(src);
     this.pool = this.pool.filter((k) => k !== key);
+    this.alterPool = this.alterPool.filter((k) => k !== key);
     pl.servant = this.makeServant(key);
     pl.deck = this.shuffle(buildDeck(key).map((c) => ({ ...c, id: ++this.cardId })));
     pl.discard = [];
     pl.hand = [];
-    pl.npSide = null;
     this.draw(pl, HAND_SIZE);
+    if (SERVANTS[key].alter) this.log('กองกลางหมดแล้ว คุณได้ Servant Alter (ร่างด้านมืด)', [pl.id], 'me');
     this.log(`Servant ของคุณคือ ${pl.servant.def.name}`, [pl.id], 'me');
   }
 
@@ -136,8 +156,8 @@ export class Game {
     }
   }
 
-  // cards the player could put down tonight: hand + an NP already played before
-  playable(pl) { return pl.npSide ? [...pl.hand, pl.npSide] : [...pl.hand]; }
+  // what the player could put down tonight: hand + the Servant's NP ability
+  playable(pl) { return pl.servant ? [...pl.hand, pl.servant.np] : [...pl.hand]; }
 
   addItem(pl, key = null) {
     const k = key || this.pick(ITEM_KEYS);
@@ -309,9 +329,9 @@ export class Game {
     for (const pl of alive.filter((x) => x.area === 'mansion')) this.forge(pl, want.get(pl).forge);
   }
 
-  // Tohsaka mansion: melt 1-2 non-NP hand cards for mana, then redraw
+  // Tohsaka mansion: melt 1-2 hand cards for mana, then redraw
   forge(pl, ids) {
-    const cards = [...new Set(ids)].slice(0, 2).map((id) => pl.hand.find((c) => c.id === id)).filter((c) => c && c.kind !== 'np');
+    const cards = [...new Set(ids)].slice(0, 2).map((id) => pl.hand.find((c) => c.id === id)).filter(Boolean);
     if (!cards.length) return;
     for (const c of cards) { pl.hand.splice(pl.hand.indexOf(c), 1); pl.discard.push(c); }
     const m = cards.length * this.forgeMana();
@@ -501,7 +521,7 @@ export class Game {
     // the church occupant sees one master's hand at the start of card play
     for (const pl of this.alive().filter((x) => x.area === 'church' && x.peekTarget != null && !this.players[x.peekTarget].out)) {
       const t = this.players[pl.peekTarget];
-      pl.peek = { id: t.id, name: t.name, cards: this.playable(t).map((c) => c.name) };
+      pl.peek = { id: t.id, name: t.name, cards: t.hand.map((c) => c.name) };
       this.log(`โบสถ์: มือของ ${t.name} คือ ${pl.peek.cards.join(', ') || '(ว่าง)'}`, [pl.id], 'me');
     }
     return fights;
@@ -695,6 +715,23 @@ export class Game {
         if (q.progress >= QUESTS[q.key].need) this.completeQuest(unique.pl, q);
       }
     }
+    // Alter NP: its user loses HP once the fight is settled; a death from this
+    // counts but nobody takes mana or items (design 5.4)
+    for (const e of ents) {
+      const hit = e.play.cards.reduce((a, c) => a + (c.eff.darkHit || 0), 0);
+      const s = e.pl.servant;
+      if (!hit || e.died || s.hp <= 0) continue;
+      s.hp -= hit;
+      e.dmg += hit;
+      e.darkHit = hit;
+      res.text.push(`${e.name}: NP ด้านมืด Servant เสีย HP ${hit}`);
+      if (s.hp <= 0) {
+        s.hp = 0;
+        e.died = true;
+        this.deaths++;
+        this.deathsToday = (this.deathsToday || 0) + 1;
+      }
+    }
     // after-fight card effects, discard
     for (const e of ents) {
       for (const c of e.play.cards) if (c.eff.mana) this.gainMana(e.pl, c.eff.mana);
@@ -702,7 +739,7 @@ export class Game {
       for (const c of e.play.cards) {
         const hi = pl.hand.findIndex((h) => h.id === c.id);
         if (hi >= 0) pl.hand.splice(hi, 1);
-        if (c.kind === 'np') pl.npSide = c; else pl.discard.push(c);
+        if (c.kind !== 'np') pl.discard.push(c);
       }
       e.hpAfter = Math.max(0, pl.servant.hp);
       e.label = pl.servant.revealed ? `${pl.servant.def.name} (${pl.servant.cls})` : pl.servant.cls;
@@ -722,7 +759,9 @@ export class Game {
     if (s.revealed) return;
     if (s.def.nameless && !s.namelessUsed) { s.namelessUsed = true; return; }
     s.revealed = true;
-    this.log(`✸ ชื่อจริงถูกเปิดเผย: Servant ของ ${pl.name} คือ ${s.def.name}`, null, 'reveal');
+    const where = `ถนัด${AREAS[s.def.favored].name} ไม่ถนัด${AREAS[s.def.unfavored].name}`;
+    this.log(`✸ ชื่อจริงถูกเปิดเผย: Servant ของ ${pl.name} คือ ${s.def.name} · ${where}`, null, 'reveal');
+    this.log(`ทุกคนรู้แล้วว่า Servant ของคุณคือ ${s.def.name} ${where} ตั้งแต่การสู้ครั้งหน้าพลัง −2`, [pl.id], 'bad');
   }
 
   applyEvent(pl, ev, share = 1) {
@@ -777,17 +816,20 @@ export class Game {
 
   async resummon(pl) {
     // the old Servant does not return to the pool
-    if (pl.seals <= 0) return this.eliminate(pl, 'Command Seal หมด อัญเชิญไม่ได้');
+    if (pl.seals <= 0) {
+      this.log('Command Seal หมด คุณตกรอบ ดูต่อได้หรือออกจากห้อง', [pl.id], 'bad');
+      return this.eliminate(pl, 'Command Seal หมด อัญเชิญไม่ได้');
+    }
     pl.seals--;
     let key = null;
     const ci = pl.items.indexOf('catalyst');
     if (ci >= 0) {
       pl.items.splice(ci, 1);
-      const src = this.pool.length ? this.pool : SERVANT_KEYS;
-      const choices = this.shuffle(src).slice(0, 3);
+      const choices = this.catalystChoices();
       key = await this.ask(pl, 'catalyst', { choices });
       if (!choices.includes(key)) key = this.pick(choices);
     }
+    this.log(`Servant ของคุณถูกกำจัด ใช้ Command Seal 1 ดวงอัญเชิญตนใหม่ (เหลือ ${pl.seals} ดวง)${this.nightNo === 1 ? ' ตนใหม่พักฟื้นถึงพรุ่งนี้' : ''}`, [pl.id], 'seal');
     this.summon(pl, key);
     this.log(`${pl.name} ใช้ Command Seal อัญเชิญ ${pl.servant.cls} ตนใหม่`, null, 'seal');
   }

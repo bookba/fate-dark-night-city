@@ -1,4 +1,4 @@
-// Static game data for design v1.3: areas, Servant decks, daily events,
+// Static game data for design v1.6: areas, Servant decks, daily events,
 // reward cards, items and church quests. Numbers are starting points for balance.
 
 export const AREAS = {
@@ -52,6 +52,7 @@ export const attackCost = (p) => (p >= 5 ? 2 : p === 4 ? 1 : 0);
 //   foe:n              every opponent's total −n
 //   splash:n           if you win, every loser loses n more HP
 //   selfHit:n          lose n HP after the fight whatever happens
+//   darkHit:n          Alter NP: lose n HP once the fight is settled (no loot if it kills)
 const sk = (name, power, cost, eff, text) => ({ name, power, cost, eff, text });
 
 export const SERVANTS = {
@@ -100,14 +101,51 @@ export const SERVANTS = {
 };
 export const SERVANT_KEYS = Object.keys(SERVANTS);
 
+// Alter Servants (design 5.4): drawn once the central pool runs out. Same class,
+// HP and skills; attack cards of power 1-2 get +1; the NP is +1 power but costs
+// its user 2 HP after the fight; favored / unfavored areas are flipped.
+const ALTER_TABLE = {
+  artoria: ['shinto', 'miyama', 'Excalibur Morgan'],
+  siegfried: ['miyama', 'shinto', 'Balmung (Alter)'],
+  emiya: ['temple', 'shinto', 'Unlimited Lost Works'],
+  gilgamesh: ['miyama', 'shinto', 'Gate of Babylon (Alter)'],
+  cu: ['shinto', 'miyama', 'Curruid Coinchenn'],
+  diarmuid: ['shinto', 'miyama', 'Gáe Dearg & Buidhe (Alter)'],
+  medusa: ['miyama', 'shinto', 'Bellerophon (Alter)'],
+  iskandar: ['temple', 'miyama', 'Ionioi Hetairoi (Alter)'],
+  medea: ['shinto', 'temple', 'Rule Breaker (Alter)'],
+  gilles: ['miyama', 'shinto', "Prelati's Spellbook (Alter)"],
+  kojiro: ['shinto', 'temple', 'Tsubame Gaeshi (Alter)'],
+  hassan: ['miyama', 'shinto', 'Zabaniya (Alter)'],
+  heracles: ['temple', 'miyama', 'Nine Lives (Alter)'],
+  lancelot: ['miyama', 'shinto', 'Arondight (Alter)'],
+};
+export const ALTER_KEYS = [];
+for (const [base, [favored, unfavored, npName]] of Object.entries(ALTER_TABLE)) {
+  const sv = SERVANTS[base];
+  const key = `${base}_alter`;
+  SERVANTS[key] = {
+    ...sv, name: `${sv.name} (Alter)`, alter: true, base, favored, unfavored,
+    np: sk(npName, sv.np.power + 1, sv.np.cost, { ...sv.np.eff, darkHit: 2 }, `${sv.np.text} · หลังสู้ตัวเองเสีย HP 2`),
+  };
+  ALTER_KEYS.push(key);
+}
+
+// v1.6: the deck is 12 cards (10 attacks + 2 skills); the NP is the Servant's
+// own ability, used in place of one card
 export function buildDeck(key) {
   const sv = SERVANTS[key];
-  const cards = ATTACKS[sv.cls].split(' ').map((c) => ({
-    kind: 'atk', type: c[0], power: Number(c[1]), cost: attackCost(Number(c[1])), name: `${TYPES[c[0]].name} ${c[1]}`, eff: {},
-  }));
+  const cards = ATTACKS[sv.cls].split(' ').map((c) => {
+    const p = Number(c[1]) + (sv.alter && Number(c[1]) <= 2 ? 1 : 0);
+    return { kind: 'atk', type: c[0], power: p, cost: attackCost(p), name: `${TYPES[c[0]].name} ${p}`, eff: {} };
+  });
   sv.skills.forEach((s) => cards.push({ kind: 'skill', type: 'S', power: s.power, cost: s.cost, name: s.name, eff: s.eff, text: s.text }));
-  cards.push({ kind: 'np', type: 'S', power: sv.np.power, cost: sv.np.cost, name: sv.np.name, eff: sv.np.eff, text: sv.np.text, reveal: true });
   return cards;
+}
+
+export function npCard(key, id) {
+  const np = SERVANTS[key].np;
+  return { id, kind: 'np', type: 'S', power: np.power, cost: np.cost, name: np.name, eff: np.eff, text: np.text, reveal: true };
 }
 
 // daily event deck (design 7): 17 cards, effect lasts the whole day
@@ -121,7 +159,7 @@ export const DAILY = {
   force: { name: 'คืนแห่งพละกำลัง', text: 'การ์ด Buster (กำลัง) +2 พลัง', type: { F: 2 } },
   speed: { name: 'คืนแห่งความเร็ว', text: 'การ์ด Quick (ว่องไว) +2 พลัง', type: { A: 2 } },
   magic: { name: 'คืนแห่งเวทมนตร์', text: 'การ์ด Arts (เวท) +2 พลัง · ทุกคน +2 มานาตอนเช้า', type: { M: 2 }, morningMana: 2 },
-  legend: { name: 'วันแห่งตำนาน', text: 'การ์ด NP ใช้มานา 6 แทน 8', npCost: 6 },
+  legend: { name: 'วันแห่งตำนาน', text: 'ใช้ NP เสียมานา 6 แทน 8', npCost: 6 },
   moon: { name: 'จันทร์เต็มดวง', text: 'ทุกคนทอยเพิ่ม 1 ลูก', extraDie: 1 },
   onemind: { name: 'ใจเดียว', text: 'ลง 2 ใบประเภทเดียวกัน +3 พลัง', onemind: 3 },
   brutal: { name: 'ศึกเลือดเดือด', text: 'ผู้แพ้เสีย HP เพิ่ม 1', lossHp: 1 },
