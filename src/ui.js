@@ -83,8 +83,9 @@ export class UI {
     const show = (el) => {
       const key = el.dataset.help;
       const html = key && TERMS[key] ? `<b>${esc(TERMS[key][0])}</b>${esc(TERMS[key][1])}` : esc(el.dataset.tip || '');
+      const extra = el.dataset.pools ? `<br><small>${esc(el.dataset.pools)}</small>` : '';
       if (!html) return;
-      tip.innerHTML = html;
+      tip.innerHTML = html + extra;
       tip.hidden = false;
       const r = el.getBoundingClientRect();
       const w = tip.offsetWidth, h = tip.offsetHeight;
@@ -117,6 +118,8 @@ export class UI {
     return `<div class="hintbox" data-hint="${step}"><button class="hb-x" data-closehint="${step}" title="ปิดคำแนะนำ">✕</button>💡 ${FIRST_DAY[step]}</div>`;
   }
   wireHints() {
+    // the hint box is one line until tapped (design 13.1)
+    $('#choice').querySelectorAll('.hintbox').forEach((h) => h.addEventListener('click', (e) => { if (!e.target.closest('[data-closehint]')) h.classList.toggle('open'); }));
     $('#choice').querySelectorAll('[data-closehint]').forEach((b) => b.onclick = () => {
       this.hintsSeen.add(b.dataset.closehint);
       b.closest('.hintbox').remove();
@@ -170,36 +173,22 @@ export class UI {
   // ================= HUD =================
   renderAll() {
     if (!this.game) return;
+    // daytime gets the bright theme (design 13.1); the body background fades between them
+    document.body.classList.toggle('daytime', this.game.half !== 'night');
     this.renderTrack();
     this.renderBanner();
-    this.renderStatus();
-    this.renderSecret();
-    this.renderItems();
     this.renderCard();
+    this.renderHand();
     this.renderStage();
     this.renderPlayers();
   }
 
+  // the day as one line of text at the top of the right column (design 13.1)
   renderTrack() {
     const g = this.game;
-    const nodes = [];
-    for (let d = 1; d <= LAST_DAY; d++) {
-      // each day: day phase, night 1, night 2
-      for (const step of [0, 1, 2]) {
-        const half = step ? 'night' : 'day';
-        const h = g.history[d];
-        const icons = [];
-        if (!step && g.grail.appearedDay === d) icons.push('<i class="ic grail">✦</i>');
-        if (step === 2 && h?.deaths) icons.push(`<i class="ic death">☠${h.deaths > 1 ? h.deaths : ''}</i>`);
-        if (step === 2 && g.grail.appeared && d === g.grail.endDay) icons.push('<i class="ic end">★</i>');
-        const cur = g.half === 'night' ? g.nightNo : 0;
-        const now = d === g.day && step === cur;
-        const past = d < g.day || (d === g.day && step < cur);
-        nodes.push(`<div class="node ${past ? 'past' : now ? 'now' : 'future'} ${half}">
-          <div class="icons">${icons.join('')}</div><b></b><small>${half === 'day' ? d : ''}</small></div>`);
-      }
-    }
-    $('#daytrack').innerHTML = `<div class="hud-tag">DAY</div><div class="track">${nodes.join('')}</div>`;
+    const night = g.half === 'night';
+    $('#daytrack').classList.toggle('night', night);
+    $('#daytrack').innerHTML = `<div class="day-now">${night ? '☾ กลางคืน' : '☀ กลางวัน'} ${g.day}/${LAST_DAY}${night && g.nightNo === 2 ? ' · รอบ 2' : ''}</div>`;
   }
 
   stageName() {
@@ -233,74 +222,54 @@ export class UI {
     }
     const sit = g.situation ? DAILY[g.situation] : null;
     const secs = this.mode ? ` · <span class="step-sec" id="stepsec">${this.timeLeft()}</span> วิ` : '';
-    $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}` : '☀ กลางวัน'} · วันที่ ${g.day}/${LAST_DAY} · ${this.stepText()}${secs}</div>
-      <div class="pill" ${help(g.grail.appeared ? 'grail' : 'deaths')}>${pill}</div>
+    $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}` : '☀ กลางวัน'} · ${this.stepText()}${secs}</div>
+      <div class="pill" ${help(g.grail.appeared ? 'grail' : 'deaths')} data-pools="อัญเชิญได้อีก: กองกลาง ${g.pool.length} · กอง Alter ${g.alterPool.length}">${pill}</div>
       ${sit ? `<div class="sit" ${help('daily')}><span class="pill-tag warn">อีเวนต์วันนี้</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
   }
 
-  renderStatus() {
-    const pl = this.me, g = this.game;
-    const s = pl.servant;
-    const stat = (icon, cls, v, max, key) => `<div class="stat ${cls}" ${help(key)}><i>${icon}</i><b>${v}</b>${max != null ? `<small>/${max}</small>` : ''}</div>`;
-    $('#status').innerHTML = `<div class="hud-tag">STATUS</div>
-      <div class="stat-grid">
-        ${stat('❤', 'hp', s ? Math.max(0, s.hp) : 0, s ? s.maxHp : 0, 'hp')}
-        ${stat('◈', 'mana', pl.mana, MANA_MAX, 'mana')}
-        ${stat('◆', 'seal', pl.seals, SEAL_MAX, 'seal')}
-        ${stat('▤', 'card', pl.hand.length, Math.max(HAND_SIZE, g.handSize()), 'hand')}
-        ${stat('☠', 'death', g.deaths, DEATHS_FOR_GRAIL, 'deaths')}
-        <div class="stat box" ${help('alive')}>เหลือ<br><b>${g.alive().length}/8</b> มาสเตอร์</div>
-      </div>
-      <div class="sec-row muted" ${help('pools')} style="margin-top:6px">อัญเชิญได้อีก: กองกลาง <b>${g.pool.length}</b> · กอง Alter <b>${g.alterPool.length}</b></div>`;
-  }
-
-  renderSecret() {
+  // Servant card + status, always at the top left (design 13.1)
+  renderCard() {
     const me = this.me, g = this.game;
     const s = me.servant;
-    if (!s) { $('#secret').innerHTML = `<div class="hud-tag">SECRET</div><p class="muted">${me.out ? 'คุณตกรอบแล้ว' : ''}</p>`; return; }
+    if (!s) { $('#charcard').innerHTML = `<div class="ccard empty"><p class="muted">${me.out ? 'คุณตกรอบแล้ว' : 'ยังไม่มี Servant'}</p></div>`; return; }
     const def = s.def;
     const q = me.quest;
     const flags = FIELDS.filter((f) => g.flags[f] === me.id).map((f) => AREAS[f].short);
-    $('#secret').innerHTML = `<div class="hud-tag">SECRET · เห็นเฉพาะคุณ</div>
-      <div class="sec-row" ${help('favored')}><span class="tag good">ถนัด</span> ${AREAS[def.favored].name} <small>พลัง +2</small></div>
-      <div class="sec-row" ${help('favored')}><span class="tag bad">ไม่ถนัด</span> ${AREAS[def.unfavored].name} <small>พลัง −2</small></div>
-      ${flags.length ? `<div class="sec-row" ${help('flag')}><span class="tag warn">⚑ ธง</span> ${flags.join(', ')} <small>อยู่ต่อคืนหน้า +3</small></div>` : ''}
-      ${q ? `<div class="sec-row" data-tip="${esc(QUESTS[q.key].text)}"><span class="tag warn">เควส</span> ${esc(QUESTS[q.key].name)} ${q.progress}/${QUESTS[q.key].need} <small>ภายในวันที่ ${q.until}</small></div>` : ''}
-      ${me.resting && g.half === 'night' ? `<div class="sec-row" ${help('resting')}><span class="tag warn">พักฟื้น</span> คืนนี้ไม่ต้องสู้ กลับมาเล่นพรุ่งนี้</div>` : ''}
-      <div class="sec-row muted" ${help(s.revealed ? 'revealed' : 'favored')}>${s.revealed ? '⚠ ชื่อจริงและพื้นที่ถนัดถูกเปิดแล้ว พลัง −2 ทุกการต่อสู้' : 'ชื่อจริงและพื้นที่ถนัดยังเป็นความลับ คนอื่นเห็นแค่คลาส'} · กองจั่ว ${me.deck.length} · กองทิ้ง ${me.discard.length}</div>`;
-  }
-
-  renderItems() {
-    const me = this.me;
-    const hand = me.hand;
-    const handHtml = hand.length ? hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"', cost: this.game.cardCost(c) })).join('') : '<p class="muted">ไม่มีการ์ดในมือ</p>';
-    const items = me.items.length
-      ? me.items.map((k) => `<li title="${esc(ITEMS[k].text)}"><b>${esc(ITEMS[k].name)}</b><small>${esc(ITEMS[k].text)}</small></li>`).join('')
-      : '<li class="muted">ยังไม่มีไอเท็ม · ได้จากการ์ดรางวัลหรือปราบมอนสเตอร์</li>';
-    $('#items').innerHTML = `<div class="hud-tag" ${help('hand')}>HAND ${me.hand.length}/${Math.max(HAND_SIZE, this.game.handSize())} + NP</div>
-      <div class="hand mini">${handHtml}</div>
-      <div class="hud-tag" style="margin-top:8px" ${help('items')}>ITEMS ${me.items.length}/${ITEM_MAX}</div><ul class="items">${items}</ul>`;
-  }
-
-  renderCard() {
-    const s = this.me.servant;
-    if (!s) { $('#charcard').innerHTML = ''; return; }
-    const def = s.def;
-    const skills = def.skills.map((k) => `<li title="${esc(k.text)}"><b>${esc(k.name)}</b><em>พลัง ${k.power} · ${k.cost}◈</em></li>`).join('');
+    const tags = [
+      s.revealed ? `<span class="tag bad" ${help('revealed')}>ชื่อจริงถูกเปิด −2</span>` : '',
+      me.resting && g.half === 'night' ? `<span class="tag warn" ${help('resting')}>พักฟื้น</span>` : '',
+      flags.length ? `<span class="tag warn" ${help('flag')}>⚑ ${flags.join(', ')} +3</span>` : '',
+      q ? `<span class="tag warn" data-tip="${esc(QUESTS[q.key].text)} · ภายในวันที่ ${q.until}">เควส ${esc(QUESTS[q.key].name)} ${q.progress}/${QUESTS[q.key].need}</span>` : '',
+    ].filter(Boolean).join('');
     $('#charcard').innerHTML = `<div class="ccard cls-${s.cls}" style="--cc:${CLASS_COLOR[s.cls]}">
-      <div class="cc-art" style="background-image:url('${art(s.cls, s.key)}')">
-        <span class="cc-cls">${s.cls}${def.alter ? ' · Alter' : ''}</span>
-        <span class="cc-stats">HP ${s.maxHp}${def.godHand ? ' · God Hand' : ''}${def.nameless ? ' · ไร้นาม' : ''}</span>
-      </div>
+      <div class="cc-art" style="background-image:url('${art(s.cls, s.key)}')"><span class="cc-cls">${s.cls}${def.alter ? ' · Alter' : ''}</span></div>
       <div class="cc-body">
-        <div class="cc-name">${esc(def.name)}</div>
-        ${bar(Math.max(0, s.hp), s.maxHp, 'hp')}
-        <ul class="cc-moves">
-          ${skills}
-          <li class="np" ${help('np')}><b>NP · ${esc(def.np.name)}</b><em>พลัง ${def.np.power} · ${this.game.cardCost(s.np)}◈</em><small class="desc">${esc(def.np.text)} · ความสามารถ ใช้ได้ทุกการต่อสู้</small></li>
-        </ul>
+        <div class="cc-name" title="${esc(def.name)}">${esc(def.name)}</div>
+        <div ${help('hp')}>${bar(Math.max(0, s.hp), s.maxHp, 'hp')}</div>
+        <div ${help('mana')}>${bar(me.mana, MANA_MAX, 'mana')}</div>
+        <div class="cc-row"><span ${help('seal')}>${seals(me.seals)}</span><small class="muted">${def.godHand ? 'God Hand' : def.nameless ? 'ไร้นาม' : ''}</small></div>
       </div>
+      <div class="cc-fav" ${help('favored')}><span class="good">ถนัด ${AREAS[def.favored].short} +2</span> · <span class="bad">ไม่ถนัด ${AREAS[def.unfavored].short} −2</span></div>
+      ${tags ? `<div class="cc-tags">${tags}</div>` : ''}
     </div>`;
+  }
+
+  // hand + NP right under the Servant card, items at the bottom of the column
+  renderHand() {
+    const me = this.me, g = this.game;
+    const s = me.servant;
+    const tiles = me.hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"', cost: g.cardCost(c) }));
+    if (s) {
+      const cost = g.cardCost(s.np);
+      const why = me.mana < cost ? `มานาไม่พอ (ต้องใช้ ${cost})` : '';
+      tiles.push(cardTile({ ...s.np, name: `NP ${s.np.name}` }, { attrs: `tabindex="-1" ${help('np')}`, cost, off: !!why, why }));
+    }
+    $('#hand').innerHTML = `<div class="hud-tag" ${help('hand')}>HAND ${me.hand.length}/${Math.max(HAND_SIZE, g.handSize())} + NP <small>กองจั่ว ${me.deck.length} · ทิ้ง ${me.discard.length}</small></div>
+      <div class="hand mini">${tiles.join('') || '<p class="muted">ไม่มีการ์ดในมือ</p>'}</div>`;
+    const items = me.items.length
+      ? me.items.map((k) => `<li data-tip="${esc(ITEMS[k].text)}"><b>${esc(ITEMS[k].name)}</b><small>${esc(ITEMS[k].text)}</small></li>`).join('')
+      : '<li class="muted">ยังไม่มีไอเท็ม</li>';
+    $('#items').innerHTML = `<div class="hud-tag" ${help('items')}>ITEMS ${me.items.length}/${ITEM_MAX}</div><ul class="items">${items}</ul>`;
   }
 
   renderStage() {
@@ -352,7 +321,7 @@ export class UI {
     if (!map || window.innerWidth <= 1100) return;
     map.style.zoom = 1;
     const room = st.clientHeight - 4, need = map.offsetHeight;
-    if (need > room && room > 0) map.style.zoom = Math.max(0.55, room / need).toFixed(3);
+    if (need > room && room > 0) map.style.zoom = Math.max(0.45, room / need).toFixed(3);
   }
 
   playerStatus(x) {
@@ -375,17 +344,14 @@ export class UI {
       const label = s ? g.servantLabel(me, x) : (x.out ? '—' : '...');
       const flags = FIELDS.filter((f) => g.flags[f] === x.id).map((f) => `⚑${AREAS[f].short}`).join(' ');
       const known = s && x !== me && g.knowsName(me, x);
-      return `<li class="prow ${x.out ? 'out' : ''} ${x === me ? 'me' : ''}" style="--pc:${this.color(x)}">
+      const tip = [label, known ? `ถนัด ${AREAS[s.def.favored].short} · ไม่ถนัด ${AREAS[s.def.unfavored].short}${s.revealed ? ' · เปิดชื่อแล้ว −2' : ''}` : ''].filter(Boolean).join(' · ');
+      return `<li class="prow ${x.out ? 'out' : ''} ${x === me ? 'me' : ''}" style="--pc:${this.color(x)}" data-tip="${esc(`${x.name} · ${tip}`)}">
         <div class="pr-num">${i + 1}</div>
         ${portrait(s?.cls, 'sm', s && g.knowsName(me, x) && s.key)}
         <div class="pr-main">
-          <div class="pr-name"><b>${esc(x.name)}</b>${x === me ? '<span class="you">คุณ</span>' : ''}${g.grail.holder === x ? '<span class="grail"> ✦</span>' : ''}</div>
-          <div class="pr-sv">${esc(label)}${s?.def.alter && known ? ' <small class="bad">Alter</small>' : ''}${known ? ` <small class="bad" ${help(s.revealed ? 'revealed' : 'favored')}>${s.revealed ? 'เปิดชื่อแล้ว −2' : 'รู้ชื่อจริง'}</small>` : ''}</div>
-          ${known ? `<div class="pr-meta">ถนัด ${AREAS[s.def.favored].short} · ไม่ถนัด ${AREAS[s.def.unfavored].short}</div>` : ''}
-          ${s ? bar(Math.max(0, s.hp), s.maxHp, 'hp small', false) : ''}
-          <div class="pr-meta"><span ${help(x === me ? 'seal' : 'sealsHidden')}>${x === me ? seals(x.seals) : hiddenSeals}</span> · <span ${help('mana')}>◈ ${x.mana}</span> · <span ${help('items')}>ไอเท็ม ${x.items.length}</span>${flags ? ` · <span ${help('flag')}>${flags}</span>` : ''}</div>
-        </div>
-        <div class="pr-state">${this.playerStatus(x)}</div>
+          <div class="pr-name"><b>${esc(x.name)}</b>${x === me ? '<span class="you">คุณ</span>' : ''}${g.grail.holder === x ? '<span class="grail"> ✦</span>' : ''}<span class="pr-state">${this.playerStatus(x)}</span></div>
+          <div class="pr-meta"><span class="pr-sv">${esc(s ? (known || x === me ? s.def.name : s.cls) : label)}${s?.def.alter && known ? ' (Alter)' : ''}</span> · <span ${help(x === me ? 'seal' : 'sealsHidden')}>${x === me ? seals(x.seals) : hiddenSeals}</span> · <span ${help('mana')}>◈${x.mana}</span> · <span ${help('items')}>🎒${x.items.length}</span>${flags ? ` · <span ${help('flag')}>${flags}</span>` : ''}</div>
+          ${s ? bar(Math.max(0, s.hp), s.maxHp, 'hp thin', false) : ''}
       </li>`;
     }).join('');
     $('#players').innerHTML = `<div class="hud-tag">MASTERS · ${g.alive().length}/8</div><ul>${rows}</ul>`;
@@ -616,7 +582,9 @@ export class UI {
         else if (here.length || !opts.move.length) {
           for (const a of opts.escape) rows.push(optBtn({ sel: this.sel.type === 'escape' && this.sel.to === a, attrs: `data-type="escape" data-to="${a}"`,
             label: `"หนี!" ไป${AREAS[a].name}`, tags: useScroll ? '<i class="mk">ม้วนคาถา</i>' : '<i class="mk">−1 Command Seal</i>',
-            desc: useScroll ? MOVE.scroll[0] : MOVE.escape[0], when: useScroll ? MOVE.scroll[1] : MOVE.escape[1] }));
+            when: useScroll ? MOVE.scroll[1] : MOVE.escape[1] }));
+          // one shared line instead of repeating it on every escape button
+          if (opts.escape.length) rows.push(`<small class="desc esc-note">"หนี!": ${esc(useScroll ? MOVE.scroll[0] : MOVE.escape[0])}</small>`);
         } else rows.push(`<small class="desc">"หนี!" ใช้ได้เมื่อมีคนอยู่ด้วย (ตอนนี้ย้ายแบบจ่ายมานาได้อยู่แล้ว)</small>`);
         const view = opts.view.length ? `<div class="sub"><small>ดูมือ (โบสถ์): ${esc(MOVE.view[0])}</small><div class="tools">${opts.view.map((id) =>
           `<button class="small ${this.sel.view === id ? 'on' : ''}" data-view="${id}" title="ควรเลือกเมื่อ: ${esc(MOVE.view[1])}">${esc(g.players[id].name)}</button>`).join('')}</div></div>` : '';
@@ -709,11 +677,10 @@ export class UI {
           ${this.hint('cards')}
           <div class="foes">${foes.join('')}</div>
           ${me.peek ? `<p class="note">โบสถ์: มือของ ${esc(me.peek.name)} คือ ${esc(me.peek.cards.join(', '))}</p>` : ''}
-          <p class="note">เลือกการ์ดได้ 2 ใบ หรือ NP + การ์ด 1 ใบ (มานา ${me.mana}) · ทุกคนเปิดพร้อมกัน พลังรวมสูงสุดชนะ คนแพ้เสีย HP เท่าส่วนต่าง</p>
           <div class="play-grid"><div>
           <div class="hand">${hand || '<p class="muted">ไม่มีการ์ดในมือ</p>'}</div>
           ${npRow}
-          <div class="optcol">
+          <div class="optcol two">
             ${tog('boost', this.sel.boost, '◆ เพิ่มพลัง! (Command Seal)', CARDS.boost, boostWhy)}
             ${tog('sh', this.sel.sealHeal, '◆ รักษา! (Command Seal)', CARDS.sealHeal, healWhy)}
             ${fightItems.map((k) => optBtn({ cls: 'small', sel: this.sel.items.includes(k), attrs: `data-item="${k}"`, label: esc(ITEMS[k].name), desc: CARDS[k]?.[0] || ITEMS[k].text, when: CARDS[k]?.[1] })).join('')}
