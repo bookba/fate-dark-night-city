@@ -56,7 +56,10 @@ ul { margin: 0; padding: 0; list-style: none; }
 #charcard { position: sticky; top: 0; z-index: 2; }
 #right { grid-area: right; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 #stage { grid-area: stage; min-height: 0; display: flex; align-items: center; justify-content: center; }
-#choice { grid-area: choice; width: min(1180px, 100%); justify-self: center; padding: 8px 12px; }
+#choice { grid-area: choice; width: min(1180px, 100%); justify-self: center; padding: 8px 12px; min-height: 0; overflow-y: auto; }
+/* the map keeps at least MAP_MIN_H (ui.js fitMap caps the choice panel); on a very short
+   screen the choice panel scrolls instead, with the confirm row pinned to its bottom */
+#choice .confirm-row { position: sticky; bottom: -8px; background: var(--hud); padding: 4px 0; z-index: 1; }
 #choice.empty { visibility: hidden; }
 #players { overflow-y: auto; min-height: 0; padding: 10px; }
 #hand, #items { padding: 10px; }
@@ -602,4 +605,13 @@ body.daytime .ccard .bar { background: #05060c; border-color: #000; }
   .ring.map.fuyuki .map-bg { background-size: cover; background-position: center; }
   .ring.map.fuyuki .ring-core, .ring.map.fuyuki .map-name { display: none; }
   .ring.map.fuyuki { grid-template-areas: "temple temple temple" "miyama . shinto" "mansion . church"; }
+}
+
+.ring.map.fuyuki .anode.sel { background: color-mix(in srgb, #2a2412 90%, transparent); }
+body.daytime .ring.map.fuyuki .anode.sel { background: color-mix(in srgb, #fbefc9 94%, transparent); }
+.map-name { left: 50%; transform: translateX(-50%); }
+@media (min-width: 1101px) {
+  #choice { overflow-x: hidden; }
+  #choice .arows.two, #choice .optcol.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #choice .arow { min-width: 0; }
 }

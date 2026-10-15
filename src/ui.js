@@ -67,6 +67,7 @@ const a11yPrio = (a) => a === 'church' ? '· โบสถ์ให้คน Comm
 // Shinto station front, Kotomine Church
 const MAP_SPOTS = { temple: [11, 31], miyama: [31, 57], mansion: [50, 85], shinto: [79, 47], church: [89, 81] };
 const MAP_RATIO = 1200 / 525;
+const MAP_MIN_H = 170; // smallest map that still fits the five boxes apart
 
 const help = (key) => `data-help="${key}" title="${esc(TERMS[key][1])}"`;
 
@@ -82,6 +83,8 @@ export class UI {
     $('#helpbtn').onclick = () => this.showGuide();
     this.setupTips();
     window.addEventListener('resize', () => this.fitMap());
+    // the stage also changes size when the choice panel grows or shrinks (hint opened, options added)
+    if (window.ResizeObserver) new ResizeObserver(() => this.fitMap()).observe($('#stage'));
     // set once as CSS variables so re-rendering the stage does not copy the pictures
     document.documentElement.style.setProperty('--map-day', `url("${MAP_ART.day}")`);
     document.documentElement.style.setProperty('--map-night', `url("${MAP_ART.night}")`);
@@ -332,7 +335,18 @@ export class UI {
   fitMap() {
     const st = $('#stage'), map = st.querySelector('.ring.map');
     if (!map) return;
-    if (window.innerWidth <= 1100) { map.style.width = map.style.height = ''; return; }
+    const choice = $('#choice');
+    if (window.innerWidth <= 1100) {
+      choice.style.maxHeight = '';
+      map.style.width = map.style.height = '';
+      map.querySelectorAll('.anode').forEach((el) => { el.style.left = el.style.top = ''; });
+      return;
+    }
+    // the choice panel may take the height the map does not need, never the map's last MAP_MIN_H
+    const app = $('#app'), cs = getComputedStyle(app);
+    const room = app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - $('#banner').offsetHeight - 2 * parseFloat(cs.rowGap);
+    choice.style.maxHeight = `${Math.max(120, room - MAP_MIN_H)}px`;
+    if (!st.clientWidth || !st.clientHeight) return;
     // the map keeps the picture's shape and takes the biggest size the stage allows
     const w = Math.max(0, Math.min(st.clientWidth, st.clientHeight * MAP_RATIO));
     map.style.width = `${Math.floor(w)}px`;
@@ -349,7 +363,11 @@ export class UI {
       const [x, y] = MAP_SPOTS[el.dataset.area];
       return { el, w: el.offsetWidth, h: el.offsetHeight, cx: (x / 100) * W, cy: (y / 100) * H };
     });
+    // the city name label stays put; boxes move away from it
+    const tag = map.querySelector('.map-name');
+    if (tag) boxes.push({ fixed: true, w: tag.offsetWidth, h: tag.offsetHeight, cx: tag.offsetLeft + tag.offsetWidth / 2, cy: tag.offsetTop + tag.offsetHeight / 2 });
     const clamp = (b) => {
+      if (b.fixed) return;
       b.cx = Math.min(W - b.w / 2, Math.max(b.w / 2, b.cx));
       b.cy = Math.min(H - b.h / 2, Math.max(b.h / 2, b.cy));
     };
@@ -364,14 +382,16 @@ export class UI {
           if (ox <= 0 || oy <= 0) continue;
           moved = true;
           // move along the shorter overlap, half each way
-          if (ox < oy) { const d = (ox / 2) * (a.cx < b.cx ? -1 : 1); a.cx += d; b.cx -= d; }
-          else { const d = (oy / 2) * (a.cy < b.cy ? -1 : 1); a.cy += d; b.cy -= d; }
+          // a fixed label never moves, so the box takes the whole push
+          const ka = b.fixed ? 1 : a.fixed ? 0 : 0.5, kb = 1 - ka;
+          if (ox < oy) { const d = ox * (a.cx < b.cx ? -1 : 1); a.cx += d * ka; b.cx -= d * kb; }
+          else { const d = oy * (a.cy < b.cy ? -1 : 1); a.cy += d * ka; b.cy -= d * kb; }
           clamp(a); clamp(b);
         }
       }
       if (!moved) break;
     }
-    for (const b of boxes) { b.el.style.left = `${b.cx}px`; b.el.style.top = `${b.cy}px`; }
+    for (const b of boxes) if (!b.fixed) { b.el.style.left = `${b.cx}px`; b.el.style.top = `${b.cy}px`; }
   }
 
 
