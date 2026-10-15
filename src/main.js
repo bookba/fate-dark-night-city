@@ -1,41 +1,19 @@
-// Empty game loop: clears the canvas every frame and shows FPS.
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+import { Game } from './engine.js';
+import { botDecide } from './bot.js';
+import { UI } from './ui.js';
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
+const ui = new UI();
 
-let last = performance.now();
-let fps = 0;
-
-function update(dt) {
-  // game logic goes here
-}
-
-function render() {
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = '#fff';
-  ctx.font = '20px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Fate Battle Royale', canvas.width / 2, canvas.height / 2);
-
-  ctx.textAlign = 'left';
-  ctx.font = '12px monospace';
-  ctx.fillText(`FPS: ${fps.toFixed(0)}`, 8, 16);
+async function start(name) {
+  const game = new Game({
+    humanName: name,
+    decide: (g, pl, kind, ctx) => (pl.isHuman && !pl.autopilot ? ui.decide(g, pl, kind, ctx) : botDecide(g, pl, kind, ctx)),
+    onEvent: (e) => ui.onEvent(e),
+  });
+  ui.attach(game);
+  await game.run();
+  const again = await ui.showGameOver();
+  if (again) start(name);
 }
 
-function loop(now) {
-  const dt = (now - last) / 1000;
-  last = now;
-  fps = fps * 0.9 + (1 / Math.max(dt, 1e-6)) * 0.1;
-  update(dt);
-  render();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+ui.showTitle().then(start);
