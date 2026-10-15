@@ -9,7 +9,8 @@ import {
 import { LAST_DAY } from './engine.js';
 import { chooseCards } from './bot.js';
 import { CLASS_ART, CLASS_COLOR } from './portraits.js';
-import { servantArt } from './servant-art.js';
+import { servantArt, servantIcon } from './servant-art.js';
+import { MAP_ART } from './map-art.js';
 import { QUICKSTART, TERMS, DAY, MOVE, CARDS, FIRST_DAY } from './help.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -36,8 +37,9 @@ const hiddenSeals = '<span class="seals hidden" title="Command Seal ของค
 // class art keeps it hidden. A missing or broken image falls back to the class art.
 const art = (cls, key) => servantArt(key) || (cls && CLASS_ART[cls]) || '';
 const fallback = (cls) => (cls && CLASS_ART[cls] ? ` onerror="this.onerror=null;this.src='${CLASS_ART[cls]}'"` : '');
+// small round portraits use the Servant's face icon
 const portrait = (cls, size = '', key) => cls
-  ? `<img class="pt ${size}" src="${art(cls, key)}" alt="${cls}"${fallback(cls)}>`
+  ? `<img class="pt ${size}" src="${servantIcon(key) || art(cls, key)}" alt="${cls}"${fallback(cls)}>`
   : `<span class="pt ${size} empty">?</span>`;
 
 // one Servant card as a small tile; `why` explains a disabled card
@@ -60,6 +62,12 @@ function optBtn({ cls = 'arow', sel = false, off = false, attrs = '', label, tag
 // who gets in first when an area is full (Appendix ก.3)
 const a11yPrio = (a) => a === 'church' ? '· โบสถ์ให้คน Command Seal น้อยสุดก่อน' : a === 'temple' || a === 'mansion' ? '· คนมานาน้อยสุดได้เข้าก่อน' : '';
 
+// where each area's box sits on the Fuyuki map picture (percent of width, height),
+// next to its landmark: Ryuudou Temple, Miyama shopping street, Tohsaka house,
+// Shinto station front, Kotomine Church
+const MAP_SPOTS = { temple: [11, 31], miyama: [31, 57], mansion: [50, 85], shinto: [79, 47], church: [89, 81] };
+const MAP_RATIO = 1200 / 525;
+
 const help = (key) => `data-help="${key}" title="${esc(TERMS[key][1])}"`;
 
 export class UI {
@@ -74,6 +82,9 @@ export class UI {
     $('#helpbtn').onclick = () => this.showGuide();
     this.setupTips();
     window.addEventListener('resize', () => this.fitMap());
+    // set once as CSS variables so re-rendering the stage does not copy the pictures
+    document.documentElement.style.setProperty('--map-day', `url("${MAP_ART.day}")`);
+    document.documentElement.style.setProperty('--map-night', `url("${MAP_ART.night}")`);
   }
 
   // ================= explanations (design 13.2) =================
@@ -297,15 +308,17 @@ export class UI {
       if (a === 'temple' && !closed) ev = '<div class="evcard ley">เลย์ไลน์ มานา</div>';
       if (a === 'mansion' && !closed) ev = `<div class="evcard ley">หลอมการ์ด ใบละ ${g.forgeMana()} มานา</div>`;
       const monster = g.shadowArea === a ? `<i class="mk fight" title="มอนสเตอร์ ${MONSTER_BASE}+1d6">👁 มอนสเตอร์</i>` : '';
-      return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="grid-area:${a}" ${closed || !choosing ? 'tabindex="-1"' : ''} data-tip="${esc(this.areaDesc(a))}">
+      const [x, y] = MAP_SPOTS[a];
+      return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="grid-area:${a};--x:${x}%;--y:${y}%" ${closed || !choosing ? 'tabindex="-1"' : ''} data-tip="${esc(this.areaDesc(a))}">
         <div class="an-name">${AREAS[a].name}</div>
         <div class="an-flags">${fav}${cap}${flag}${grailHere ? '<i class="mk grail">✦ จอก</i>' : ''}${monster}${fight ? '<i class="mk fight">⚔</i>' : ''}</div>
         ${ev}
         <div class="tokens">${tokens}</div>
       </button>`;
     }).join('');
-    $('#stage').innerHTML = `<div class="ring map ${night ? 'night' : 'day'}">
-      <div class="ring-core" style="grid-area:core"><div class="moon">${night ? '☾' : '☀'}</div><b>ฟุยุกิ</b></div>
+    $('#stage').innerHTML = `<div class="ring map fuyuki ${night ? 'night' : 'day'}">
+      <div class="map-bg day"></div><div class="map-bg night"></div>
+      <div class="map-name">${night ? '☾' : '☀'} ฟุยุกิ</div>
       ${nodes}</div>`;
     this.fitMap();
     $('#stage').querySelectorAll('.anode').forEach((b) => b.addEventListener('click', () => {
@@ -315,14 +328,52 @@ export class UI {
     }));
   }
 
-  // shrink the map to fit when the choice panel below grows, so nothing is cut off
+  // size the map to the stage when the choice panel below grows, so nothing is cut off
   fitMap() {
     const st = $('#stage'), map = st.querySelector('.ring.map');
-    if (!map || window.innerWidth <= 1100) return;
-    map.style.zoom = 1;
-    const room = st.clientHeight - 4, need = map.offsetHeight;
-    if (need > room && room > 0) map.style.zoom = Math.max(0.45, room / need).toFixed(3);
+    if (!map) return;
+    if (window.innerWidth <= 1100) { map.style.width = map.style.height = ''; return; }
+    // the map keeps the picture's shape and takes the biggest size the stage allows
+    const w = Math.max(0, Math.min(st.clientWidth, st.clientHeight * MAP_RATIO));
+    map.style.width = `${Math.floor(w)}px`;
+    map.style.height = `${Math.floor(w / MAP_RATIO)}px`;
+    this.spreadBoxes(map);
   }
+
+  // area boxes start at their landmarks; on a small map, push apart any that touch
+  // and keep them inside the picture (design 13.1: nothing on the map overlaps)
+  spreadBoxes(map) {
+    const W = map.clientWidth, H = map.clientHeight, gap = 3;
+    const boxes = [...map.querySelectorAll('.anode')].map((el) => {
+      el.style.left = el.style.top = '';
+      const [x, y] = MAP_SPOTS[el.dataset.area];
+      return { el, w: el.offsetWidth, h: el.offsetHeight, cx: (x / 100) * W, cy: (y / 100) * H };
+    });
+    const clamp = (b) => {
+      b.cx = Math.min(W - b.w / 2, Math.max(b.w / 2, b.cx));
+      b.cy = Math.min(H - b.h / 2, Math.max(b.h / 2, b.cy));
+    };
+    boxes.forEach(clamp);
+    for (let round = 0; round < 40; round++) {
+      let moved = false;
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j];
+          const ox = (a.w + b.w) / 2 + gap - Math.abs(a.cx - b.cx);
+          const oy = (a.h + b.h) / 2 + gap - Math.abs(a.cy - b.cy);
+          if (ox <= 0 || oy <= 0) continue;
+          moved = true;
+          // move along the shorter overlap, half each way
+          if (ox < oy) { const d = (ox / 2) * (a.cx < b.cx ? -1 : 1); a.cx += d; b.cx -= d; }
+          else { const d = (oy / 2) * (a.cy < b.cy ? -1 : 1); a.cy += d; b.cy -= d; }
+          clamp(a); clamp(b);
+        }
+      }
+      if (!moved) break;
+    }
+    for (const b of boxes) { b.el.style.left = `${b.cx}px`; b.el.style.top = `${b.cy}px`; }
+  }
+
 
   playerStatus(x) {
     const g = this.game;

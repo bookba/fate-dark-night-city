@@ -571,3 +571,35 @@ body.daytime .ccard .bar { background: #05060c; border-color: #000; }
   #choice .arow { padding: 4px 10px; }
   #choice .esc-note { grid-column: 1 / -1; }
 }
+
+/* ---------- Fuyuki map picture behind the stage, area boxes at their landmarks ---------- */
+.ring.map.fuyuki { position: relative; overflow: hidden; border: 1px solid var(--gold-dim); box-shadow: 0 6px 30px #0007; }
+.ring.map.fuyuki::before, .ring.map.fuyuki::after { display: none; }
+.map-bg { position: absolute; inset: 0; background-size: 100% 100%; transition: opacity .6s; pointer-events: none; }
+.map-bg.day { background-image: var(--map-day); }
+.map-bg.night { background-image: var(--map-night); opacity: 0; }
+.ring.map.night .map-bg.night { opacity: 1; }
+.ring.map.night .map-bg.day { opacity: 0; }
+.map-name { position: absolute; top: 6px; left: 8px; z-index: 1; font-size: 11px; font-weight: 800; letter-spacing: 2px; padding: 1px 8px; border-radius: 4px; background: #000a; color: #fff; }
+.ring.map.fuyuki .anode { z-index: 1; background: color-mix(in srgb, var(--hud) 86%, transparent); backdrop-filter: blur(2px); }
+@media (min-width: 1101px) {
+  .ring.map.fuyuki { display: block; padding: 0; width: 720px; aspect-ratio: 1200 / 525; height: auto; border-radius: 12px; container-type: inline-size; }
+  .ring.map.fuyuki .anode { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%);
+    width: 20cqw; min-width: 84px; max-width: 220px; padding: .35em .5em; font-size: clamp(9px, 1.2cqw, 13px); }
+  .ring.map.fuyuki .an-name { font-size: 1.05em; line-height: 1.25; }
+  .ring.map.fuyuki .an-flags { min-height: 0; }
+  .ring.map.fuyuki .mk, .ring.map.fuyuki .evcard { font-size: .85em; }
+  .ring.map.fuyuki .evcard { margin-top: 1px; padding: 0 .5em; }
+  .ring.map.fuyuki .token { width: 2.9em; }
+  .ring.map.fuyuki .token .pt.xs { width: 2em; height: 2em; }
+  .ring.map.fuyuki .token small { font-size: .7em; max-width: 2.9em; }
+}
+@container (max-width: 620px) {
+  .ring.map.fuyuki .token small, .ring.map.fuyuki .evcard { display: none; }
+}
+@media (max-width: 1100px) {
+  .ring.map.fuyuki { background: none; }
+  .ring.map.fuyuki .map-bg { background-size: cover; background-position: center; }
+  .ring.map.fuyuki .ring-core, .ring.map.fuyuki .map-name { display: none; }
+  .ring.map.fuyuki { grid-template-areas: "temple temple temple" "miyama . shinto" "mansion . church"; }
+}
