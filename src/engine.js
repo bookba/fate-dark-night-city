@@ -82,7 +82,19 @@ export class Game {
     this.emit('log', { entry });
   }
   async ask(player, kind, ctx = {}) { return await this.decide(this, player, kind, ctx); }
-  gainMana(pl, n) { pl.mana = Math.max(0, Math.min(MANA_MAX, pl.mana + n)); }
+  gainMana(pl, n) {
+    const before = pl.mana;
+    pl.mana = Math.max(0, Math.min(MANA_MAX, pl.mana + n));
+    if (pl.mana > before) this.emit('mana', { pl, n: pl.mana - before });
+  }
+  // every Command Seal spent or gained goes through these, so the UI can show it
+  useSeal(pl) { pl.seals--; this.emit('seal', { pl, d: -1 }); }
+  addSeal(pl) {
+    if (pl.seals >= SEAL_MAX) return false;
+    pl.seals++;
+    this.emit('seal', { pl, d: 1 });
+    return true;
+  }
   heal(s, n) { s.hp = Math.min(s.maxHp, s.hp + n); }
   areaOpen(a) {
     if (a === 'temple' || a === 'church' || a === 'mansion') return this.cap[a] > 0;
@@ -169,7 +181,7 @@ export class Game {
   canSealHeal(pl) { return pl.seals > 0 && pl.servant && pl.servant.hp < pl.servant.maxHp; }
   sealHeal(pl) {
     if (!this.canSealHeal(pl)) return false;
-    pl.seals--;
+    this.useSeal(pl);
     this.heal(pl.servant, Math.ceil(pl.servant.maxHp / 2));
     this.log(`${pl.name} ใช้ Command Seal "รักษา!"`, null, 'seal');
     this.emit('update');
@@ -346,7 +358,7 @@ export class Game {
       const price = this.offerPrice();
       if (pl.seals >= SEAL_MAX) return this.log('Command Seal เต็มแล้ว ถวายมานาไม่ได้', [pl.id], 'me');
       if (pl.mana < price) return this.log(`มานาไม่พอถวาย (ต้องใช้ ${price})`, [pl.id], 'bad');
-      pl.mana -= price; pl.seals++;
+      pl.mana -= price; this.addSeal(pl);
       this.log(`โบสถ์: ถวายมานา ${price} ได้ Command Seal 1 ดวง`, [pl.id], 'me');
       this.log(`${pl.name} ทำธุระที่โบสถ์`, null);
       return;
@@ -375,7 +387,7 @@ export class Game {
   completeQuest(pl, q) {
     pl.quest = null;
     pl.mana += QUEST_DEPOSIT;
-    if (pl.seals < SEAL_MAX) pl.seals++;
+    this.addSeal(pl);
     this.log(`เควส "${QUESTS[q.key].name}" สำเร็จ! ได้ Command Seal 1 ดวง และมัดจำคืน`, [pl.id], 'good');
   }
 
@@ -491,7 +503,7 @@ export class Game {
         escapes.push({ pl, to: m.to, scroll });
       }
     }
-    const spend = (e) => { if (e.scroll) e.pl.items.splice(e.pl.items.indexOf('scroll'), 1); else e.pl.seals--; };
+    const spend = (e) => { if (e.scroll) e.pl.items.splice(e.pl.items.indexOf('scroll'), 1); else this.useSeal(e.pl); };
     const go = (e) => {
       spend(e);
       e.pl.area = e.to; e.pl.settled = false;
@@ -585,8 +597,8 @@ export class Game {
       const e = { pl, id: pl.id, name: pl.name, key: s.key, cls: s.cls, label: null, play, cards: play.cards.map((c) => ({ ...c })), hpBefore: s.hp, maxHp: s.maxHp, parts: [] };
       // pay
       pl.mana -= play.cards.reduce((a, c) => a + this.cardCost(c), 0);
-      if (play.boost) pl.seals--;
-      if (play.sealHeal) pl.seals--;
+      if (play.boost) this.useSeal(pl);
+      if (play.sealHeal) this.useSeal(pl);
       for (const k of play.items) pl.items.splice(pl.items.indexOf(k), 1);
       return e;
     });
@@ -820,7 +832,7 @@ export class Game {
       this.log('Command Seal หมด คุณตกรอบ ดูต่อได้หรือออกจากห้อง', [pl.id], 'bad');
       return this.eliminate(pl, 'Command Seal หมด อัญเชิญไม่ได้');
     }
-    pl.seals--;
+    this.useSeal(pl);
     let key = null;
     const ci = pl.items.indexOf('catalyst');
     if (ci >= 0) {

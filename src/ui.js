@@ -11,6 +11,7 @@ import { chooseCards } from './bot.js';
 import { CLASS_ART, CLASS_COLOR } from './portraits.js';
 import { servantArt, servantIcon } from './servant-art.js';
 import { MAP_ART } from './map-art.js';
+import { SEAL_SPRITE } from './ui-art.js';
 import { QUICKSTART, TERMS, DAY, MOVE, CARDS, FIRST_DAY } from './help.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -31,6 +32,8 @@ function bar(cur, max, cls, label = true) {
   return `<div class="bar ${cls}"><i style="width:${pct}%"></i>${label ? `<span>${cur}/${max}</span>` : ''}</div>`;
 }
 
+// the Command Seal picture shows 3, 2, 1 or 0 parts left
+const sealIcon = (n, cls = '') => `<span class="seal-icon s${Math.max(0, Math.min(SEAL_MAX, n))} ${cls}"></span>`;
 const seals = (n) => `<span class="seals" title="Command Seal">${'◆'.repeat(n)}${'◇'.repeat(Math.max(0, SEAL_MAX - n))}</span>`;
 const hiddenSeals = '<span class="seals hidden" title="Command Seal ของคนอื่นเป็นความลับ">◆ ?</span>';
 // pass `key` only when the viewer knows the Servant's true name; otherwise the
@@ -88,6 +91,11 @@ export class UI {
     // set once as CSS variables so re-rendering the stage does not copy the pictures
     document.documentElement.style.setProperty('--map-day', `url("${MAP_ART.day}")`);
     document.documentElement.style.setProperty('--map-night', `url("${MAP_ART.night}")`);
+    document.documentElement.style.setProperty('--seal-sprite', `url("${SEAL_SPRITE}")`);
+    this.fxQueue = 0;
+    this.fxTimers = new Set();
+    this.pendingFx = { mana: 0, seals: [] };
+    this.holdFx = false;
   }
 
   // ================= explanations (design 13.2) =================
@@ -167,6 +175,9 @@ export class UI {
   attach(game) {
     this.game = game;
     this.fast = false;
+    this.timeKey = null;
+    this.holdFx = false;
+    this.clearFx();
     this.mode = null;
     $('#logdrawer .lines').innerHTML = '';
     this.renderAll();
@@ -179,7 +190,14 @@ export class UI {
   onEvent(e) {
     switch (e.type) {
       case 'log': this.addLog(e.entry); break;
-      case 'phase': this.renderAll(); if (this.game.stage === 'cards') this.cardsWaiting(); break;
+      case 'mana': if (e.pl === this.me) this.pendingFx.mana += e.n; break;
+      case 'seal': if (e.pl === this.me) this.pendingFx.seals.push(e.d); break;
+      case 'phase':
+        // from card play until the replay is over, gains wait (see animateChanges)
+        this.holdFx = this.game.stage === 'cards';
+        this.renderAll();
+        if (this.game.stage === 'cards') this.cardsWaiting();
+        break;
       default: this.renderAll();
     }
   }
@@ -195,6 +213,101 @@ export class UI {
     this.renderHand();
     this.renderStage();
     this.renderPlayers();
+    this.animateChanges();
+  }
+
+  // ================= animations: a new day or night, mana gained, Command Seal used =================
+  // Mana and Command Seal changes arrive as engine events and wait here until the
+  // player can see them: never on top of the battle replay (that would give the
+  // result away) and never after the war is over.
+  animateChanges() {
+    const g = this.game, me = this.me;
+    if (this.fast || g.over || me.out) { this.dropFx(); return; }
+    const key = `${g.day}-${g.half}-${g.nightNo}`;
+    if (g.stage !== 'setup' && key !== this.timeKey) {
+      this.timeKey = key;
+      this.timeFx();
+    }
+    if (this.holdFx || !$('#battle').hidden) return;
+    const p = this.pendingFx;
+    this.pendingFx = { mana: 0, seals: [] };
+    if (p.mana) this.manaFx(p.mana);
+    if (p.seals.length) {
+      const used = p.seals.filter((d) => d < 0).length, gained = p.seals.length - used;
+      let n = me.seals - p.seals.reduce((a, d) => a + d, 0);
+      if (used) { this.sealFx(n, n - used); n -= used; }
+      if (gained) this.sealFx(n, n + gained);
+    }
+  }
+
+  dropFx() { this.pendingFx = { mana: 0, seals: [] }; }
+
+  // stop every effect at once (game over, new game)
+  clearFx() {
+    for (const t of this.fxTimers) clearTimeout(t);
+    this.fxTimers.clear();
+    $('#fx').innerHTML = '';
+    this.fxQueue = 0;
+    this.dropFx();
+  }
+
+  later(fn, ms) {
+    const t = setTimeout(() => { this.fxTimers.delete(t); fn(); }, ms);
+    this.fxTimers.add(t);
+  }
+
+  // add an effect to the top layer and remove it when it is done
+  fx(el, ms) {
+    $('#fx').appendChild(el);
+    this.later(() => el.remove(), ms);
+  }
+
+  // effects in the middle of the screen take turns so they never cover each other
+  centerFx(el, ms) {
+    const at = Math.max(Date.now(), this.fxQueue);
+    this.fxQueue = at + ms - 300;
+    this.later(() => this.fx(el, ms), at - Date.now());
+  }
+
+  // the battle replay waits until the middle of the screen is clear
+  async fxIdle() {
+    const wait = this.fxQueue + 300 - Date.now();
+    if (wait > 0) await sleep(wait);
+  }
+
+  timeFx() {
+    const g = this.game, night = g.half === 'night';
+    const el = document.createElement('div');
+    el.className = `time-fx ${night ? 'night' : 'day'}`;
+    el.innerHTML = night
+      ? `<div class="tf-icon">☾</div><b>กลางคืน${g.nightNo === 2 ? ' · รอบ 2' : ''}</b><small>วันที่ ${g.day}/${LAST_DAY}</small>`
+      : `<div class="tf-icon">☀</div><b>วันที่ ${g.day}</b><small>กลางวัน · ${g.day}/${LAST_DAY}</small>`;
+    this.centerFx(el, 2000);
+  }
+
+  manaFx(delta) {
+    const bar = $('#charcard .bar.mana');
+    if (!bar) return;
+    const r = bar.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) return;
+    const glow = document.createElement('div');
+    glow.className = 'mana-glow';
+    Object.assign(glow.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    this.fx(glow, 900);
+    const el = document.createElement('div');
+    el.className = 'mana-fx';
+    Object.assign(el.style, { left: `${r.left + r.width / 2}px`, top: `${r.top}px` });
+    el.innerHTML = `<b>+${delta} ◈</b>${Array.from({ length: 8 }, (_, k) => `<i style="--k:${k}"></i>`).join('')}`;
+    this.fx(el, 1400);
+  }
+
+  sealFx(before, after) {
+    const used = after < before;
+    const el = document.createElement('div');
+    el.className = `seal-fx ${used ? 'use' : 'gain'}`;
+    el.innerHTML = `<div class="sf-ring"></div><div class="sf-art">${sealIcon(before, 'big before')}${sealIcon(after, 'big after')}</div>
+      <b>${used ? 'ใช้ Command Seal' : 'ได้ Command Seal'}</b><small>เหลือ ${after}/${SEAL_MAX}</small>`;
+    this.centerFx(el, 1900);
   }
 
   // the day as one line of text at the top of the right column (design 13.1)
@@ -261,7 +374,7 @@ export class UI {
         <div class="cc-name" title="${esc(def.name)}">${esc(def.name)}</div>
         <div ${help('hp')}>${bar(Math.max(0, s.hp), s.maxHp, 'hp')}</div>
         <div ${help('mana')}>${bar(me.mana, MANA_MAX, 'mana')}</div>
-        <div class="cc-row"><span ${help('seal')}>${seals(me.seals)}</span><small class="muted">${def.godHand ? 'God Hand' : def.nameless ? 'ไร้นาม' : ''}</small></div>
+        <div class="cc-row"><span class="cc-seals" ${help('seal')}>${sealIcon(me.seals)}<b>${me.seals}/${SEAL_MAX}</b></span><small class="muted">${def.godHand ? 'God Hand' : def.nameless ? 'ไร้นาม' : ''}</small></div>
       </div>
       <div class="cc-fav" ${help('favored')}><span class="good">ถนัด ${AREAS[def.favored].short} +2</span> · <span class="bad">ไม่ถนัด ${AREAS[def.unfavored].short} −2</span></div>
       ${tags ? `<div class="cc-tags">${tags}</div>` : ''}
@@ -825,6 +938,7 @@ export class UI {
     const mine = results.find((r) => r.entries.some((e) => e.id === me.id));
     const order = mine ? [mine, ...results.filter((r) => r !== mine)] : results;
     if (order.length) await this.playFights(order);
+    this.holdFx = false;
     const lines = g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.night === g.nightNo && e.cls !== 'phase'
       && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)));
     this.renderAll();
@@ -853,6 +967,7 @@ export class UI {
   // ================= battle scene =================
   async playFights(order) {
     const el = $('#battle');
+    await this.fxIdle();
     el.hidden = false;
     this.bfast = false;
     for (let i = 0; i < order.length; i++) {
@@ -1102,6 +1217,7 @@ export class UI {
   showGameOver() {
     const g = this.game, me = this.me;
     clearInterval(this.timer);
+    this.clearFx();
     this.mode = null;
     this.setChoice('');
     const rank = g.ranking.indexOf(me) + 1;

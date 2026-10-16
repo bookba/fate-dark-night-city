@@ -615,3 +615,81 @@ body.daytime .ring.map.fuyuki .anode.sel { background: color-mix(in srgb, #fbefc
   #choice .arows.two, #choice .optcol.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   #choice .arow { min-width: 0; }
 }
+
+/* ---------- Command Seal picture (FGO sprite: 3, 2, 1, 0 parts left) ---------- */
+.seal-icon { display: inline-block; width: 22px; height: 22px; vertical-align: middle; background: var(--seal-sprite) no-repeat; background-size: 200% 200%; }
+.seal-icon.s3 { background-position: 0 0; }
+.seal-icon.s2 { background-position: 100% 0; }
+.seal-icon.s1 { background-position: 0 100%; }
+.seal-icon.s0 { background-position: 100% 100%; }
+.cc-seals { display: inline-flex; align-items: center; gap: 4px; }
+.cc-seals .seal-icon { width: 26px; height: 26px; filter: drop-shadow(0 0 4px #ff3b5c88); }
+.cc-seals b { font-size: 12px; color: #ff7a8a; }
+
+/* ---------- animations: new day / night, mana gained, Command Seal used ---------- */
+#fx { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+
+.time-fx { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  animation: tfFade 2s ease-in-out forwards; text-align: center; }
+.time-fx.day { background: radial-gradient(ellipse at 50% 55%, #fffaf0 0%, #fff3d4f2 30%, transparent 70%), linear-gradient(#fff8e6d9, #ffe9b0e6); color: #5a3a00; }
+.time-fx.night { background: linear-gradient(#0a0f2ef2, #141a4acc 55%, #0a0f2e88); color: #e6ecff; }
+.time-fx .tf-icon { font-size: 72px; line-height: 1; }
+.time-fx.day .tf-icon { color: #ffb020; text-shadow: 0 0 40px #ffd77a, 0 0 80px #ffb020; animation: sunRise 2s ease-out forwards; }
+.time-fx.night .tf-icon { color: #dfe6ff; text-shadow: 0 0 30px #9cc2ff, 0 0 70px #5b7bff; animation: moonDrop 2s ease-out forwards; }
+.time-fx b { font-size: clamp(30px, 6vw, 56px); font-weight: 900; letter-spacing: 4px; animation: tfText 2s ease-out forwards; }
+.time-fx.day b { text-shadow: 0 2px 0 #fff8, 0 0 24px #ffd77a; }
+.time-fx.night b { text-shadow: 0 0 24px #7d93ff; }
+.time-fx small { font-size: 17px; font-weight: 700; letter-spacing: 3px; animation: tfText 2s ease-out .1s backwards; }
+.time-fx.night::before { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(1.5px 1.5px at 20% 30%, #fff 50%, transparent), radial-gradient(1.5px 1.5px at 70% 20%, #fff 50%, transparent),
+    radial-gradient(1px 1px at 40% 70%, #fff 50%, transparent), radial-gradient(1px 1px at 85% 60%, #fff 50%, transparent),
+    radial-gradient(1.5px 1.5px at 10% 80%, #fff 50%, transparent), radial-gradient(1px 1px at 55% 45%, #fff 50%, transparent);
+  animation: twinkle 2s ease-in-out forwards; }
+@keyframes tfFade { 0% { opacity: 0; } 18% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes tfText { 0% { opacity: 0; transform: translateY(14px) scale(.92); } 25% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
+@keyframes sunRise { 0% { transform: translateY(60px) scale(.6); opacity: 0; } 35% { transform: none; opacity: 1; } 100% { transform: rotate(40deg); } }
+@keyframes moonDrop { 0% { transform: translateY(-50px) scale(.7); opacity: 0; } 35% { transform: none; opacity: 1; } 100% { transform: none; } }
+@keyframes twinkle { 0%, 100% { opacity: 0; } 40% { opacity: 1; } 60% { opacity: .5; } 80% { opacity: 1; } }
+
+.mana-glow { position: absolute; border-radius: 3px; box-shadow: 0 0 0 2px #9cc8ff, 0 0 18px 4px #5b9bff; animation: manaGlow .9s ease-out forwards; }
+@keyframes manaGlow { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+.mana-fx { position: absolute; width: 0; height: 0; }
+.mana-fx b { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); white-space: nowrap; font-size: 24px; font-weight: 900; color: #e3efff;
+  text-shadow: 0 0 3px #000, 0 0 10px #3b7bff, 0 0 20px #3b7bff, 0 2px 0 #001; animation: manaRise 1.4s ease-out forwards; }
+.mana-fx i { position: absolute; left: 0; top: 0; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(#fff, #5b9bff 60%, transparent 70%);
+  animation: manaSpark 1s ease-out calc(var(--k) * 40ms) forwards; opacity: 0; }
+@keyframes manaRise { 0% { opacity: 0; transform: translate(-50%, -60%) scale(.6); } 20% { opacity: 1; transform: translate(-50%, -130%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
+@keyframes manaSpark { 0% { opacity: 1; transform: translate(calc((var(--k) - 3.5) * 22px), 30px) scale(.4); }
+  100% { opacity: 0; transform: translate(calc((var(--k) - 3.5) * 6px), -10px) scale(1); } }
+
+.seal-fx { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px;
+  animation: tfFade 1.9s ease-in-out forwards; text-align: center; }
+.seal-fx .sf-art { position: relative; width: 170px; height: 170px; }
+.seal-fx .seal-icon.big { position: absolute; inset: 0; width: 170px; height: 170px; }
+.seal-fx .before { animation: sealBefore 1.9s ease-in forwards; }
+.seal-fx .after { opacity: 0; animation: sealAfter 1.9s ease-out forwards; }
+.seal-fx.use .sf-art { animation: sealShake .5s ease-in-out .55s; }
+.seal-fx .sf-ring { position: absolute; left: 50%; top: 85px; width: 170px; height: 170px; border-radius: 50%; transform: translate(-50%, -50%) scale(.3);
+  border: 3px solid #ff3b5c; box-shadow: 0 0 40px #ff3b5c, inset 0 0 30px #ff3b5c; opacity: 0; animation: sealRing 1.2s ease-out .55s forwards; }
+.seal-fx.gain .sf-ring { border-color: #ffd77a; box-shadow: 0 0 40px #ffd77a, inset 0 0 30px #ffd77a; }
+.seal-fx b { font-size: clamp(20px, 6.5vw, 26px); white-space: nowrap; font-weight: 900; color: #ffe3e7; text-shadow: 0 0 3px #000, 0 0 14px #ff3b5c, 0 0 28px #ff3b5c; letter-spacing: 2px; }
+.seal-fx.gain b { color: #fff3cc; text-shadow: 0 0 3px #000, 0 0 14px #e8a93a, 0 0 28px #e8a93a; }
+.seal-fx small { color: #fff; text-shadow: 0 0 3px #000, 0 1px 4px #000; font-size: 16px; font-weight: 700; }
+.seal-fx::before { content: ''; position: absolute; left: 50%; top: 50%; width: 520px; height: 460px; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, #1a0510f0 0%, #1a0510d9 55%, #ff3b5c33 80%, transparent 100%); z-index: -1; }
+.seal-fx.gain::before { background: radial-gradient(closest-side, #1f1405f0 0%, #1f1405d9 55%, #ffd77a33 80%, transparent 100%); }
+@keyframes sealBefore { 0%, 30% { opacity: 1; filter: drop-shadow(0 0 16px #ff3b5c) brightness(1); } 33% { filter: drop-shadow(0 0 40px #fff) brightness(2.2); } 45%, 100% { opacity: 0; } }
+@keyframes sealAfter { 0%, 32% { opacity: 0; } 50%, 100% { opacity: 1; filter: drop-shadow(0 0 12px #ff3b5c); } }
+@keyframes sealShake { 25% { transform: translateX(-6px) rotate(-2deg); } 50% { transform: translateX(5px) rotate(2deg); } 75% { transform: translateX(-3px); } }
+@keyframes sealRing { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.3); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .time-fx *, .seal-fx *, .mana-fx i, .seal-fx .sf-art { animation-duration: .01s !important; animation-delay: 0s !important; }
+  .seal-fx .before { opacity: 0; } .seal-fx .after { opacity: 1; }
+  /* the amount still shows, it just fades in place instead of rising */
+  .mana-fx b { animation: manaFade 1.4s ease-out forwards !important; transform: translate(-50%, -130%); }
+}
+@keyframes manaFade { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.time-fx, .seal-fx { z-index: 1; }
+.mana-glow, .mana-fx { z-index: 2; }
