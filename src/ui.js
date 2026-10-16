@@ -1,10 +1,10 @@
-// DOM front end for design v1.6. Renders the HUD from game state and answers
+// DOM front end for design v1.8. Renders the HUD from game state and answers
 // the human's decisions by returning Promises that resolve when the player
 // clicks (or the timer runs out). Night fights are replayed in the battle scene.
 
 import {
-  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, SERVANTS, TYPES, DAILY, ITEMS, QUESTS,
-  MANA_MAX, DEATHS_FOR_GRAIL, SEAL_MAX, HAND_SIZE, ITEM_MAX, QUEST_DEPOSIT, MONSTER_BASE,
+  AREAS, AREA_KEYS, FIELDS, SAFE_AREAS, SERVANTS, TYPES, DAILY, ITEMS, buildDeck,
+  MANA_MAX, DEATHS_FOR_GRAIL, SEAL_MAX, HAND_SIZE, ITEM_MAX, SHADOW_BASE, CHURCH_MONSTER_BASE,
 } from './data.js';
 import { LAST_DAY } from './engine.js';
 import { chooseCards } from './bot.js';
@@ -35,7 +35,11 @@ function bar(cur, max, cls, label = true) {
 // the Command Seal picture shows 3, 2, 1 or 0 parts left
 const sealIcon = (n, cls = '') => `<span class="seal-icon s${Math.max(0, Math.min(SEAL_MAX, n))} ${cls}"></span>`;
 const seals = (n) => `<span class="seals" title="Command Seal">${'◆'.repeat(n)}${'◇'.repeat(Math.max(0, SEAL_MAX - n))}</span>`;
-const hiddenSeals = '<span class="seals hidden" title="Command Seal ของคนอื่นเป็นความลับ">◆ ?</span>';
+// the two monsters (design 7 and 8): what they are called and their base power
+const MONSTERS = {
+  shadow: { name: 'มอนสเตอร์เงาดำ', base: SHADOW_BASE },
+  church: { name: 'ภูตร้ายใต้โบสถ์', base: CHURCH_MONSTER_BASE },
+};
 // pass `key` only when the viewer knows the Servant's true name; otherwise the
 // class art keeps it hidden. A missing or broken image falls back to the class art.
 const art = (cls, key) => servantArt(key) || (cls && CLASS_ART[cls]) || '';
@@ -129,7 +133,7 @@ export class UI {
     document.addEventListener('click', (e) => {
       if (this.suppressClick) { this.suppressClick = false; e.stopPropagation(); e.preventDefault(); return; }
       const el = e.target.closest('[data-help]');
-      if (el && !el.closest('button')) show(el);
+      if (el && (!el.closest('button') || el.closest('.anode[tabindex="-1"]'))) show(el);
       else tip.hidden = true;
     }, true);
   }
@@ -197,6 +201,7 @@ export class UI {
         this.holdFx = this.game.stage === 'cards';
         this.renderAll();
         if (this.game.stage === 'cards') this.cardsWaiting();
+        if (this.game.stage === 'move') this.moveWaiting();
         break;
       default: this.renderAll();
     }
@@ -329,7 +334,7 @@ export class UI {
     switch (this.mode) {
       case 'day': return 'เลือกที่จะไป แล้วกดยืนยัน';
       case 'move': return 'อยู่ที่เดิม ย้าย หรือหนี';
-      case 'cards': return 'เลือกการ์ด 2 ใบ (หรือ NP + การ์ด 1 ใบ)';
+      case 'cards': return this.fight?.church ? `ปราบมอนสเตอร์ในโบสถ์ · พลัง ${CHURCH_MONSTER_BASE} + ลูกเต๋า · ชนะได้ Command Seal` : 'เลือกการ์ด 2 ใบ (หรือ NP + การ์ด 1 ใบ)';
       default: break;
     }
     if (g.stage === 'cards') return (g.fights || []).some((f) => f.players.includes(me)) ? 'รอทุกคนลงการ์ด' : 'รอการต่อสู้ที่อื่น';
@@ -351,30 +356,33 @@ export class UI {
     const secs = this.mode ? ` · <span class="step-sec" id="stepsec">${this.timeLeft()}</span> วิ` : '';
     $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}` : '☀ กลางวัน'} · ${this.stepText()}${secs}</div>
       <div class="pill" ${help(g.grail.appeared ? 'grail' : 'deaths')} data-pools="อัญเชิญได้อีก: กองกลาง ${g.pool.length} · กอง Alter ${g.alterPool.length}">${pill}</div>
-      ${sit ? `<div class="sit" ${help('daily')}><span class="pill-tag warn">อีเวนต์วันนี้</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
+      ${sit ? `<div class="sit" ${help('daily')}><span class="pill-tag warn">อีเวนต์ประจำวัน</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
   }
 
   // Servant card + status, always at the top left (design 13.1)
   renderCard() {
     const me = this.me, g = this.game;
     const s = me.servant;
-    if (!s) { $('#charcard').innerHTML = `<div class="ccard empty"><p class="muted">${me.out ? 'คุณตกรอบแล้ว' : 'ยังไม่มี Servant'}</p></div>`; return; }
+    if (!s || me.catalystPending) {
+      const why = me.out ? 'คุณตกรอบแล้ว' : me.catalystPending ? 'วัตถุเชื่อมโยง: เลือก Servant ตนใหม่ตอนกลางวัน' : 'ยังไม่มี Servant';
+      $('#charcard').innerHTML = `<div class="ccard empty"><p class="muted">${why}</p>${me.out ? '' : `<div class="cc-row"><span class="cc-seals" ${help('seal')}>${sealIcon(me.seals)}<b>${me.seals}/${SEAL_MAX}</b></span><span ${help('mana')}>◈${me.mana}</span></div>`}</div>`;
+      return;
+    }
     const def = s.def;
-    const q = me.quest;
     const flags = FIELDS.filter((f) => g.flags[f] === me.id).map((f) => AREAS[f].short);
     const tags = [
       s.revealed ? `<span class="tag bad" ${help('revealed')}>ชื่อจริงถูกเปิด −2</span>` : '',
       me.resting && g.half === 'night' ? `<span class="tag warn" ${help('resting')}>พักฟื้น</span>` : '',
       flags.length ? `<span class="tag warn" ${help('flag')}>⚑ ${flags.join(', ')} +3</span>` : '',
-      q ? `<span class="tag warn" data-tip="${esc(QUESTS[q.key].text)} · ภายในวันที่ ${q.until}">เควส ${esc(QUESTS[q.key].name)} ${q.progress}/${QUESTS[q.key].need}</span>` : '',
+      me.churchMonster ? `<span class="tag warn" data-tip="${esc(DAY.monster[0])}">ปราบภูตร้าย กลางคืน 1</span>` : '',
     ].filter(Boolean).join('');
     $('#charcard').innerHTML = `<div class="ccard cls-${s.cls}" style="--cc:${CLASS_COLOR[s.cls]}">
-      <div class="cc-art" style="background-image:url('${art(s.cls, s.key)}')"><span class="cc-cls">${s.cls}${def.alter ? ' · Alter' : ''}</span></div>
+      <div class="cc-art" style="background-image:url('${art(s.cls, s.key)}')"><span class="cc-cls">${s.cls}${def.alter ? ` · <span ${help('alter')}>Alter</span>` : ''}</span></div>
       <div class="cc-body">
         <div class="cc-name" title="${esc(def.name)}">${esc(def.name)}</div>
         <div ${help('hp')}>${bar(Math.max(0, s.hp), s.maxHp, 'hp')}</div>
         <div ${help('mana')}>${bar(me.mana, MANA_MAX, 'mana')}</div>
-        <div class="cc-row"><span class="cc-seals" ${help('seal')}>${sealIcon(me.seals)}<b>${me.seals}/${SEAL_MAX}</b></span><small class="muted">${def.godHand ? 'God Hand' : def.nameless ? 'ไร้นาม' : ''}</small></div>
+        <div class="cc-row"><span class="cc-seals" ${help('seal')}>${sealIcon(me.seals)}<b>${me.seals}/${SEAL_MAX}</b></span></div>
       </div>
       <div class="cc-fav" ${help('favored')}><span class="good">ถนัด ${AREAS[def.favored].short} +2</span> · <span class="bad">ไม่ถนัด ${AREAS[def.unfavored].short} −2</span></div>
       ${tags ? `<div class="cc-tags">${tags}</div>` : ''}
@@ -384,8 +392,8 @@ export class UI {
   // hand + NP right under the Servant card, items at the bottom of the column
   renderHand() {
     const me = this.me, g = this.game;
-    const s = me.servant;
-    const tiles = me.hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"', cost: g.cardCost(c) }));
+    const s = me.catalystPending ? null : me.servant;
+    const tiles = s ? me.hand.map((c) => cardTile(c, { attrs: 'tabindex="-1"', cost: g.cardCost(c) })) : [];
     if (s) {
       const cost = g.cardCost(s.np);
       const why = me.mana < cost ? `มานาไม่พอ (ต้องใช้ ${cost})` : '';
@@ -406,28 +414,33 @@ export class UI {
     const nodes = AREA_KEYS.map((a) => {
       const closed = !g.areaOpen(a);
       const grailHere = g.grail.appeared && !g.grail.holder && g.grail.area === a;
-      const people = g.alive().filter((x) => x.area === a && x.servant);
+      const people = g.alive().filter((x) => x.area === a && x.servant && !x.catalystPending);
       const tokens = people.map((x) => `<span class="token ${x === me ? 'me' : ''} ${g.grail.holder === x ? 'holder' : ''}" style="--pc:${this.color(x)}" title="${esc(x.name)} · ${esc(g.servantLabel(me, x))}">
         ${portrait(x.servant.cls, 'xs', g.knowsName(me, x) && x.servant.key)}<small>${esc(x.name)}</small></span>`).join('');
       const sel = choosing && this.sel.area === a;
       const mine = !choosing && !me.out && me.area === a;
       const fight = g.stage === 'cards' || g.stage === 'result' ? (g.fights || []).some((f) => f.area === a) : false;
-      const def = me.servant?.def;
-      const fav = def && def.favored === a ? '<i class="mk good">ถนัด</i>' : def && def.unfavored === a ? '<i class="mk bad">ไม่ถนัด</i>' : '';
-      const cap = closed ? '<i class="mk">ปิด</i>' : FIELDS.includes(a) ? '' : `<i class="mk">รับ ${g.capOf(a)}</i>`;
+      const def = me.catalystPending ? null : me.servant?.def;
+      const fav = def && def.favored === a ? `<i class="mk good" ${help('favored')}>ถนัด</i>` : def && def.unfavored === a ? `<i class="mk bad" ${help('favored')}>ไม่ถนัด</i>` : '';
+      const cap = closed ? `<i class="mk" ${help('closed')}>ปิด</i>` : FIELDS.includes(a) ? '' : `<i class="mk" ${help('cap')}>รับ ${g.capOf(a)}</i>`;
       const flagOwner = FIELDS.includes(a) && g.flags[a] != null ? g.players[g.flags[a]] : null;
-      const flag = flagOwner ? `<i class="mk flag" style="--pc:${this.color(flagOwner)}" title="ธงยึดครองของ ${esc(flagOwner.name)}">⚑ ${esc(flagOwner.name)}</i>` : '';
+      const flag = flagOwner ? `<i class="mk flag" style="--pc:${this.color(flagOwner)}" data-help="flag" title="ธงยึดครองของ ${esc(flagOwner.name)}">⚑ ${esc(flagOwner.name)}</i>` : '';
       let ev = '';
       if (FIELDS.includes(a) && g.events[a] && !closed) {
         ev = a === 'shinto' && !g.shintoOpen ? '<div class="evcard back">รางวัล (คว่ำ)</div>' : `<div class="evcard">รางวัล: ${esc(g.events[a].name)}</div>`;
       }
       if (a === 'temple' && !closed) ev = '<div class="evcard ley">เลย์ไลน์ มานา</div>';
       if (a === 'mansion' && !closed) ev = `<div class="evcard ley">หลอมการ์ด ใบละ ${g.forgeMana()} มานา</div>`;
-      const monster = g.shadowArea === a ? `<i class="mk fight" title="มอนสเตอร์ ${MONSTER_BASE}+1d6">👁 มอนสเตอร์</i>` : '';
+      let monster = g.shadowArea === a ? `<i class="mk fight" ${help('shadow')}>👁 ${MONSTERS.shadow.name}</i>` : '';
+      // the church at night is a safe zone; its monster is marked once someone chose to fight it
+      if (a === 'church' && !closed) {
+        monster = `<i class="mk" ${help('safe')}>เซฟโซน</i>`;
+        if (people.some((x) => x.churchMonster)) monster += `<i class="mk fight" ${help('churchMonster')}>ภูตร้าย</i>`;
+      }
       const [x, y] = MAP_SPOTS[a];
       return `<button class="anode ${closed ? 'closed' : ''} ${sel ? 'sel' : ''} ${mine ? 'mine' : ''}" data-area="${a}" style="grid-area:${a};--x:${x}%;--y:${y}%" ${closed || !choosing ? 'tabindex="-1"' : ''} data-tip="${esc(this.areaDesc(a))}">
         <div class="an-name">${AREAS[a].name}</div>
-        <div class="an-flags">${fav}${cap}${flag}${grailHere ? '<i class="mk grail">✦ จอก</i>' : ''}${monster}${fight ? '<i class="mk fight">⚔</i>' : ''}</div>
+        <div class="an-flags">${fav}${cap}${flag}${grailHere ? `<i class="mk grail" ${help('grail')}>✦ จอก</i>` : ''}${monster}${fight ? '<i class="mk fight">⚔</i>' : ''}</div>
         ${ev}
         <div class="tokens">${tokens}</div>
       </button>`;
@@ -525,20 +538,41 @@ export class UI {
     const list = [me, ...g.players.filter((x) => x !== me)];
     const rows = list.map((x, i) => {
       const s = x.servant;
-      const label = s ? g.servantLabel(me, x) : (x.out ? '—' : '...');
+      const pending = x.catalystPending;
+      const label = pending ? 'รออัญเชิญ' : s ? g.servantLabel(me, x) : (x.out ? '—' : '...');
       const flags = FIELDS.filter((f) => g.flags[f] === x.id).map((f) => `⚑${AREAS[f].short}`).join(' ');
-      const known = s && x !== me && g.knowsName(me, x);
+      const known = s && !pending && x !== me && g.knowsName(me, x);
       const tip = [label, known ? `ถนัด ${AREAS[s.def.favored].short} · ไม่ถนัด ${AREAS[s.def.unfavored].short}${s.revealed ? ' · เปิดชื่อแล้ว −2' : ''}` : ''].filter(Boolean).join(' · ');
-      return `<li class="prow ${x.out ? 'out' : ''} ${x === me ? 'me' : ''}" style="--pc:${this.color(x)}" data-tip="${esc(`${x.name} · ${tip}`)}">
+      // a rival whose true name is out can be opened to see the whole Servant card (design 5.3)
+      const open = s && !pending && x !== me && g.knowsName(me, x);
+      return `<li class="prow ${x.out ? 'out' : ''} ${x === me ? 'me' : ''} ${open ? 'open' : ''}" style="--pc:${this.color(x)}" data-tip="${esc(`${x.name} · ${tip}${open ? ' · แตะเพื่อดูการ์ด Servant' : ''}`)}" ${open ? `data-rival="${x.id}"` : ''}>
         <div class="pr-num">${i + 1}</div>
-        ${portrait(s?.cls, 'sm', s && g.knowsName(me, x) && s.key)}
+        ${portrait(pending ? null : s?.cls, 'sm', s && g.knowsName(me, x) && s.key)}
         <div class="pr-main">
           <div class="pr-name"><b>${esc(x.name)}</b>${x === me ? '<span class="you">คุณ</span>' : ''}${g.grail.holder === x ? '<span class="grail"> ✦</span>' : ''}<span class="pr-state">${this.playerStatus(x)}</span></div>
-          <div class="pr-meta"><span class="pr-sv">${esc(s ? (known || x === me ? s.def.name : s.cls) : label)}${s?.def.alter && known ? ' (Alter)' : ''}</span> · <span ${help(x === me ? 'seal' : 'sealsHidden')}>${x === me ? seals(x.seals) : hiddenSeals}</span> · <span ${help('mana')}>◈${x.mana}</span> · <span ${help('items')}>🎒${x.items.length}</span>${flags ? ` · <span ${help('flag')}>${flags}</span>` : ''}</div>
-          ${s ? bar(Math.max(0, s.hp), s.maxHp, 'hp thin', false) : ''}
+          <div class="pr-meta"><span class="pr-sv">${esc(s && !pending ? (known || x === me ? s.def.name : s.cls) : label)}</span>${s?.def.alter && known ? ` <span ${help('alter')}>(Alter)</span>` : ''} · <span ${help('seal')}>${seals(x.seals)}</span> · <span ${help('mana')}>◈${x.mana}</span> · <span ${help('items')}>🎒${x.items.length}</span>${flags ? ` · <span ${help('flag')}>${flags}</span>` : ''}</div>
+          ${s && !pending ? `<div ${help('hp')}>${bar(Math.max(0, s.hp), s.maxHp, 'hp thin', false)}</div>` : ''}
       </li>`;
     }).join('');
-    $('#players').innerHTML = `<div class="hud-tag">MASTERS · ${g.alive().length}/8</div><ul>${rows}</ul>`;
+    $('#players').innerHTML = `<div class="hud-tag" ${help('alive')}>MASTERS · ${g.alive().length}/8</div><ul>${rows}</ul>`;
+    $('#players').querySelectorAll('[data-rival]').forEach((li) => li.onclick = () => this.showRival(g.players[Number(li.dataset.rival)]));
+  }
+
+  // a revealed rival's Servant card: name, NP, the whole deck and the favored areas (design 5.3)
+  showRival(x) {
+    const s = x.servant;
+    if (!s || !this.game.knowsName(this.me, x)) return;
+    const deck = buildDeck(s.key);
+    const attacks = deck.filter((c) => c.kind === 'atk').map((c) => `${TYPES[c.type].th} ${c.power}`).join(' · ');
+    const g = $('#guide');
+    g.querySelector('.sheet').innerHTML = `<h2>${esc(x.name)}: ${s.revealed ? 'Servant ที่ชื่อจริงถูกเปิด' : 'Servant ที่คุณรู้จากบันทึกวีรชน (คนอื่นยังไม่รู้)'}</h2>
+      ${this.servantCard(s, false)}
+      <div class="muted"><small>การ์ดโจมตี 10 ใบ: ${esc(attacks)}</small></div>
+      ${s.shown.length ? `<div class="muted"><small>ลงมาแล้ว: ${esc(s.shown.join(', '))}</small></div>` : ''}
+      <div class="confirm-row" style="margin-top:14px"><button class="primary" id="g-close">ปิด</button></div>`;
+    g.hidden = false;
+    g.querySelector('#g-close').onclick = () => { g.hidden = true; };
+    g.onclick = (e) => { if (e.target === g) g.hidden = true; };
   }
 
   addLog(entry) {
@@ -580,21 +614,22 @@ export class UI {
   decide(g, pl, kind, ctx) {
     switch (kind) {
       case 'intro': return this.showIntro();
-      case 'day': return this.askDay();
+      case 'day': return this.askDay(ctx);
       case 'move': return this.askMove(ctx.opts);
       case 'cards': return this.askCards(ctx);
       case 'nightEnd': return this.showNight(ctx.results);
-      case 'catalyst': return this.askCatalyst(ctx.choices);
       default: return null;
     }
   }
 
   // ---------- ① day: choose an area ----------
-  askDay() {
+  askDay(ctx = {}) {
     const g = this.game, me = this.me;
     const fields = g.cap.fields;
     this.mode = 'day';
-    this.sel = { area: null, backup: fields.includes(me.lastField) ? me.lastField : fields[0], church: { type: 'offer' }, forge: [], hero: false };
+    this.catalyst = ctx.catalyst || null;
+    this.sel = { area: null, backup: fields.includes(me.lastField) ? me.lastField : fields[0], church: this.defaultErrand(), forge: [], items: [], sealHeal: false, drop: [], hero: false };
+    this.news = this.takeNews();
     this.renderAll();
     return new Promise((resolve) => {
       this.resolveDay = resolve;
@@ -604,21 +639,35 @@ export class UI {
   }
 
   pickArea(a) {
+    if (this.me.catalystPending) return;
     this.sel.area = a;
     if (FIELDS.includes(a)) this.sel.backup = a;
     this.renderStage();
     this.renderDayChoice();
   }
 
+  // the church errand picked to start with: offer when the mana is there, else the monster;
+  // none with full Command Seals (hide only, design 8)
+  defaultErrand() {
+    const me = this.me;
+    // the monster fight is always a deliberate tap, never a default
+    if (me.seals >= SEAL_MAX || me.mana < this.game.offerPrice()) return null;
+    return { type: 'offer' };
+  }
+
   confirmDay(timeout = false) {
     if (!this.resolveDay) return;
     clearInterval(this.timer);
-    const { area, backup, church, forge } = this.sel;
+    const { area, backup, church, forge, items, sealHeal, drop } = this.sel;
+    const me = this.me;
     this.mode = null;
+    this.catalyst = null;
     this.setChoice('<div class="waiting">รอทุกคนเลือก แล้วเปิดเผยพร้อมกัน…</div>');
     const r = this.resolveDay; this.resolveDay = null;
-    // design: no choice in time = previous battlefield (or a random one)
-    r(timeout && !area ? {} : { area, backup, church: area === 'church' ? church : null, forge: area === 'mansion' ? forge : [] });
+    // design 4.4: no answer in time = the last battlefield (or a random one), no errand,
+    // no forging, nothing used; extra items drop oldest first
+    if (timeout) { r({}); return; }
+    r({ area, backup, church: area === 'church' ? church : null, forge: area === 'mansion' ? forge : [], items, sealHeal, discard: drop.map((i) => me.items[i]) });
   }
 
   areaDesc(a) {
@@ -628,16 +677,51 @@ export class UI {
   // why an area cannot be picked this morning
   areaWhy(a) {
     const g = this.game, me = this.me;
-    if (!g.areaOpen(a)) return `ปิด: มาสเตอร์เหลือ ${g.alive().length} คน ${a === 'shinto' ? 'เปิดสนามรบเดียว' : 'ที่นี่ไม่รับคนแล้ว'}`;
-    if (g.grail.holder === me && !FIELDS.includes(a)) return 'ผู้ถือจอกเข้าวัด โบสถ์ หรือคฤหาสน์ไม่ได้';
+    if (!g.areaOpen(a)) return `ปิด: Master เหลือ ${g.alive().length} คน ${a === 'shinto' ? 'เปิดสนามรบเดียว' : 'ที่นี่ไม่รับคนแล้ว'}`;
+    if (g.grail.holder === me && a === 'church') return 'ผู้ถือจอกใช้โบสถ์ไม่ได้';
+    if (g.grail.holder === me && !FIELDS.includes(a)) return 'ผู้ถือจอกเข้าวัดหรือคฤหาสน์ไม่ได้';
     return '';
+  }
+
+  // private lines that came after the last result panel (a resummon, an Alter, being
+  // knocked out) are shown in the next panel (Appendix ก.6)
+  takeNews() {
+    const g = this.game, me = this.me;
+    const from = this.newsFrom ?? g.logs.length;
+    this.newsFrom = g.logs.length;
+    return g.logs.slice(from).filter((e) => e.to && e.to.includes(me.id) && e.half === 'night');
+  }
+  newsHtml(list) {
+    return list?.length ? `<div class="summary small">${list.map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('')}</div>` : '';
+  }
+
+  // a Master holding a catalyst picks the new Servant first, inside the day timer (design 9)
+  renderCatalystPick() {
+    const g = this.game, me = this.me;
+    this.setChoice(`
+      <div class="hud-tag">กลางวัน · วัตถุเชื่อมโยง</div>
+      ${this.newsHtml(this.news)}
+      <p class="note">${esc(DAY.catalyst[0])} · ควรเลือกเมื่อ: ${esc(DAY.catalyst[1])}</p>
+      <div class="grid">${this.catalyst.map((k) => {
+        const d = SERVANTS[k];
+        return `<button data-k="${k}" class="pick-sv"><img src="${art(d.cls, k)}" alt=""${fallback(d.cls)}><b>${esc(d.name)}</b><small>${d.cls}${d.alter ? ' · Alter' : ''}</small>
+          <small class="desc">ถนัด ${AREAS[d.favored].short} · ไม่ถนัด ${AREAS[d.unfavored].short} · NP ${esc(d.np.name)}</small></button>`;
+      }).join('')}</div>
+      <div class="confirm-row">${this.timerHtml()}<small class="desc">เลือก Servant ก่อน แล้วจึงเลือกพื้นที่ · หมดเวลา = สุ่ม 1 ใน 3 และไปสนามรบเดิม</small></div>`);
+    $('#choice').querySelectorAll('[data-k]').forEach((b) => b.onclick = () => {
+      g.pickCatalyst(me, b.dataset.k);
+      this.sel.church = this.defaultErrand();
+      this.renderAll();
+      this.renderDayChoice();
+    });
   }
 
   renderDayChoice() {
     const g = this.game, me = this.me;
+    this.redrawChoice = () => this.renderDayChoice();
+    if (me.catalystPending && this.catalyst) { this.renderCatalystPick(); return; }
     const holder = g.grail.holder === me;
     const def = me.servant.def;
-    this.redrawChoice = () => this.renderDayChoice();
     const rows = AREA_KEYS.map((a) => {
       const why = this.areaWhy(a);
       const tag = def.favored === a ? '<i class="mk good">ถนัด +2</i>' : def.unfavored === a ? '<i class="mk bad">ไม่ถนัด −2</i>' : '';
@@ -650,72 +734,105 @@ export class UI {
     const needBackup = this.sel.area && !FIELDS.includes(this.sel.area);
     const backup = needBackup && fields.length > 1 ? `<div class="sub"><small>สนามรบสำรอง: ${esc(DAY.backup[0])} ${a11yPrio(this.sel.area)}</small>
       <div class="seg">${fields.map((f) => `<button data-backup="${f}" class="${this.sel.backup === f ? 'on' : ''}" title="ควรเลือกเมื่อ: ${esc(DAY.backup[1])}">${AREAS[f].name}</button>`).join('')}</div></div>` : '';
+    // day items and "รักษา!" are chosen now and happen at the reveal, with everyone else's
+    const using = (k) => this.sel.items.some((x) => x.key === k);
+    const manaThen = Math.min(MANA_MAX, me.mana + (using('mana_vial') ? 5 : 0));
     let church = '';
     if (this.sel.area === 'church') {
       const price = g.offerPrice();
+      const full = me.seals >= SEAL_MAX ? `Command Seal เต็มแล้ว (${SEAL_MAX} ดวง) ไปหลบได้แต่ทำธุระไม่ได้` : '';
+      const offerWhy = full || (manaThen < price ? `มานาไม่พอ (ต้องใช้ ${price})` : '');
+      if (this.sel.church?.type === 'offer' && offerWhy) this.sel.church = null;
+      if (full) this.sel.church = null;
       const ch = this.sel.church;
-      const offerWhy = me.seals >= SEAL_MAX ? `Command Seal เต็มแล้ว (${SEAL_MAX} ดวง)` : me.mana < price ? `มานาไม่พอ (ต้องใช้ ${price})` : '';
-      const quests = g.quests.map((k) => {
-        const why = me.quest ? 'ถือเควสได้ทีละ 1 เควส' : me.mana < QUEST_DEPOSIT ? `มานาไม่พอวางมัดจำ (ต้องใช้ ${QUEST_DEPOSIT})`
-          : k === 'offering' && me.items.length < 2 ? 'ต้องมีการ์ดไอเท็ม 2 ใบ' : k === 'offering' && me.seals >= SEAL_MAX ? 'Command Seal เต็มแล้ว' : '';
-        return optBtn({ cls: 'small', sel: ch.type === 'quest' && ch.quest === k, off: !!why, attrs: `data-quest="${k}"`, label: `รับเควส: ${esc(QUESTS[k].name)}`, desc: `${DAY[k][0]} · ${DAY.quest[0]}`, when: DAY[k][1], why });
-      }).join('');
-      church = `<div class="sub"><small>ทำอะไรที่โบสถ์ (ทำได้ 1 อย่าง)</small><div class="tools col">
-        ${optBtn({ cls: 'small', sel: ch.type === 'offer', off: !!offerWhy, attrs: 'data-offer="1"', label: `ถวายมานา ${price} → Command Seal +1`, desc: DAY.offer[0], when: DAY.offer[1], why: offerWhy })}
-        ${quests}</div></div>`;
+      church = `<div class="sub"><small>ธุระโบสถ์: เลือกได้ 1 อย่าง (แตะอีกครั้งเพื่อไปหลบเฉยๆ)</small><div class="tools col">
+        ${optBtn({ cls: 'small', sel: ch?.type === 'offer', off: !!offerWhy, attrs: 'data-errand="offer"', label: `ถวายมานา ${price} → Command Seal +1`, desc: DAY.offer[0], when: DAY.offer[1], why: offerWhy })}
+        ${optBtn({ cls: 'small', sel: ch?.type === 'monster', off: !!full, attrs: 'data-errand="monster"', label: 'ปราบมอนสเตอร์ → Command Seal +1', desc: DAY.monster[0], when: DAY.monster[1], why: full })}
+        </div></div>`;
     }
     let forge = '';
     if (this.sel.area === 'mansion') {
       forge = `<div class="sub"><small>หลอมการ์ด: ${esc(DAY.forge[0])} (ใบละ +${g.forgeMana()} มานา แล้วจั่วใหม่) · ควร${esc(DAY.forge[1])}</small>
         <div class="hand">${me.hand.map((c) => {
           const on = this.sel.forge.includes(c.id);
-          const full = !on && this.sel.forge.length >= 2;
-          return cardTile(c, { sel: on, off: full, attrs: `data-forge="${c.id}"`, cost: g.cardCost(c), why: full ? 'เลือกครบ 2 ใบแล้ว' : '' });
+          const max = !on && this.sel.forge.length >= 2;
+          return cardTile(c, { sel: on, off: max, attrs: `data-forge="${c.id}"`, cost: g.cardCost(c), why: max ? 'เลือกครบ 2 ใบแล้ว' : '' });
         }).join('')}</div></div>`;
     }
     const dayItems = [...new Set(me.items)].filter((k) => ITEMS[k].phase.includes('day'));
-    const itemWhy = (k) => g.dayItemUsable(me, k) ? '' : k === 'potion' ? 'HP เต็มแล้ว' : k === 'mana_vial' ? 'มานาเต็มแล้ว' : '';
-    const itemBtns = dayItems.map((k) => optBtn({ cls: 'small', attrs: `data-item="${k}"`, off: !!itemWhy(k), label: `ใช้ ${esc(ITEMS[k].name)}`, desc: DAY[k]?.[0] || ITEMS[k].text, when: DAY[k]?.[1], why: itemWhy(k) })).join('');
-    const healWhy = me.seals <= 0 ? 'ไม่มี Command Seal' : me.servant.hp >= me.servant.maxHp ? 'HP เต็มแล้ว' : '';
-    const sealBtn = optBtn({ cls: 'small seal', attrs: 'data-seal="heal"', off: !!healWhy, label: '◆ รักษา! (Command Seal)', desc: DAY.sealHeal[0], when: DAY.sealHeal[1], why: healWhy });
-    const unknown = g.alive().filter((x) => x !== me && !g.knowsName(me, x));
+    const unknown = g.alive().filter((x) => x !== me && x.servant && !x.catalystPending && !g.knowsName(me, x));
+    const itemWhy = (k) => using(k) ? '' : k === 'hero_record' && !unknown.length ? 'รู้จัก Servant ทุกคนแล้ว'
+      : g.dayItemUsable(me, k) ? '' : k === 'potion' ? 'HP เต็มแล้ว' : k === 'mana_vial' ? 'มานาเต็มแล้ว' : '';
+    const itemBtns = dayItems.map((k) => optBtn({ cls: 'small', sel: using(k) || (k === 'hero_record' && this.sel.hero), attrs: `data-item="${k}"`, off: !!itemWhy(k),
+      label: `ใช้ ${esc(ITEMS[k].name)}`, desc: DAY[k]?.[0] || ITEMS[k].text, when: DAY[k]?.[1], why: itemWhy(k) })).join('');
+    const healWhy = this.sel.sealHeal ? '' : me.seals <= 0 ? 'ไม่มี Command Seal' : me.servant.hp >= me.servant.maxHp ? 'HP เต็มแล้ว' : '';
+    const sealBtn = optBtn({ cls: 'small seal', sel: this.sel.sealHeal, attrs: 'data-seal="heal"', off: !!healWhy, label: '◆ รักษา! (Command Seal)', desc: DAY.sealHeal[0], when: DAY.sealHeal[1], why: healWhy });
+    const heroAt = this.sel.items.find((x) => x.key === 'hero_record')?.target;
     const heroPick = this.sel.hero ? `<p class="note">บันทึกวีรชน: เลือกเป้าหมาย</p><div class="tools">${unknown.map((x) =>
-      `<button class="small" data-hero="${x.id}">${esc(x.name)} (${x.servant.cls})</button>`).join('')}</div>` : '';
+      `<button class="small ${heroAt === x.id ? 'on' : ''}" data-hero="${x.id}">${esc(x.name)} (${x.servant.cls})</button>`).join('')}</div>` : '';
+    const planned = [...this.sel.items.map((x) => ITEMS[x.key].name + (x.key === 'hero_record' ? ` (${g.players[x.target].name})` : '')), ...(this.sel.sealHeal ? ['รักษา!'] : [])];
+    // over the item limit: pick what to drop (design 2); the items being used do not count
+    const usedIdx = new Set();
+    for (const it of this.sel.items) usedIdx.add(me.items.findIndex((k, i) => k === it.key && !usedIdx.has(i)));
+    const need = me.items.length - usedIdx.size - ITEM_MAX;
+    this.sel.drop = this.sel.drop.filter((i) => !usedIdx.has(i)).slice(0, Math.max(0, need));
+    const drop = need > 0 ? `<div class="sub"><small>ทิ้งไอเท็ม: ${esc(DAY.discard[0])} (ต้องทิ้งอีก ${need - this.sel.drop.length} ใบ)</small><div class="tools">${me.items.map((k, i) => {
+      if (usedIdx.has(i)) return '';
+      const on = this.sel.drop.includes(i);
+      const why = !on && this.sel.drop.length >= need ? 'ทิ้งครบแล้ว' : '';
+      return optBtn({ cls: 'small', sel: on, off: !!why, attrs: `data-drop="${i}"`, label: `ทิ้ง ${esc(ITEMS[k].name)}`, desc: ITEMS[k].text, why });
+    }).join('')}</div></div>` : '';
+    const goWhy = this.sel.area === 'mansion' && !this.sel.forge.length ? 'เลือกการ์ด 1–2 ใบที่จะหลอม' : '';
+    const foot = !this.sel.area ? 'ยังไม่ได้เลือก: แตะพื้นที่ก่อน ถ้าหมดเวลาระบบส่งไปสนามรบเดิม'
+      : goWhy || 'ยืนยันแล้วเปลี่ยนไม่ได้ · ถ้าไม่กดยืนยันก่อนหมดเวลา ระบบส่งไปสนามรบเดิมและไม่ใช้อะไรที่เลือกไว้';
     this.setChoice(`
       <div class="hud-tag">กลางวัน · เลือกที่จะไป</div>
       ${this.hint('choose')}
+      ${this.newsHtml(this.news)}
       <p class="note">ทุกคนเลือกพร้อมกันแบบลับ แล้วเปิดเผยพร้อมกัน · กลางวันไม่มีการต่อสู้ · อยู่สนามรบตั้งแต่กลางวัน = ตั้งหลัก +1 คืนนี้${holder ? ' · <b class="grail">คุณถือจอก: ไปได้แค่สนามรบ</b>' : ''}</p>
       <div class="arows two">${rows}</div>
       ${backup}${church}${forge}
       <div class="tools col optcol two">${sealBtn}${itemBtns}</div>
       ${heroPick}
+      ${planned.length ? `<p class="note">ใช้ตอนเปิดผลกลางวัน: ${esc(planned.join(', '))}</p>` : ''}
+      ${drop}
       <div class="confirm-row">
         ${this.timerHtml()}
-        <button class="primary" id="go" ${this.sel.area ? '' : 'disabled'}>ยืนยัน${this.sel.area ? ` · ${AREAS[this.sel.area].short}` : ''}</button>
+        <button class="primary" id="go" ${this.sel.area && !goWhy ? '' : 'disabled'}>ยืนยัน${this.sel.area ? ` · ${AREAS[this.sel.area].short}` : ''}</button>
       </div>
-      <small class="desc" style="text-align:right">${this.sel.area ? 'ยืนยันแล้วเปลี่ยนไม่ได้' : 'ยังไม่ได้เลือก: แตะพื้นที่ก่อน ถ้าหมดเวลาระบบส่งไปสนามรบเดิม'}</small>`);
+      <small class="desc" style="text-align:right">${esc(foot)}</small>`);
     const el = $('#choice');
     this.wireHints();
     el.querySelectorAll('[data-area]').forEach((b) => b.onclick = () => this.pickArea(b.dataset.area));
     el.querySelectorAll('[data-backup]').forEach((b) => b.onclick = () => { this.sel.backup = b.dataset.backup; this.renderDayChoice(); });
-    el.querySelectorAll('[data-offer]').forEach((b) => b.onclick = () => { this.sel.church = { type: 'offer' }; this.renderDayChoice(); });
-    el.querySelectorAll('[data-quest]').forEach((b) => b.onclick = () => { this.sel.church = { type: 'quest', quest: b.dataset.quest }; this.renderDayChoice(); });
+    el.querySelectorAll('[data-errand]').forEach((b) => b.onclick = () => {
+      const t = b.dataset.errand;
+      this.sel.church = this.sel.church?.type === t ? null : { type: t };
+      this.renderDayChoice();
+    });
     el.querySelectorAll('[data-forge]').forEach((b) => b.onclick = () => {
       const id = Number(b.dataset.forge);
       this.sel.forge = this.sel.forge.includes(id) ? this.sel.forge.filter((x) => x !== id) : [...this.sel.forge, id];
       this.renderDayChoice();
     });
-    el.querySelectorAll('[data-seal]').forEach((b) => b.onclick = () => { g.sealHeal(me); this.renderAll(); this.renderDayChoice(); });
+    el.querySelectorAll('[data-seal]').forEach((b) => b.onclick = () => { this.sel.sealHeal = !this.sel.sealHeal; this.renderDayChoice(); });
     el.querySelectorAll('[data-item]').forEach((b) => b.onclick = () => {
       const k = b.dataset.item;
-      if (k === 'hero_record') { this.sel.hero = true; this.renderDayChoice(); return; }
-      g.useDayItem(me, k);
-      this.renderAll(); this.renderDayChoice();
+      if (k === 'hero_record') {
+        this.sel.hero = !this.sel.hero && !using(k);
+        this.sel.items = this.sel.items.filter((x) => x.key !== k);
+      } else this.sel.items = using(k) ? this.sel.items.filter((x) => x.key !== k) : [...this.sel.items, { key: k }];
+      this.renderDayChoice();
     });
     el.querySelectorAll('[data-hero]').forEach((h) => h.onclick = () => {
-      g.useDayItem(me, 'hero_record', Number(h.dataset.hero));
+      this.sel.items = [...this.sel.items.filter((x) => x.key !== 'hero_record'), { key: 'hero_record', target: Number(h.dataset.hero) }];
       this.sel.hero = false;
-      this.renderAll(); this.renderDayChoice();
+      this.renderDayChoice();
+    });
+    el.querySelectorAll('[data-drop]').forEach((b) => b.onclick = () => {
+      const i = Number(b.dataset.drop);
+      this.sel.drop = this.sel.drop.includes(i) ? this.sel.drop.filter((x) => x !== i) : [...this.sel.drop, i];
+      this.renderDayChoice();
     });
     $('#go').onclick = () => this.confirmDay();
   }
@@ -754,30 +871,42 @@ export class UI {
           : me.mana < g.moveCost() ? `มานาไม่พอ (ต้องใช้ ${g.moveCost()})` : '';
         const fieldsTo = g.cap.fields.filter((f) => f !== me.area);
         const holder = g.grail.holder === me;
-        const stayDesc = FIELDS.includes(me.area) ? (g.flags[me.area] === me.id ? 'ไม่เสียอะไร ถือธงอยู่ได้พลัง +3' : MOVE.stay[0]) : 'ไม่เสียอะไร';
+        const inChurch = me.area === 'church';
+        const stayDesc = inChurch ? MOVE.churchStay[0] : FIELDS.includes(me.area) ? (g.flags[me.area] === me.id ? 'ไม่เสียอะไร ถือธงอยู่ได้พลัง +3' : MOVE.stay[0]) : 'ไม่เสียอะไร';
+        const moveDesc = inChurch ? MOVE.churchLeave[0] : g.moveCost() ? MOVE.move[0] : 'ลมสงบ: ย้ายฟรี ไปถึงได้โบนัส 0 ทำได้เฉพาะตอนไม่มีใครอยู่ด้วย';
         const rows = [
-          optBtn({ sel: this.sel.type === 'stay', attrs: 'data-type="stay" data-to=""', label: `อยู่ที่${AREAS[me.area].name}`, desc: stayDesc, when: MOVE.stay[1] }),
+          optBtn({ sel: this.sel.type === 'stay', attrs: 'data-type="stay" data-to=""', label: inChurch ? 'อยู่ในโบสถ์' : `อยู่ที่${AREAS[me.area].name}`, desc: stayDesc, when: inChurch ? MOVE.churchStay[1] : MOVE.stay[1] }),
           ...fieldsTo.map((f) => optBtn({ sel: this.sel.type === 'move' && this.sel.to === f, off: !opts.move.includes(f), attrs: `data-type="move" data-to="${f}"`,
-            label: `ย้ายไป${AREAS[f].name}`, desc: g.moveCost() ? MOVE.move[0] : 'ลมสงบ: ย้ายฟรี ไปถึงได้โบนัส 0 ทำได้เฉพาะตอนไม่มีใครอยู่ด้วย', when: MOVE.move[1], why: moveWhy })),
+            label: `ย้ายไป${AREAS[f].name}`, desc: moveDesc, when: inChurch ? MOVE.churchLeave[1] : MOVE.move[1], why: moveWhy })),
         ];
-        // escapes: listed when you are tied down or cannot move otherwise; else one line saying how
-        const escWhy = !opts.escape.length ? (me.seals <= 0 && !hasScroll ? 'ไม่มี Command Seal' : holder ? 'ผู้ถือจอกเข้าวัด โบสถ์ หรือคฤหาสน์ไม่ได้' : 'ไม่มีที่ให้หนีไป') : '';
-        if (escWhy) rows.push(optBtn({ off: true, label: '"หนี!" (Command Seal)', desc: MOVE.escape[0], why: escWhy }));
-        else if (here.length || !opts.move.length) {
-          for (const a of opts.escape) rows.push(optBtn({ sel: this.sel.type === 'escape' && this.sel.to === a, attrs: `data-type="escape" data-to="${a}"`,
-            label: `"หนี!" ไป${AREAS[a].name}`, tags: useScroll ? '<i class="mk">ม้วนคาถา</i>' : '<i class="mk">−1 Command Seal</i>',
-            when: useScroll ? MOVE.scroll[1] : MOVE.escape[1] }));
-          // one shared line instead of repeating it on every escape button
-          if (opts.escape.length) rows.push(`<small class="desc esc-note">"หนี!": ${esc(useScroll ? MOVE.scroll[0] : MOVE.escape[0])}</small>`);
-        } else rows.push(`<small class="desc">"หนี!" ใช้ได้เมื่อมีคนอยู่ด้วย (ตอนนี้ย้ายแบบจ่ายมานาได้อยู่แล้ว)</small>`);
+        // every escape target is listed, greyed with its reason when it is not allowed (ก.4)
+        const escTo = [...fieldsTo, 'temple', 'mansion', 'church'].filter((a) => a !== me.area);
+        for (const a of escTo) {
+          const ok = opts.escape.includes(a);
+          const why = ok ? '' : a === 'church' ? MOVE.churchClosed
+            : holder && !FIELDS.includes(a) ? 'ผู้ถือจอกเข้าวัด โบสถ์ หรือคฤหาสน์ไม่ได้'
+            : !g.areaOpen(a) ? this.areaWhy(a) || 'ปิด'
+            : me.seals <= 0 && !hasScroll ? 'ไม่มี Command Seal' : 'ไปไม่ได้';
+          rows.push(optBtn({ sel: this.sel.type === 'escape' && this.sel.to === a, off: !ok, attrs: ok ? `data-type="escape" data-to="${a}"` : '',
+            label: `"หนี!" ไป${AREAS[a].name}`, tags: ok ? (useScroll ? '<i class="mk">ม้วนคาถา</i>' : '<i class="mk">−1 Command Seal</i>') : '',
+            when: ok ? (inChurch ? MOVE.churchLeave[1] : useScroll ? MOVE.scroll[1] : MOVE.escape[1]) : '', why }));
+        }
+        // one shared line instead of repeating it on every escape button
+        if (opts.escape.length) rows.push(`<small class="desc esc-note">"หนี!": ${esc(inChurch ? MOVE.churchLeave[0] : useScroll ? MOVE.scroll[0] : MOVE.escape[0])}</small>`);
         const view = opts.view.length ? `<div class="sub"><small>ดูมือ (โบสถ์): ${esc(MOVE.view[0])}</small><div class="tools">${opts.view.map((id) =>
           `<button class="small ${this.sel.view === id ? 'on' : ''}" data-view="${id}" title="ควรเลือกเมื่อ: ${esc(MOVE.view[1])}">${esc(g.players[id].name)}</button>`).join('')}</div></div>` : '';
         const daySum = this.dayLines().map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('');
+        // what being alone here means depends on the area (design 3)
+        const alone = inChurch ? (me.churchMonster ? `โบสถ์เป็นเซฟโซน ไม่มีใครเข้ามาได้ · คืนนี้คุณจะสู้กับภูตร้ายใต้โบสถ์ (พลัง ${CHURCH_MONSTER_BASE} + ลูกเต๋า) ถ้าออกจากโบสถ์ถือว่ายกเลิก` : 'โบสถ์เป็นเซฟโซน ไม่มีใครเข้ามาได้')
+          : me.area === 'temple' ? 'ตอนนี้คุณอยู่คนเดียว ไม่มีใครมาก็ไม่ต้องสู้ แต่กลางคืนไม่ได้มานา'
+          : me.area === 'mansion' ? 'กลางคืนปลอดภัย ไม่มีรางวัล'
+          : g.shadowArea === me.area ? 'อยู่คนเดียวก็ต้องสู้กับมอนสเตอร์เงาดำ'
+          : 'ตอนนี้คุณอยู่คนเดียว ถ้าไม่มีใครมา คุณได้รางวัลโดยไม่ต้องสู้';
         this.setChoice(`
           <div class="hud-tag">กลางคืน ${g.nightNo} · ย้ายพื้นที่</div>
           ${this.hint('move')}
           ${daySum ? `<div class="summary small">${daySum}</div>` : ''}
-          <p class="note">${here.length ? `อยู่ด้วยกัน: ${here.map((x) => `${esc(x.name)} [${esc(g.servantLabel(me, x))}]`).join(', ')} · ถ้าอยู่ที่เดิมต้องสู้` : 'ตอนนี้คุณอยู่คนเดียว ถ้าไม่มีใครมา คุณได้รางวัลโดยไม่ต้องสู้'}${tied ? ` · <span ${help('tied')}>ติดพัน</span>` : ''}</p>
+          <p class="note">${here.length ? `อยู่ด้วยกัน: ${here.map((x) => `${esc(x.name)} [${esc(g.servantLabel(me, x))}]`).join(', ')} · ถ้าอยู่ที่เดิมต้องสู้` : esc(alone)}${tied ? ` · <span ${help('tied')}>ติดพัน</span>` : ''}</p>
           <div class="arows two">${rows.join('')}</div>
           ${hasScroll && me.seals > 0 && opts.escape.length ? `<label class="tog ${this.sel.scroll ? 'on' : ''}" data-tip="${esc(MOVE.scroll[0])}"><input type="checkbox" id="scroll" ${this.sel.scroll ? 'checked' : ''}> ใช้ม้วนคาถาแทน Command Seal <span class="desc">${esc(MOVE.scroll[0])}</span></label>` : ''}
           ${view}
@@ -796,25 +925,38 @@ export class UI {
     });
   }
 
+  // a resting Master is not asked to move (ก.4)
+  moveWaiting() {
+    const me = this.me;
+    if (me.out || (!me.resting && !me.catalystPending)) return;
+    const why = me.catalystPending ? 'รออัญเชิญด้วยวัตถุเชื่อมโยง เลือก Servant ตนใหม่ได้ตอนกลางวัน' : 'Servant พักฟื้น คืนนี้เลือกไม่ได้';
+    this.setChoice(`<div class="hud-tag">กลางคืน ${this.game.nightNo} · ย้ายพื้นที่</div>${this.newsHtml(this.takeNews())}<div class="waiting">${why} · รอคนอื่นย้าย…</div>`);
+  }
+
   // ---------- ③ night: play cards ----------
   cardsWaiting() {
     const g = this.game, me = this.me;
     if (me.out || (g.fights || []).some((f) => f.players.includes(me))) return;
     const peek = me.peek ? `<p class="note">โบสถ์: มือของ <b>${esc(me.peek.name)}</b> คือ ${esc(me.peek.cards.join(', ') || '(ว่าง)')}</p>` : '';
-    const where = !me.area ? 'Servant ตนใหม่กำลังพักฟื้น กลับมาเลือกพื้นที่ได้ตอนเช้า' : SAFE_AREAS.includes(me.area) ? `คุณปลอดภัยอยู่ใน${AREAS[me.area].name}` : `เฟสนี้ไม่มีใครมาสู้กับคุณที่${AREAS[me.area].name}`;
-    this.setChoice(`<div class="hud-tag">กลางคืน · ลงการ์ด</div>${peek}<div class="waiting">${where} · รอการต่อสู้ที่อื่น…</div>`);
+    const where = me.catalystPending ? 'รออัญเชิญด้วยวัตถุเชื่อมโยง เลือก Servant ตนใหม่ได้ตอนกลางวัน'
+      : !me.area ? 'Servant พักฟื้น คืนนี้เลือกไม่ได้ กลับมาเลือกพื้นที่ได้ตอนเช้า'
+      : me.area === 'church' ? 'คุณปลอดภัยอยู่ในโบสถ์ (เซฟโซน)'
+      : SAFE_AREAS.includes(me.area) ? `คุณปลอดภัยอยู่ใน${AREAS[me.area].name}` : `เฟสนี้ไม่มีใครมาสู้กับคุณที่${AREAS[me.area].name}`;
+    this.setChoice(`<div class="hud-tag">กลางคืน · ลงการ์ด</div>${this.newsHtml(this.takeNews())}${peek}<div class="waiting">${where} · รอการต่อสู้ที่อื่น…</div>`);
   }
 
   askCards(ctx) {
     const g = this.game, me = this.me;
     const { fight, cards } = ctx;
     this.mode = 'cards';
+    this.fight = fight;
     this.sel = { cards: [], boost: false, sealHeal: false, items: [] };
     this.renderAll();
     return new Promise((resolve) => {
       const done = (play) => {
         clearInterval(this.timer);
         this.mode = null;
+        this.fight = null;
         this.setChoice('<div class="waiting">รอทุกคนลงการ์ด แล้วเปิดพร้อมกัน…</div>');
         resolve(play);
       };
@@ -826,11 +968,11 @@ export class UI {
         const spent = chosen.reduce((a, c) => a + g.cardCost(c), 0);
         const full = this.sel.cards.length >= 2;
         const foes = fight.players.filter((x) => x !== me).map((x) => `<span class="foe">${portrait(x.servant.cls, 'xs', g.knowsName(me, x) && x.servant.key)} <b>${esc(x.name)}</b> ${esc(g.servantLabel(me, x))} · HP ${Math.max(0, x.servant.hp)}/${x.servant.maxHp}</span>`);
-        if (fight.monster) foes.push(`<span class="foe">👁 <b>มอนสเตอร์</b> ${MONSTER_BASE}+1d6</span>`);
+        if (fight.monster) foes.push(`<span class="foe">👁 <b>${MONSTERS[fight.monster].name}</b> ${MONSTERS[fight.monster].base}+1d6</span>`);
         const cardWhy = (c) => {
           if (this.sel.cards.includes(c.id)) return '';
           if (full) return 'เลือกครบ 2 ใบแล้ว';
-          if (spent + g.cardCost(c) > me.mana) return `มานาไม่พอ (ต้องใช้ ${g.cardCost(c)})`;
+          if (spent + g.cardCost(c) > me.mana) return `มานาไม่พอ (ต้องใช้ ${g.cardCost(c)} · เหลือ ${me.mana - spent})`;
           return '';
         };
         const hand = cards.filter((c) => c.kind !== 'np').map((c) => {
@@ -857,9 +999,10 @@ export class UI {
         const lines = parts.filter((p) => p.v).map((p) => `<div class="${p.v < 0 ? 'neg' : ''}"><span>${esc(p.label)}</span><b>${p.v > 0 ? '+' : ''}${p.v}</b></div>`).join('');
         const diceLine = `<div><span>ลูกเต๋า${dice > 1 ? ` (ทอย ${dice} ลูก ใช้ลูกสูงสุด)` : ''}</span><b>+ 1–6</b></div>`;
         this.setChoice(`
-          <div class="hud-tag">กลางคืน ${g.nightNo} · ลงการ์ด · ${AREAS[fight.area].name}</div>
+          <div class="hud-tag">กลางคืน ${g.nightNo} · ${fight.church ? 'ปราบมอนสเตอร์ในโบสถ์' : `ลงการ์ด · ${AREAS[fight.area].name}`}</div>
           ${this.hint('cards')}
           <div class="foes">${foes.join('')}</div>
+          ${fight.church ? `<p class="note">${esc(CARDS.church)} · ไม่มีโบนัสพื้นที่ · ชนะได้ Command Seal 1 ดวง เสมอไม่ได้อะไร</p>` : ''}
           ${me.peek ? `<p class="note">โบสถ์: มือของ ${esc(me.peek.name)} คือ ${esc(me.peek.cards.join(', '))}</p>` : ''}
           <div class="play-grid"><div>
           <div class="hand">${hand || '<p class="muted">ไม่มีการ์ดในมือ</p>'}</div>
@@ -905,30 +1048,50 @@ export class UI {
     const me = this.me;
     const e = res.entries.find((x) => x.id === me.id);
     if (!e) return null;
+    const lost = e.dmg - (e.selfHit || 0);
+    const self = e.selfHit ? ` · ${e.selfWhy} เสีย HP ${e.selfHit} (เหลือ ${e.hpAfter}${e.selfClamped ? ' · โบสถ์เป็นเซฟโซน Servant ไม่ตาย' : ''})` : '';
+    let text, cls;
+    if (res.church) {
+      const m = res.monster.total;
+      if (e.result === 'win') {
+        text = `คุณชนะภูตร้ายใต้โบสถ์ ${e.total} ต่อ ${m}${e.sealWon ? ` ได้ Command Seal 1 ดวง (มี ${e.sealsAfter} ดวง)` : ''}`;
+        cls = 'win';
+      } else if (e.result === 'tie') {
+        text = `เสมอกับภูตร้ายใต้โบสถ์ ${m} ต่อ ${m} ไม่ได้ Command Seal ไม่เสีย HP`;
+        cls = '';
+      } else {
+        text = `ภูตร้ายใต้โบสถ์ชนะ ${m} ต่อ ${e.total} ${lost > 0 ? `เสีย HP ${lost}` : 'แต่ไม่เสีย HP'} (เหลือ ${e.hpMid}${e.clamped ? ' · โบสถ์เป็นเซฟโซน Servant ไม่ตาย' : ''})`;
+        cls = 'lose';
+      }
+      return { text: text + self, cls };
+    }
     const others = [...res.entries.filter((x) => x !== e).map((x) => x.total), ...(res.monster ? [res.monster.total] : [])];
     const best = Math.max(...others);
     const size = res.entries.length + (res.monster ? 1 : 0);
-    const melee = size >= 3 ? ` (ตะลุมบอน ${size} ฝ่าย ผู้ชนะได้ +2 มานาเพิ่ม)` : '';
-    const got = res.text.find((t) => t.startsWith(`${me.name} ได้รางวัล:`));
-    const gain = got ? ` ได้${got.split('ได้รางวัล:')[1]}` : '';
-    const flag = FIELDS.includes(res.area) && this.game.flags[res.area] === me.id ? ` และธง${AREAS[res.area].name}` : '';
-    const kills = res.entries.filter((x) => x.died && x !== e && !x.darkHit).map((x) => x.name);
-    let text, cls;
+    const meleeOf = size >= 3 ? `ตะลุมบอน ${size} คน${res.monster ? ' (นับมอนสเตอร์เงาดำ 1 ตน)' : ''}` : '';
+    const melee = meleeOf ? ` · ${meleeOf} ผู้ชนะได้ +2 มานาเพิ่ม คนอื่นทุกคนเสีย HP ตามส่วนต่างกับผู้ชนะ` : '';
+    // design 6.1: say whether the flag was won, kept or lost in this fight
+    const fl = res.flag, fname = AREAS[res.area].name;
+    const flagWon = fl && fl.after === me.id && fl.before !== me.id ? ` และธง${fname}` : '';
+    const flagKept = fl && fl.after === me.id && fl.before === me.id ? ` · ยังถือธง${fname}` : '';
+    const flagLost = fl && fl.before === me.id && fl.after !== me.id ? ` · เสียธง${fname}` : '';
     if (e.result === 'win') {
-      text = `คุณชนะ ${e.total} ต่อ ${best}${gain}${flag}${melee}`;
-      if (kills.length) text += ` · คุณกำจัด Servant ของ ${kills.join(', ')}`;
+      text = `คุณชนะ ${e.total} ต่อ ${best}${e.got ? ` ได้ ${e.got}` : ''}${flagWon}${flagKept}`;
+      for (const l of e.loot || []) text += ` · คุณกำจัด Servant ของ ${l.name}${l.mana ? ` ยึดมานา ${l.mana}` : ''}${l.item ? `${l.mana ? ' และ' : ' ยึด'}${ITEMS[l.item].name}` : ''}`;
       cls = 'win';
     } else if (e.result === 'tie') {
-      text = res.monsterWon ? `เสมอกับมอนสเตอร์ ${e.total} ต่อ ${res.monster.total} ไม่มีใครได้รางวัลและธง` : `เสมอ ${e.total} ต่อ ${e.total} แบ่งรางวัลกัน${gain ? ` (${gain.trim()})` : ''} ไม่มีใครเสีย HP`;
+      // a top tie in a melee: the tied Masters lose nothing, everyone below loses HP (6.2, 6.3)
+      const hurt = res.entries.some((x) => x.result === 'lose' && x.dmg > 0);
+      text = res.monsterWon ? `เสมอกับมอนสเตอร์เงาดำ ${e.total} ต่อ ${e.total} ไม่มีใครได้รางวัลและธง${flagLost}`
+        : hurt ? `เสมอสูงสุด ${e.total} ต่อ ${e.total} แบ่งรางวัลกัน${e.got ? ` (ได้ ${e.got})` : ''} คุณไม่เสีย HP${flagKept}${flagLost} · ${meleeOf} คนที่เสมอแบ่งโบนัส +2 มานา คนอื่นเสีย HP ตามส่วนต่างกับค่าสูงสุด`
+        : `เสมอ ${e.total} ต่อ ${e.total} แบ่งรางวัลกัน${e.got ? ` (ได้ ${e.got})` : ''} ไม่มีใครเสีย HP${flagKept}${flagLost}`;
       cls = '';
     } else {
-      const lost = e.dmg - (e.darkHit || 0);
-      text = `คุณแพ้ ${e.total} ต่อ ${res.max} ${lost > 0 ? `เสีย HP ${lost}` : 'แต่ไม่เสีย HP'} (เหลือ ${e.hpAfter})${res.monsterWon ? ' · มอนสเตอร์ชนะ ไม่มีใครได้รางวัลและธง' : ''}${melee}`;
+      text = `คุณแพ้ ${e.total} ต่อ ${res.max} ${lost > 0 ? `เสีย HP ${lost}` : 'แต่ไม่เสีย HP'} (เหลือ ${e.hpMid})${res.monsterWon ? ' · มอนสเตอร์เงาดำชนะ ไม่มีใครได้รางวัลและธง' : ''}${flagLost}${melee}`;
       cls = 'lose';
     }
-    if (e.darkHit) text += ` · NP ด้านมืด เสีย HP ${e.darkHit}`;
+    text += self;
     if (e.died) text += ' · Servant ของคุณถูกกำจัด';
-    if (e.revived) text += ' · God Hand ฟื้นจากความตาย';
     return { text, cls };
   }
 
@@ -940,7 +1103,9 @@ export class UI {
     if (order.length) await this.playFights(order);
     this.holdFx = false;
     const lines = g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.night === g.nightNo && e.cls !== 'phase'
-      && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)));
+      && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|⛪|ภูตร้าย|เสีย HP|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)));
+    // anything logged after this panel (a resummon) shows in the next one
+    this.newsFrom = g.logs.length;
     this.renderAll();
     const verdicts = results.map((r) => this.resultSentence(r)).filter(Boolean)
       .map((v) => `<div class="verdict-line ${v.cls}">${esc(v.text)}</div>`).join('');
@@ -949,7 +1114,7 @@ export class UI {
     const box = (l) => `${verdicts}${solo}<div class="summary">${l.map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('') || '<div class="muted">คืนนี้เงียบสงบ</div>'}</div>`;
     return new Promise((resolve) => {
       if (me.out) {
-        this.setChoice(`<div class="hud-tag">ตกรอบ</div><p class="note">ดูการต่อสู้ของมาสเตอร์ที่เหลือต่อได้</p>${box(lines)}
+        this.setChoice(`<div class="hud-tag">ตกรอบ</div><p class="note">ดูการต่อสู้ของ Master ที่เหลือต่อได้</p>${box(lines)}
           <div class="confirm-row"><button id="nx">ดูวันถัดไป</button><button class="primary" id="ff">ข้ามไปดูผลตอนจบ</button></div>`);
         $('#ff').onclick = () => { this.fast = true; this.setChoice('<div class="waiting">กำลังจำลองจนจบ…</div>'); resolve(null); };
         $('#nx').onclick = () => { this.setChoice(''); resolve(null); };
@@ -957,7 +1122,7 @@ export class UI {
       }
       const last = g.checkOver();
       const next = g.nightNo === 1 ? (g.alive().length <= 1 ? 'ดูผลตอนจบ ›' : 'กลางคืน 2 ›') : last ? 'ดูผลตอนจบ ›' : `วันที่ ${g.day + 1} ›`;
-      this.setChoice(`<div class="hud-tag">สรุปคืนวันที่ ${g.day} · กลางคืน ${g.nightNo}</div>${this.hint('result')}${box(lines)}
+      this.setChoice(`<div class="hud-tag">สรุปคืนวันที่ ${g.day} · กลางคืน ${g.nightNo}</div>${this.hint(g.nightNo === 1 ? 'result1' : 'result2')}${box(lines)}
         <button class="primary wide" id="nx">${next}</button>`);
       this.wireHints();
       $('#nx').onclick = () => { this.setChoice(''); resolve(null); };
@@ -1003,15 +1168,16 @@ export class UI {
       <div class="f-total"><span class="dicebox"></span><b class="f-sum">?</b></div>
       <small class="f-parts"></small>
     </div>`;
-    const monster = res.monster ? `<div class="fighter monster" id="f-m" style="--cc:#a24bd0">
-      <div class="f-hud"><div class="f-name"><b>เงาดำจากจอก</b></div><div class="f-label">มอนสเตอร์</div></div>
-      <div class="f-body"><div class="mon">👁</div><div class="fx-layer"></div></div>
-      <div class="f-cards"><small class="muted">พลัง ${MONSTER_BASE}</small></div>
+    const mon = res.monster ? MONSTERS[res.monster.kind] : null;
+    const monster = mon ? `<div class="fighter monster" id="f-m" style="--cc:${res.church ? '#5b8def' : '#a24bd0'}">
+      <div class="f-hud"><div class="f-name"><b>${mon.name}</b></div><div class="f-label">มอนสเตอร์ · ไม่มี HP</div></div>
+      <div class="f-body"><div class="mon">${res.church ? '👹' : '👁'}</div><div class="fx-layer"></div></div>
+      <div class="f-cards"><small class="muted">พลัง ${mon.base}</small></div>
       <div class="f-total"><span class="dicebox"></span><b class="f-sum">?</b></div><small class="f-parts"></small>
     </div>` : '';
     const n = res.entries.length + (res.monster ? 1 : 0);
     el.innerHTML = `<div class="bt-sky"></div>
-      <div class="bt-top"><span class="hud-tag">BATTLE ${idx + 1}/${count}</span> <b>${AREAS[res.area].name}</b> · ${esc(DAILY[g.situation].name)}<div class="verdict"></div></div>
+      <div class="bt-top"><span class="hud-tag">BATTLE ${idx + 1}/${count}</span> <b>${AREAS[res.area].name}${res.church ? ' · ปราบมอนสเตอร์' : ''}</b> · ${esc(DAILY[g.situation].name)}<div class="verdict"></div></div>
       <div class="arena multi n${Math.min(n, 5)}">${res.entries.map(fighter).join('')}${monster}</div>
       <div class="np-banner"></div>
       <div class="bt-bottom"><div class="bt-log"></div><div class="bt-controls"><div class="waiting">เปิดการ์ดพร้อมกัน… <small>(แตะสนามเพื่อเร่ง)</small></div></div></div>`;
@@ -1059,28 +1225,29 @@ export class UI {
       $(`#f-${e.id} .f-sum`).textContent = e.total;
       $(`#f-${e.id} .f-parts`).textContent = e.parts.filter((p) => p.v).map((p) => `${p.label} ${p.v > 0 ? '+' : ''}${p.v}`).join(' · ');
     }
-    if (res.monster) { $('#f-m .f-sum').textContent = res.monster.total; $('#f-m .f-parts').textContent = `${MONSTER_BASE} + ลูกเต๋า ${res.monster.dice[0]}`; }
+    if (res.monster) { $('#f-m .f-sum').textContent = res.monster.total; $('#f-m .f-parts').textContent = `${res.monster.base} + ลูกเต๋า ${res.monster.dice[0]}`; }
     await wait(900);
     // outcome
     for (const e of res.entries) $(`#f-${e.id}`).classList.add(e.result);
-    if (res.monster) $('#f-m').classList.add(res.monsterWon ? 'win' : 'lose');
+    if (res.monster) $('#f-m').classList.add(res.church && res.entries[0].result === 'tie' ? 'tie' : res.monsterWon ? 'win' : 'lose');
     const top = res.entries.filter((e) => e.result === 'win');
     const ties = res.entries.filter((e) => e.result === 'tie');
-    $('#battle .verdict').textContent = res.monsterWon ? 'มอนสเตอร์ชนะ!' : top.length ? `${top[0].name} ชนะ!` : `เสมอ · ${ties.map((e) => e.name).join(', ')}`;
+    $('#battle .verdict').textContent = res.church && ties.length ? 'เสมอ' : res.monsterWon ? `${mon.name}ชนะ!` : top.length ? `${top[0].name} ชนะ!` : `เสมอ · ${ties.map((e) => e.name).join(', ')}`;
     await wait(500);
     for (const e of res.entries) {
       if (e.dmg > 0) {
         this.flash(e.id, e.dmg >= 5 ? 'hit-big' : 'hit', 500);
         this.float(e.id, `-${e.dmg}`, e.dmg >= 5 ? 'dmg big' : 'dmg');
       } else if (e.result === 'lose') this.float(e.id, 'ไม่เสีย HP', 'miss');
-      this.setHp(e.id, e.revived ? 0 : e.hpAfter);
+      if (e.clamped || e.selfClamped) this.float(e.id, 'เซฟโซน: ไม่ตาย', 'heal');
+      if (e.sealWon) this.float(e.id, '+1 Command Seal', 'seal');
+      this.setHp(e.id, e.hpAfter);
     }
     await wait(900);
     for (const e of res.entries) {
-      if (e.revived) { this.float(e.id, 'GOD HAND!', 'reveal'); this.setHp(e.id, e.hpAfter); }
       if (e.died) { $(`#f-${e.id}`).classList.add('dead'); this.flashScreen('death-flash'); }
     }
-    if (res.entries.some((e) => e.died || e.revived)) await wait(900);
+    if (res.entries.some((e) => e.died)) await wait(900);
     const v = this.resultSentence(res);
     $('#battle .bt-log').innerHTML = (v ? `<div class="verdict-line ${v.cls}">${esc(v.text)}</div>` : '') + res.entries.filter((e) => e.died).map((e) => `<div class="l death">☠ Servant ของ ${esc(e.name)} ถูกกำจัด</div>`).join('')
       + res.text.map((t) => `<div class="l ${t.startsWith('✦') ? 'grail' : ''}">${fmt(t)}</div>`).join('');
@@ -1159,11 +1326,11 @@ export class UI {
       const sh = this.modal(`
         <div class="title-art">${Object.keys(CLASS_ART).map((c) => `<img src="${art(c)}" alt="${c}">`).join('')}</div>
         <h1 class="logo">Fate <span>Battle Royale</span></h1>
-        <p class="muted">เดโมออฟไลน์ (กติกา v1.6): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน วันละ 1 กลางวัน + 2 กลางคืน</p>
+        <p class="muted">เดโมออฟไลน์ (กติกา v1.8): คุณ 1 คน ปะทะบอท 7 ตัว · 8 วัน วันละ 1 กลางวัน + 2 กลางคืน</p>
         <h3 style="margin:10px 0 4px">เล่นเป็นใน 1 นาที</h3>
         <ol class="rules">${QUICKSTART.map((t) => `<li>${t}</li>`).join('')}</ol>
         <p class="muted" style="font-size:12px">ทุกปุ่มมีคำอธิบายใต้ปุ่ม · แตะค่าบนจอเพื่อดูความหมาย · กดค้างหรือชี้ที่ปุ่มเพื่อดูคำแนะนำ · ปุ่ม <b>?</b> มุมขวาล่างเปิดคู่มือ</p>
-        <label>ชื่อมาสเตอร์ <input id="nm" value="เอมิยะ" maxlength="16"></label>
+        <label>ชื่อ Master <input id="nm" value="เอมิยะ" maxlength="16"></label>
         <button class="primary" id="st">เริ่มสงครามจอกศักดิ์สิทธิ์</button>`);
       sh.querySelector('#st').onclick = () => {
         const name = sh.querySelector('#nm').value.trim() || 'เอมิยะ';
@@ -1173,18 +1340,19 @@ export class UI {
     });
   }
 
-  servantCard(s) {
+  // `mine` hides the favored areas behind a lock; a revealed rival's card shows them openly
+  servantCard(s, mine = true) {
     const def = s.def;
     return `<div class="summon">
       <img class="summon-art" src="${art(s.cls, s.key)}" alt="${s.cls}"${fallback(s.cls)}>
       <div>
         <div class="sv-head"><span class="badge" style="background:${CLASS_COLOR[s.cls]}">${s.cls}</span>${def.alter ? ' <span class="badge alter">Alter</span>' : ''} <b>${esc(def.name)}</b></div>
-        <div class="muted">HP ${s.maxHp} · สำรับ 12 ใบ: โจมตี 10 · สกิล 2</div>
+        <div class="muted">HP ${mine ? s.maxHp : `${Math.max(0, s.hp)}/${s.maxHp}`} · สำรับ 12 ใบ: โจมตี 10 · สกิล 2</div>
         ${def.alter ? `<div><small class="bad">${esc(TERMS.alter[1])}</small></div>` : ''}
         ${def.skills.map((k) => `<div><small>สกิล <b>${esc(k.name)}</b> พลัง ${k.power} · ${k.cost} มานา · ${esc(k.text)}</small></div>`).join('')}
         <div>NP (ความสามารถ ไม่อยู่ในกองการ์ด): <b class="grail">${esc(def.np.name)}</b> <small>พลัง ${def.np.power} · ${def.np.cost} มานา · ${esc(def.np.text)}</small></div>
         <div><small class="muted">ใช้ได้ทุกการต่อสู้แทนการ์ด 1 ใบ แต่ใช้แล้วทุกคนรู้ชื่อจริงและพื้นที่ถนัด/ไม่ถนัด แล้วพลัง −2 จนกว่าจะตาย</small></div>
-        <div class="secret-box">🔒 ถนัด ${AREAS[def.favored].name} (+2) · ไม่ถนัด ${AREAS[def.unfavored].name} (−2)</div>
+        <div class="secret-box">${mine ? '🔒 ' : ''}ถนัด ${AREAS[def.favored].name} (+2) · ไม่ถนัด ${AREAS[def.unfavored].name} (−2)</div>
       </div>
     </div>`;
   }
@@ -1198,19 +1366,6 @@ export class UI {
         <p class="muted">คนอื่นเห็นแค่คลาส <b>${s.cls}</b> ของคุณ ซ่อนชื่อจริงไว้ให้นานที่สุด</p>
         <button class="primary" id="ok">เริ่มวันที่ 1</button>`);
       sh.querySelector('#ok').onclick = () => { this.closeModal(); resolve(null); };
-    });
-  }
-
-  askCatalyst(choices) {
-    return new Promise((resolve) => {
-      const sh = this.modal(`<h2>วัตถุเชื่อมโยง</h2><p>Servant ของคุณถูกกำจัด ${esc(DAY.catalyst[0])}</p>
-        <p class="muted">ควรเลือกเมื่อ: ${esc(DAY.catalyst[1])}</p>
-        <div class="grid">${choices.map((k) => {
-          const d = SERVANTS[k];
-          return `<button data-k="${k}" class="pick-sv"><img src="${art(d.cls, k)}" alt=""${fallback(d.cls)}><b>${esc(d.name)}</b><small>${d.cls}${d.alter ? ' · Alter' : ''}</small>
-            <small class="desc">ถนัด ${AREAS[d.favored].short} · ไม่ถนัด ${AREAS[d.unfavored].short} · NP ${esc(d.np.name)}</small></button>`;
-        }).join('')}</div>`);
-      sh.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { this.closeModal(); resolve(b.dataset.k); });
     });
   }
 

@@ -5,16 +5,29 @@ import { botDecide } from '../src/bot.js';
 
 const N = Number(process.argv[2] || 200);
 const stats = { deaths: 0, out: 0, days: 0, grailEarly: 0, grailWin: 0, fights: 0, reveals: 0, alters: 0, finalAlive: 0 };
+// the church (design 8, v1.8): monster fights, how they went, and Command Seals it gave
+const church = { fights: 0, wins: 0, ties: 0, hpLost: 0, offerSeals: 0, monsterSeals: 0 };
 const wins = {};
 const areas = {};
 for (let i = 0; i < N; i++) {
   const g = new Game({ decide: botDecide, humanCount: 1 });
   g.human.autopilot = true;
   g.onEvent = (e) => {
+    if (e.type === 'night') {
+      for (const r of e.results.filter((x) => x.church)) {
+        const en = r.entries[0];
+        church.fights++;
+        if (en.result === 'win') church.wins++;
+        if (en.result === 'tie') church.ties++;
+        church.hpLost += en.dmg;
+        if (en.sealWon) church.monsterSeals++;
+      }
+    }
     if (e.type !== 'log') return;
     if (e.entry.cls === 'reveal') stats.reveals++;
     if (e.entry.text.startsWith('กองกลางหมดแล้ว')) stats.alters++;
     if (e.entry.text.startsWith('⚔')) stats.fights++;
+    if (e.entry.text.startsWith('โบสถ์: ถวายมานา')) church.offerSeals++;
     if (e.entry.cls === 'map') { const a = e.entry.text.split(':')[0]; areas[a] = (areas[a] || 0) + e.entry.text.split(',').length; }
   };
   await g.run();
@@ -28,5 +41,7 @@ for (let i = 0; i < N; i++) {
   wins[k] = (wins[k] || 0) + 1;
 }
 for (const k in stats) console.log(k.padEnd(12), (stats[k] / N).toFixed(2));
+console.log('church monster', `fights/game ${(church.fights / N).toFixed(2)} · win ${(100 * church.wins / Math.max(1, church.fights)).toFixed(0)}% · tie ${(100 * church.ties / Math.max(1, church.fights)).toFixed(0)}% · HP lost/fight ${(church.hpLost / Math.max(1, church.fights)).toFixed(2)}`);
+console.log('church seals/game', `offer ${(church.offerSeals / N).toFixed(2)} · monster ${(church.monsterSeals / N).toFixed(2)} · total ${((church.offerSeals + church.monsterSeals) / N).toFixed(2)}`);
 console.log('area visits/game', Object.fromEntries(Object.entries(areas).map(([k, v]) => [k, (v / N).toFixed(1)])));
 console.log('winner servant', wins);

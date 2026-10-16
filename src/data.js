@@ -1,18 +1,19 @@
-// Static game data for design v1.6: areas, Servant decks, daily events,
-// reward cards, items and church quests. Numbers are starting points for balance.
+// Static game data for design v1.8: areas, Servant decks, daily events,
+// reward cards and items. Numbers are starting points for balance.
 
 export const AREAS = {
   temple: { name: 'วัดริวโด', short: 'วัด', kind: 'temple', day: 'แบ่งเลย์ไลน์: คนเดียว +4 · 2 คน +3 · 3 คน +2 มานา', night: '2 คนขึ้นไปสู้แย่งเลย์ไลน์ ผู้ชนะ +4 มานา' },
   miyama: { name: 'ย่านมิยามะ', short: 'มิยามะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (เปิดหน้า)' },
   shinto: { name: 'ย่านชินโตะ', short: 'ชินโตะ', kind: 'field', day: 'สนามรบ · ตั้งหลักรอโบนัสพื้นที่', night: 'สู้แย่งการ์ดอีเวนต์ (คว่ำหน้า)' },
-  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', kind: 'church', day: 'ถวาย 5 มานาแลก Command Seal หรือรับเควส', night: 'ปลอดภัย · ดูมือผู้เล่น 1 คน' },
+  church: { name: 'โบสถ์โคโตมิเนะ', short: 'โบสถ์', kind: 'church', day: 'ธุระโบสถ์: ถวายมานา หรือปราบมอนสเตอร์', night: 'เซฟโซน: คนจากพื้นที่อื่นเข้ามาไม่ได้ · ปราบมอนสเตอร์ในกลางคืน 1 · ดูมือผู้เล่น 1 คน' },
   mansion: { name: 'คฤหาสน์โทซากะ', short: 'คฤหาสน์', kind: 'mansion', day: 'หลอมการ์ด: ทิ้ง 1–2 ใบ ใบละ +2 มานา แล้วจั่วใหม่', night: 'ปลอดภัย · ไม่มีรางวัล' },
 };
 export const AREA_KEYS = ['temple', 'miyama', 'shinto', 'church', 'mansion'];
 export const SAFE_AREAS = ['church', 'mansion'];
 export const FIELDS = ['miyama', 'shinto'];
 
-// capacity by masters left (design 3), worked out each morning only
+// capacity by masters left (design 3), worked out each morning only. The church
+// stays out of player fights (night safe zone, v1.8); its monster fight is planned apart.
 export function capacityFor(alive) {
   const temple = alive >= 7 ? 3 : alive === 6 ? 2 : alive === 5 ? 1 : 0;
   const church = alive >= 3 ? 1 : 0;
@@ -32,7 +33,7 @@ export const TYPES = {
 export const CLASS_HP = { Saber: 11, Archer: 9, Lancer: 9, Rider: 9, Caster: 8, Assassin: 8, Berserker: 14 };
 
 // 10 attack cards per class: the type mix hints at the class
-const ATTACKS = {
+export const ATTACKS = {
   Saber: 'F2 F3 F4 F4 F5 A2 A3 M1 M2 M3',
   Archer: 'A2 A3 A3 A4 A5 F2 F3 M1 M2 M3',
   Lancer: 'A1 A2 A3 A4 A5 F2 F3 F4 M1 M2',
@@ -92,10 +93,10 @@ export const SERVANTS = {
   hassan: { name: 'Hassan of the Cursed Arm', cls: 'Assassin', favored: 'shinto', unfavored: 'miyama',
     skills: [sk('ซุ่มสังหาร', 4, 3, { pair: { type: 'A', bonus: 3 } }, 'คู่กับการ์ดว่องไว +3'), sk('วิชาพิษ', 2, 2, { foe: 1 }, 'คู่ต่อสู้ทุกคน −1')],
     np: sk('Zabaniya', 9, 8, { splash: 3 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +3') },
-  heracles: { name: 'Heracles', cls: 'Berserker', favored: 'miyama', unfavored: 'temple', godHand: true,
+  heracles: { name: 'Heracles', cls: 'Berserker', favored: 'miyama', unfavored: 'temple',
     skills: [sk('คลั่ง', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ร่างเหล็ก', 3, 3, { reduce: 2 }, 'รับดาเมจ −2')],
     np: sk('Nine Lives', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
-  lancelot: { name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'miyama', hp: 12, nameless: true,
+  lancelot: { name: 'Lancelot', cls: 'Berserker', favored: 'shinto', unfavored: 'miyama', hp: 12,
     skills: [sk('อัศวินไร้ที่ติ', 3, 2, { pair: { type: 'F', bonus: 2 } }, 'คู่กับการ์ดกำลัง +2'), sk('ยุทธปัจจัย', 4, 3, { pair: { type: 'A', bonus: 2 } }, 'คู่กับการ์ดว่องไว +2')],
     np: sk('Arondight', 10, 8, { splash: 2 }, 'ชนะแล้วผู้แพ้ทุกคนเสีย HP +2') },
 };
@@ -159,15 +160,15 @@ export const DAILY = {
   force: { name: 'คืนแห่งพละกำลัง', text: 'การ์ด Buster (กำลัง) +2 พลัง', type: { F: 2 } },
   speed: { name: 'คืนแห่งความเร็ว', text: 'การ์ด Quick (ว่องไว) +2 พลัง', type: { A: 2 } },
   magic: { name: 'คืนแห่งเวทมนตร์', text: 'การ์ด Arts (เวท) +2 พลัง · ทุกคน +2 มานาตอนเช้า', type: { M: 2 }, morningMana: 2 },
-  legend: { name: 'วันแห่งตำนาน', text: 'ใช้ NP เสียมานา 6 แทน 8', npCost: 6 },
+  legend: { name: 'วันแห่งตำนาน', text: 'NP ใช้มานา 6 แทน 8', npCost: 6 },
   moon: { name: 'จันทร์เต็มดวง', text: 'ทุกคนทอยเพิ่ม 1 ลูก', extraDie: 1 },
   onemind: { name: 'ใจเดียว', text: 'ลง 2 ใบประเภทเดียวกัน +3 พลัง', onemind: 3 },
   brutal: { name: 'ศึกเลือดเดือด', text: 'ผู้แพ้เสีย HP เพิ่ม 1', lossHp: 1 },
   blood: { name: 'คืนเลือด', text: 'ผู้ชนะที่ฆ่าได้ยึดมานาทั้งหมด', blood: true },
-  shadow: { name: 'เงาดำจากจอก', text: 'มอนสเตอร์พลัง 12+1d6 ร่วมสู้ทั้ง 2 เฟสกลางคืน', shadow: true },
+  shadow: { name: 'เงาดำจากจอก', text: 'มอนสเตอร์เงาดำ พลัง 12 + 1d6 ร่วมสู้ทั้ง 2 เฟสกลางคืน (ไม่เสีย HP) ถ้าชนะ ไม่มีใครได้รางวัลและธง · ชนะมันได้การ์ดไอเท็มเพิ่ม 1 ใบ', shadow: true },
   fog: { name: 'หมอกหนา', text: 'ห้ามย้ายแบบจ่ายมานาทั้งวัน ("หนี!" ยังใช้ได้)', fog: true },
   calm: { name: 'ลมสงบ', text: 'ย้ายแบบจ่ายมานาไม่เสียมานา', calm: true },
-  ley: { name: 'เลย์ไลน์ล้น', text: 'มานาที่ได้จากวัดริวโด +1', ley: 1 },
+  ley: { name: 'เลย์ไลน์ล้น', text: 'มานาที่ได้จากวัดริวโด +1 (ทั้งกลางวันและกลางคืน)', ley: 1 },
   forge: { name: 'เตาหลอมร้อนแรง', text: 'คฤหาสน์โทซากะหลอมการ์ดได้ใบละ 3 มานา', forge: 3 },
   blessing: { name: 'พรของจอก', text: 'ตอนเช้าจั่วเพิ่มอีก 1 ใบ (มือ 4 ใบ)', handSize: 4 },
 };
@@ -188,20 +189,12 @@ export const ITEMS = {
   potion: { name: 'ยาสมานแผล', phase: 'day fight', text: 'ฟื้น HP 5 (กลางวัน หรือ ตอนลงการ์ด)' },
   gem: { name: 'อัญมณีของโทซากะ', phase: 'fight', text: 'พลังรวม +4 ไม่เสียมานา' },
   charm: { name: 'เครื่องรางนำโชค', phase: 'fight', text: 'ทอยเพิ่ม 1 ลูก' },
-  shroud: { name: 'ผ้าห่อศพของมาร์ติน', phase: 'fight', text: 'แพ้คืนนี้ไม่เสีย HP' },
+  shroud: { name: 'ผ้าห่อศพของมาร์ติน', phase: 'fight', text: 'แพ้การต่อสู้นี้ไม่เสีย HP (มีผลเฟสเดียว)' },
   scroll: { name: 'ม้วนคาถาเคลื่อนย้าย', phase: 'move', text: 'ใช้ "หนี!" โดยไม่เสีย Command Seal' },
   hero_record: { name: 'บันทึกวีรชน', phase: 'day', text: 'ดูการ์ด Servant ของผู้เล่น 1 คน (กลางวัน)' },
   catalyst: { name: 'วัตถุเชื่อมโยง', phase: 'auto', text: 'อัญเชิญครั้งถัดไปเลือก 1 ใน 3' },
 };
 export const ITEM_KEYS = Object.keys(ITEMS);
-
-export const QUESTS = {
-  bounty: { name: 'ล่าค่าหัว', text: 'ชนะการต่อสู้ที่มี Servant ตาย ภายใน 2 วัน', days: 2, need: 1 },
-  fields: { name: 'ชนะสนามรบ', text: 'ชนะการต่อสู้ที่มิยามะหรือชินโตะ 3 ครั้ง ภายใน 3 วัน (อยู่คนเดียวไม่นับ)', days: 3, need: 3 },
-  revealed: { name: 'ล่าวีรชนที่เปิดเผยแล้ว', text: 'ชนะการต่อสู้กับ Servant ที่ชื่อจริงถูกเปิดแล้ว ภายใน 3 วัน', days: 3, need: 1 },
-  offering: { name: 'เครื่องบูชา', text: 'มอบการ์ดไอเท็ม 2 ใบ (สำเร็จทันที)', days: 0, need: 0 },
-};
-export const QUEST_KEYS = Object.keys(QUESTS);
 
 export const MASTER_NAMES = ['โทซากะ', 'มาโต้', 'ไอนซ์เบิร์น', 'โคโตมิเนะ', 'อาร์ชิบอลด์', 'เวลเว็ต', 'อุริว'];
 
@@ -214,5 +207,7 @@ export const DEATHS_FOR_GRAIL = 7;
 export const MOVE_COST = 2;
 export const OFFER_PRICE = 5;
 export const FORGE_MANA = 2;
-export const QUEST_DEPOSIT = 2;
-export const MONSTER_BASE = 12;
+// the shadow monster of the daily event "เงาดำจากจอก" (design 7) and the monster
+// under the church (design 8, v1.8): power = base + 1d6, no HP
+export const SHADOW_BASE = 12;
+export const CHURCH_MONSTER_BASE = 5;
