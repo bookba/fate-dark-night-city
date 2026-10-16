@@ -399,7 +399,7 @@ export class UI {
       const why = me.mana < cost ? `มานาไม่พอ (ต้องใช้ ${cost})` : '';
       tiles.push(cardTile({ ...s.np, name: `NP ${s.np.name}` }, { attrs: `tabindex="-1" ${help('np')}`, cost, off: !!why, why }));
     }
-    $('#hand').innerHTML = `<div class="hud-tag" ${help('hand')}>HAND ${me.hand.length}/${Math.max(HAND_SIZE, g.handSize())} + NP <small>กองจั่ว ${me.deck.length} · ทิ้ง ${me.discard.length}</small></div>
+    $('#hand').innerHTML = `<div class="hud-tag" ${help('hand')}>HAND ${s ? me.hand.length : 0}/${Math.max(HAND_SIZE, g.handSize())}${s ? ` + NP <small>กองจั่ว ${me.deck.length} · ทิ้ง ${me.discard.length}</small>` : ''}</div>
       <div class="hand mini">${tiles.join('') || '<p class="muted">ไม่มีการ์ดในมือ</p>'}</div>`;
     const items = me.items.length
       ? me.items.map((k) => `<li data-tip="${esc(ITEMS[k].text)}"><b>${esc(ITEMS[k].name)}</b><small>${esc(ITEMS[k].text)}</small></li>`).join('')
@@ -424,7 +424,7 @@ export class UI {
       const fav = def && def.favored === a ? `<i class="mk good" ${help('favored')}>ถนัด</i>` : def && def.unfavored === a ? `<i class="mk bad" ${help('favored')}>ไม่ถนัด</i>` : '';
       const cap = closed ? `<i class="mk" ${help('closed')}>ปิด</i>` : FIELDS.includes(a) ? '' : `<i class="mk" ${help('cap')}>รับ ${g.capOf(a)}</i>`;
       const flagOwner = FIELDS.includes(a) && g.flags[a] != null ? g.players[g.flags[a]] : null;
-      const flag = flagOwner ? `<i class="mk flag" style="--pc:${this.color(flagOwner)}" data-help="flag" title="ธงยึดครองของ ${esc(flagOwner.name)}">⚑ ${esc(flagOwner.name)}</i>` : '';
+      const flag = flagOwner ? `<i class="mk flag" style="--pc:${this.color(flagOwner)}" ${flagOwner === me ? help('flag') : `data-help="rivalFlag" title="${esc(`ธงยึดครองของ ${flagOwner.name}`)}"`}>⚑ ${esc(flagOwner.name)}</i>` : '';
       let ev = '';
       if (FIELDS.includes(a) && g.events[a] && !closed) {
         ev = a === 'shinto' && !g.shintoOpen ? '<div class="evcard back">รางวัล (คว่ำ)</div>' : `<div class="evcard">รางวัล: ${esc(g.events[a].name)}</div>`;
@@ -538,7 +538,7 @@ export class UI {
     const list = [me, ...g.players.filter((x) => x !== me)];
     const rows = list.map((x, i) => {
       const s = x.servant;
-      const pending = x.catalystPending;
+      const pending = x.catalystPending || (x !== me && x.catalystReveal);
       const label = pending ? 'รออัญเชิญ' : s ? g.servantLabel(me, x) : (x.out ? '—' : '...');
       const flags = FIELDS.filter((f) => g.flags[f] === x.id).map((f) => `⚑${AREAS[f].short}`).join(' ');
       const known = s && !pending && x !== me && g.knowsName(me, x);
@@ -550,7 +550,7 @@ export class UI {
         ${portrait(pending ? null : s?.cls, 'sm', s && g.knowsName(me, x) && s.key)}
         <div class="pr-main">
           <div class="pr-name"><b>${esc(x.name)}</b>${x === me ? '<span class="you">คุณ</span>' : ''}${g.grail.holder === x ? '<span class="grail"> ✦</span>' : ''}<span class="pr-state">${this.playerStatus(x)}</span></div>
-          <div class="pr-meta"><span class="pr-sv">${esc(s && !pending ? (known || x === me ? s.def.name : s.cls) : label)}</span>${s?.def.alter && known ? ` <span ${help('alter')}>(Alter)</span>` : ''} · <span ${help('seal')}>${seals(x.seals)}</span> · <span ${help('mana')}>◈${x.mana}</span> · <span ${help('items')}>🎒${x.items.length}</span>${flags ? ` · <span ${help('flag')}>${flags}</span>` : ''}</div>
+          <div class="pr-meta"><span class="pr-sv">${esc(s && !pending ? (known || x === me ? s.def.name : s.cls) : label)}</span>${s?.def.alter && known ? ` <span ${help('alter')}>(Alter)</span>` : ''} · <span ${help(x === me ? 'seal' : 'rivalSeal')}>${seals(x.seals)}</span> · <span ${help('mana')}>◈${x.mana}</span> · <span ${help('items')}>🎒${x.items.length}</span>${flags ? ` · <span ${help(x === me ? 'flag' : 'rivalFlag')}>${flags}</span>` : ''}</div>
           ${s && !pending ? `<div ${help('hp')}>${bar(Math.max(0, s.hp), s.maxHp, 'hp thin', false)}</div>` : ''}
       </li>`;
     }).join('');
@@ -686,10 +686,15 @@ export class UI {
   // private lines that came after the last result panel (a resummon, an Alter, being
   // knocked out) are shown in the next panel (Appendix ก.6)
   takeNews() {
+    const list = this.peekNews();
+    this.newsFrom = this.game.logs.length;
+    return list;
+  }
+  // the same lines without using them up: waiting panels can be replaced before they paint,
+  // so the night summary that waits for a click shows them again
+  peekNews() {
     const g = this.game, me = this.me;
-    const from = this.newsFrom ?? g.logs.length;
-    this.newsFrom = g.logs.length;
-    return g.logs.slice(from).filter((e) => e.to && e.to.includes(me.id) && e.half === 'night');
+    return g.logs.slice(this.newsFrom ?? g.logs.length).filter((e) => e.to && e.to.includes(me.id) && e.half === 'night');
   }
   newsHtml(list) {
     return list?.length ? `<div class="summary small">${list.map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('')}</div>` : '';
@@ -760,7 +765,7 @@ export class UI {
         }).join('')}</div></div>`;
     }
     const dayItems = [...new Set(me.items)].filter((k) => ITEMS[k].phase.includes('day'));
-    const unknown = g.alive().filter((x) => x !== me && x.servant && !x.catalystPending && !g.knowsName(me, x));
+    const unknown = g.alive().filter((x) => x !== me && x.servant && !x.catalystPending && !x.catalystReveal && !g.knowsName(me, x));
     const itemWhy = (k) => using(k) ? '' : k === 'hero_record' && !unknown.length ? 'รู้จัก Servant ทุกคนแล้ว'
       : g.dayItemUsable(me, k) ? '' : k === 'potion' ? 'HP เต็มแล้ว' : k === 'mana_vial' ? 'มานาเต็มแล้ว' : '';
     const itemBtns = dayItems.map((k) => optBtn({ cls: 'small', sel: using(k) || (k === 'hero_record' && this.sel.hero), attrs: `data-item="${k}"`, off: !!itemWhy(k),
@@ -873,7 +878,8 @@ export class UI {
         const holder = g.grail.holder === me;
         const inChurch = me.area === 'church';
         const stayDesc = inChurch ? MOVE.churchStay[0] : FIELDS.includes(me.area) ? (g.flags[me.area] === me.id ? 'ไม่เสียอะไร ถือธงอยู่ได้พลัง +3' : MOVE.stay[0]) : 'ไม่เสียอะไร';
-        const moveDesc = inChurch ? MOVE.churchLeave[0] : g.moveCost() ? MOVE.move[0] : 'ลมสงบ: ย้ายฟรี ไปถึงได้โบนัส 0 ทำได้เฉพาะตอนไม่มีใครอยู่ด้วย';
+        const leave = MOVE.churchLeave[0].replace('(2 มานา)', g.moveCost() ? `(${g.moveCost()} มานา)` : '(ลมสงบ: ฟรี)');
+        const moveDesc = inChurch ? leave : g.moveCost() ? MOVE.move[0] : 'ลมสงบ: ย้ายฟรี ไปถึงได้โบนัส 0 ทำได้เฉพาะตอนไม่มีใครอยู่ด้วย';
         const rows = [
           optBtn({ sel: this.sel.type === 'stay', attrs: 'data-type="stay" data-to=""', label: inChurch ? 'อยู่ในโบสถ์' : `อยู่ที่${AREAS[me.area].name}`, desc: stayDesc, when: inChurch ? MOVE.churchStay[1] : MOVE.stay[1] }),
           ...fieldsTo.map((f) => optBtn({ sel: this.sel.type === 'move' && this.sel.to === f, off: !opts.move.includes(f), attrs: `data-type="move" data-to="${f}"`,
@@ -892,7 +898,7 @@ export class UI {
             when: ok ? (inChurch ? MOVE.churchLeave[1] : useScroll ? MOVE.scroll[1] : MOVE.escape[1]) : '', why }));
         }
         // one shared line instead of repeating it on every escape button
-        if (opts.escape.length) rows.push(`<small class="desc esc-note">"หนี!": ${esc(inChurch ? MOVE.churchLeave[0] : useScroll ? MOVE.scroll[0] : MOVE.escape[0])}</small>`);
+        if (opts.escape.length) rows.push(`<small class="desc esc-note">"หนี!": ${esc(inChurch ? leave : useScroll ? MOVE.scroll[0] : MOVE.escape[0])}</small>`);
         const view = opts.view.length ? `<div class="sub"><small>ดูมือ (โบสถ์): ${esc(MOVE.view[0])}</small><div class="tools">${opts.view.map((id) =>
           `<button class="small ${this.sel.view === id ? 'on' : ''}" data-view="${id}" title="ควรเลือกเมื่อ: ${esc(MOVE.view[1])}">${esc(g.players[id].name)}</button>`).join('')}</div></div>` : '';
         const daySum = this.dayLines().map((e) => `<div class="l ${e.cls}">${fmt(e.text)}</div>`).join('');
@@ -930,7 +936,7 @@ export class UI {
     const me = this.me;
     if (me.out || (!me.resting && !me.catalystPending)) return;
     const why = me.catalystPending ? 'รออัญเชิญด้วยวัตถุเชื่อมโยง เลือก Servant ตนใหม่ได้ตอนกลางวัน' : 'Servant พักฟื้น คืนนี้เลือกไม่ได้';
-    this.setChoice(`<div class="hud-tag">กลางคืน ${this.game.nightNo} · ย้ายพื้นที่</div>${this.newsHtml(this.takeNews())}<div class="waiting">${why} · รอคนอื่นย้าย…</div>`);
+    this.setChoice(`<div class="hud-tag">กลางคืน ${this.game.nightNo} · ย้ายพื้นที่</div>${this.newsHtml(this.peekNews())}<div class="waiting">${why} · รอคนอื่นย้าย…</div>`);
   }
 
   // ---------- ③ night: play cards ----------
@@ -942,7 +948,7 @@ export class UI {
       : !me.area ? 'Servant พักฟื้น คืนนี้เลือกไม่ได้ กลับมาเลือกพื้นที่ได้ตอนเช้า'
       : me.area === 'church' ? 'คุณปลอดภัยอยู่ในโบสถ์ (เซฟโซน)'
       : SAFE_AREAS.includes(me.area) ? `คุณปลอดภัยอยู่ใน${AREAS[me.area].name}` : `เฟสนี้ไม่มีใครมาสู้กับคุณที่${AREAS[me.area].name}`;
-    this.setChoice(`<div class="hud-tag">กลางคืน · ลงการ์ด</div>${this.newsHtml(this.takeNews())}${peek}<div class="waiting">${where} · รอการต่อสู้ที่อื่น…</div>`);
+    this.setChoice(`<div class="hud-tag">กลางคืน · ลงการ์ด</div>${this.newsHtml(this.peekNews())}${peek}<div class="waiting">${where} · รอการต่อสู้ที่อื่น…</div>`);
   }
 
   askCards(ctx) {
@@ -1069,7 +1075,9 @@ export class UI {
     const best = Math.max(...others);
     const size = res.entries.length + (res.monster ? 1 : 0);
     const meleeOf = size >= 3 ? `ตะลุมบอน ${size} คน${res.monster ? ' (นับมอนสเตอร์เงาดำ 1 ตน)' : ''}` : '';
-    const melee = meleeOf ? ` · ${meleeOf} ผู้ชนะได้ +2 มานาเพิ่ม คนอื่นทุกคนเสีย HP ตามส่วนต่างกับผู้ชนะ` : '';
+    const melee = !meleeOf ? '' : res.monsterWon ? ` · ${meleeOf} คนอื่นทุกคนเสีย HP ตามส่วนต่างกับมอนสเตอร์เงาดำ`
+      : res.winners.length > 1 ? ` · ${meleeOf} คนที่เสมอสูงสุดแบ่งโบนัส +2 มานา คนอื่นเสีย HP ตามส่วนต่างกับค่าสูงสุด`
+      : ` · ${meleeOf} ผู้ชนะได้ +2 มานาเพิ่ม คนอื่นทุกคนเสีย HP ตามส่วนต่างกับผู้ชนะ`;
     // design 6.1: say whether the flag was won, kept or lost in this fight
     const fl = res.flag, fname = AREAS[res.area].name;
     const flagWon = fl && fl.after === me.id && fl.before !== me.id ? ` และธง${fname}` : '';
@@ -1102,8 +1110,10 @@ export class UI {
     const order = mine ? [mine, ...results.filter((r) => r !== mine)] : results;
     if (order.length) await this.playFights(order);
     this.holdFx = false;
-    const lines = g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.night === g.nightNo && e.cls !== 'phase'
-      && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|⛪|ภูตร้าย|เสีย HP|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)));
+    // private lines from after the last summary (a resummon, an Alter, a lost flag) come first
+    const earlier = this.peekNews().filter((e) => e.night !== g.nightNo || e.day !== g.day);
+    const lines = [...earlier, ...g.logs.filter((e) => e.day === g.day && e.half === 'night' && e.night === g.nightNo && e.cls !== 'phase'
+      && (e.to ? e.to.includes(me.id) : /☠|✦|✸|✖|⚔|⛪|ภูตร้าย|เสีย HP|ได้รางวัล|ยึด|คนเดียว|หนี|ย้าย|ม้วน/.test(e.text)))];
     // anything logged after this panel (a resummon) shows in the next one
     this.newsFrom = g.logs.length;
     this.renderAll();

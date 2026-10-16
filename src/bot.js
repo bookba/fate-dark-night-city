@@ -35,7 +35,8 @@ function dayActions(game, pl) {
     if (unknown.length) items.push({ key: 'hero_record', target: game.pick(unknown).id });
   }
   const keep = game.grail.appeared ? 1 : 2;
-  const sealHeal = s.hp <= s.maxHp * 0.35 && pl.seals > keep;
+  const hpAfter = Math.min(s.maxHp, s.hp + (items.some((x) => x.key === 'potion') ? 5 : 0));
+  const sealHeal = hpAfter <= s.maxHp * 0.35 && pl.seals > keep;
   const left = [...pl.items];
   for (const it of items) left.splice(left.indexOf(it.key), 1);
   const discard = [];
@@ -147,22 +148,28 @@ function combosOf(cards) {
   return combos;
 }
 
-function evalCombo(game, pl, cards, area) {
+// expected total: cards, area and event bonuses, the best of the dice
+function comboPower(game, pl, cards, area) {
   const parts = [...game.cardParts(cards), ...game.fixedParts(pl, area)];
-  let v = parts.reduce((a, p) => a + p.v, 0);
-  const extra = game.extraDice(pl, cards, []);
-  v += [3.5, 4.47, 4.96, 5.24][Math.min(3, extra)];
+  return parts.reduce((a, p) => a + p.v, 0) + [3.5, 4.47, 4.96, 5.24][Math.min(3, game.extraDice(pl, cards, []))];
+}
+
+// power plus the worth of card effects; "foe" only lowers other Masters, never a monster
+function evalCombo(game, pl, cards, area, vsPlayers = true) {
+  let v = comboPower(game, pl, cards, area);
   for (const c of cards) {
     const e = c.eff;
-    v += (e.foe || 0) + (e.reduce || 0) * 0.4 + (e.heal || 0) * 0.4 + (e.mana || 0) * 0.5 + (e.splash || 0) * 0.5 - ((e.selfHit || 0) + (e.darkHit || 0)) * 0.5;
+    v += (vsPlayers ? e.foe || 0 : 0) + (e.reduce || 0) * 0.4 + (e.heal || 0) * 0.4 + (e.mana || 0) * 0.5 + (e.splash || 0) * 0.5 - ((e.selfHit || 0) + (e.darkHit || 0)) * 0.5;
   }
   return v;
 }
 
-// design 12 / ก.5: the strongest pair it can pay for; mana only breaks ties
-function bestCombo(game, pl, cards, area, mana, withNp) {
+// design 12 / ก.5: the strongest pair it can pay for; mana only breaks ties.
+// Against the church monster raw power decides, effects only break ties.
+function bestCombo(game, pl, cards, area, mana, withNp, church = false) {
   const cost = (combo) => combo.reduce((a, c) => a + game.cardCost(c), 0);
-  const rank = (combo) => evalCombo(game, pl, combo, area) - cost(combo) * 0.01;
+  const rank = (combo) => (church ? comboPower(game, pl, combo, area) * 100 + evalCombo(game, pl, combo, area, false)
+    : evalCombo(game, pl, combo, area)) - cost(combo) * 0.01;
   const list = combosOf(cards).filter((c) => cost(c) <= mana && c.some((x) => x.kind === 'np') === withNp);
   return list.sort((a, b) => rank(b) - rank(a))[0] || null;
 }
@@ -171,10 +178,11 @@ function bestCombo(game, pl, cards, area, mana, withNp) {
 function lastWinnerOver(game, pl) {
   if (game.nightNo !== 2) return null;
   for (const r of game.results || []) {
-    const mine = r.entries.find((e) => e.pl === pl);
+    const mine = r.entries.find((e) => e.id === pl.id);
     if (!mine || mine.result !== 'lose') continue;
     const w = r.entries.find((e) => e.result === 'win');
-    return w && !w.pl.out ? w.pl : null;
+    const wp = w && game.players[w.id];
+    return wp && !wp.out ? wp : null;
   }
   return null;
 }
@@ -218,11 +226,19 @@ function chooseMove(game, pl, opts) {
     if (threat === -Infinity) return prize(a);
     const combo = bestCombo(game, pl, game.playable(pl), a, mana, false) || [];
     const edge = evalCombo(game, pl, combo, a) - threat;
-    // hunting: alone, with a wounded rival on the other battlefield
-    const wounded = there.some((x) => x.servant.hp <= x.servant.maxHp * 0.5);
-    if (edge >= 3 || (grailAt(a) && edge >= 0) || (wounded && !here.length && edge >= 0)) return prize(a) + (wounded ? 2 : 0);
+    if (edge >= 3 || (grailAt(a) && edge >= 0)) return prize(a);
     return edge - 3;
   };
+  // hunting: alone, with a wounded rival on the other battlefield it can match
+  if (!here.length) {
+    const prey = opts.move.find((f) => {
+      const there = others.filter((x) => x.area === f);
+      if (!there.some((x) => x.servant.hp <= x.servant.maxHp * 0.5)) return false;
+      const combo = bestCombo(game, pl, game.playable(pl), f, pl.mana - game.moveCost(), false) || [];
+      return evalCombo(game, pl, combo, f) >= bestThreat(game, pl, f, there);
+    });
+    if (prey) return { ...out, type: 'move', to: prey };
+  }
   const stay = value(pl.area, pl.mana);
   let best = null, bestV = stay + 1 + game.moveCost() * 0.5;
   for (const f of opts.move) {
@@ -237,7 +253,7 @@ export function chooseCards(game, pl, ctx) {
   const cards = ctx.cards || game.playable(pl);
   const s = pl.servant;
   const hpPct = s.hp / s.maxHp;
-  const plain = bestCombo(game, pl, cards, fight.area, pl.mana, false) || [];
+  const plain = bestCombo(game, pl, cards, fight.area, pl.mana, false, !!fight.church) || [];
   const ids = (combo) => combo.map((c) => c.id);
   // design 12: against the church monster, the strongest pair it can pay for. HP
   // cannot drop below 1 there, so no Command Seal or item is spent on it.
@@ -254,8 +270,10 @@ export function chooseCards(game, pl, ctx) {
   // "เพิ่มพลัง!" in a Grail fight; no Command Seal use ever spends the last one
   if (grailFight && pl.seals >= 2) out.boost = true;
   const has = (k) => pl.items.includes(k);
+  const winner = lastWinnerOver(game, pl);
+  const hurt = hpPct <= 0.3 || (winner && fight.players.includes(winner) && hpPct <= 0.4);
   if (has('potion') && s.hp <= s.maxHp - 5) out.items.push('potion');
-  else if (hpPct <= 0.3 && pl.seals - (out.boost ? 1 : 0) >= 2) out.sealHeal = true;
+  else if (hurt && pl.seals - (out.boost ? 1 : 0) >= 2) out.sealHeal = true;
   if (has('gem') && (grailFight || foes >= 2 || game.rng() < 0.5)) out.items.push('gem');
   if (has('charm') && (grailFight || game.rng() < 0.5)) out.items.push('charm');
   if (has('shroud') && hpPct <= 0.5) out.items.push('shroud');

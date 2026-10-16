@@ -56,7 +56,7 @@ export class Game {
       known: new Set(),
       area: null, dayArea: null, settled: false,
       churchToday: false, churchMonster: false, resting: false,
-      catalystPending: false, catalystChoices: null,
+      catalystPending: false, catalystChoices: null, catalystReveal: false,
       kills: 0,
     }));
   }
@@ -146,10 +146,18 @@ export class Game {
   catalystChoices(taken = []) {
     const src = this.summonSource();
     const free = (list) => list.filter((k) => !taken.includes(k));
-    const from = free(src).length >= 3 ? free(src) : src;
-    let out = this.shuffle(from).slice(0, 3);
+    let out = this.shuffle(free(src)).slice(0, 3);
     if (out.length < 3 && src === this.pool) out = [...out, ...this.shuffle(free(this.alterPool)).slice(0, 3 - out.length)];
+    // only when even the Alter pile cannot make three is a Servant offered twice
+    if (out.length < 3) out = [...out, ...this.shuffle(src.filter((k) => !out.includes(k))).slice(0, 3 - out.length)];
     return out;
+  }
+
+  // the offered Servants nobody has summoned since this morning (fresh ones if none are left)
+  catalystLeft(pl) {
+    const src = this.summonSource();
+    const left = (pl.catalystChoices || []).filter((k) => src.includes(k) || this.pool.includes(k) || this.alterPool.includes(k));
+    return left.length ? left : this.catalystChoices();
   }
 
   summon(pl, key) {
@@ -297,6 +305,7 @@ export class Game {
     // Nothing chosen here takes effect until everyone has locked in.
     const order = [...this.alive()].sort((a, b) => a.isHuman - b.isHuman);
     for (const pl of order) {
+      if (pl.catalystPending) pl.catalystChoices = this.catalystLeft(pl);
       pl.choice = await this.ask(pl, 'day', pl.catalystPending ? { catalyst: pl.catalystChoices } : {});
       // no catalyst pick in time = one of the three at random
       if (pl.catalystPending) this.pickCatalyst(pl, null);
@@ -309,16 +318,18 @@ export class Game {
     this.emit('phase');
   }
 
-  // the new Servant from a catalyst, picked from the three offered this morning
+  // the new Servant from a catalyst, picked from the three offered this morning.
+  // It is part of the secret day answer, so the table learns of it at the reveal.
   pickCatalyst(pl, key) {
     if (!pl.catalystPending) return false;
-    const choices = pl.catalystChoices?.length ? pl.catalystChoices : this.catalystChoices();
+    const choices = this.catalystLeft(pl);
     if (!choices.includes(key)) key = this.pick(choices);
     pl.catalystPending = false;
     pl.catalystChoices = null;
     this.summon(pl, key);
     if (this.half === 'day') this.draw(pl, this.handSize() - pl.hand.length);
-    this.log(`${pl.name} อัญเชิญ ${pl.servant.cls} ตนใหม่ด้วยวัตถุเชื่อมโยง`, null, 'seal');
+    if (this.stage === 'choose') pl.catalystReveal = true;
+    else this.log(`${pl.name} อัญเชิญ ${pl.servant.cls} ตนใหม่ด้วยวัตถุเชื่อมโยง`, null, 'seal');
     this.emit('update');
     return true;
   }
@@ -342,6 +353,10 @@ export class Game {
 
   resolveDay() {
     const alive = this.alive();
+    for (const pl of alive.filter((x) => x.catalystReveal)) {
+      pl.catalystReveal = false;
+      this.log(`${pl.name} อัญเชิญ ${pl.servant.cls} ตนใหม่ด้วยวัตถุเชื่อมโยง`, null, 'seal');
+    }
     const want = new Map(alive.map((pl) => [pl, this.normalizeChoice(pl)]));
     const assign = new Map();
     const tie = new Map(alive.map((pl) => [pl, this.rng()]));
@@ -810,7 +825,6 @@ export class Game {
       e.selfDeath = true;
       this.deaths++;
       this.deathsToday = (this.deathsToday || 0) + 1;
-      if (this.flags[f.area] === e.id) this.setFlag(f.area, null, 'Servant ถูกกำจัด');
       if (this.grail.holder === e.pl) { this.grail.holder = null; this.grail.area = f.area; res.text.push('✦ จอกหลุดมือ วางอยู่ที่สนามรบนี้'); }
     }
     // after-fight card effects, discard
