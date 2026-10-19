@@ -171,7 +171,7 @@ export class Game {
     pl.discard = [];
     pl.hand = [];
     this.draw(pl, HAND_SIZE);
-    if (SERVANTS[key].alter) this.log('กองกลางหมดแล้ว คุณได้ Servant Alter (ร่างด้านมืด)', [pl.id], 'me');
+    if (SERVANTS[key].alter) this.log(this.pool.length ? 'คุณได้ Servant Alter (ร่างด้านมืด) จากวัตถุเชื่อมโยง' : 'กองกลางหมดแล้ว คุณได้ Servant Alter (ร่างด้านมืด)', [pl.id], 'me');
     this.log(`Servant ของคุณคือ ${pl.servant.def.name}`, [pl.id], 'me');
   }
 
@@ -257,6 +257,7 @@ export class Game {
   morning() {
     this.half = 'day';
     this.nightNo = 0;
+    this.poolShown = { pool: this.pool.length, alter: this.alterPool.length };
     this.cap = capacityFor(this.alive().length);
     // the Grail is announced the morning after it appears, face up on a battlefield
     if ((this.grail.pending || this.day === LAST_DAY) && !this.grail.appeared) {
@@ -305,7 +306,6 @@ export class Game {
     // Nothing chosen here takes effect until everyone has locked in.
     const order = [...this.alive()].sort((a, b) => a.isHuman - b.isHuman);
     for (const pl of order) {
-      if (pl.catalystPending) pl.catalystChoices = this.catalystLeft(pl);
       pl.choice = await this.ask(pl, 'day', pl.catalystPending ? { catalyst: pl.catalystChoices } : {});
       // no catalyst pick in time = one of the three at random
       if (pl.catalystPending) this.pickCatalyst(pl, null);
@@ -528,7 +528,7 @@ export class Game {
           this.log(`✦ ${pl.name} พักฟื้น จอกวางอยู่ที่${AREAS[this.grail.area].name}`, null, 'grail');
         }
         Object.assign(pl, { area: null, dayArea: null, settled: false, move: null, play: null, peek: null, peekTarget: null });
-        this.log(`${pl.name} พักฟื้น Servant ตนใหม่จนถึงเช้า`, null, 'sys');
+        this.log(pl.catalystPending ? `${pl.name} รออัญเชิญด้วยวัตถุเชื่อมโยงจนถึงเช้า` : `${pl.name} พักฟื้น Servant ตนใหม่จนถึงเช้า`, null, 'sys');
         continue;
       }
       Object.assign(pl, { dayArea: pl.area, settled: true, move: null, play: null, peek: null });
@@ -939,6 +939,7 @@ export class Game {
 
   eliminate(pl, why) {
     pl.out = true;
+    pl.outPhase = `${this.day}:${this.half}:${this.nightNo}`;
     pl.servant = null;
     pl.catalystPending = false;
     this.eliminatedOrder.push(pl);
@@ -952,9 +953,12 @@ export class Game {
     for (const pl of this.alive().filter((x) => x.catalystPending)) this.pickCatalyst(pl, null);
     this.over = true;
     const alive = this.alive();
-    const byMana = [...alive].sort((a, b) => b.mana - a.mana || (b.servant?.hp ?? 0) - (a.servant?.hp ?? 0));
+    // if the last Masters are all knocked out in the same phase, the winner is one of them
+    const lastOut = this.eliminatedOrder.at(-1)?.outPhase;
+    const left = alive.length ? alive : this.eliminatedOrder.filter((x) => x.outPhase === lastOut);
+    const byMana = [...left].sort((a, b) => b.mana - a.mana || (b.servant?.hp ?? 0) - (a.servant?.hp ?? 0));
     const winner = this.grail.holder && !this.grail.holder.out ? this.grail.holder : byMana[0];
-    this.ranking = [winner, ...byMana.filter((x) => x !== winner), ...[...this.eliminatedOrder].reverse()];
+    this.ranking = [winner, ...byMana.filter((x) => x !== winner), ...[...this.eliminatedOrder].reverse().filter((x) => !byMana.includes(x))];
     this.winner = winner;
     const how = this.grail.holder === winner ? 'ถือจอกศักดิ์สิทธิ์' : 'มานามากที่สุด';
     this.log(`🏆 ${winner.name} ชนะสงครามจอกศักดิ์สิทธิ์! (${how})`, null, 'grail');

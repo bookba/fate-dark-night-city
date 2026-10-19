@@ -355,7 +355,7 @@ export class UI {
     const sit = g.situation ? DAILY[g.situation] : null;
     const secs = this.mode ? ` · <span class="step-sec" id="stepsec">${this.timeLeft()}</span> วิ` : '';
     $('#banner').innerHTML = `<div class="phase-title">${g.half === 'night' ? `☾ กลางคืน ${g.nightNo}` : '☀ กลางวัน'} · ${this.stepText()}${secs}</div>
-      <div class="pill" ${help(g.grail.appeared ? 'grail' : 'deaths')} data-pools="อัญเชิญได้อีก: กองกลาง ${g.pool.length} · กอง Alter ${g.alterPool.length}">${pill}</div>
+      <div class="pill" ${help(g.grail.appeared ? 'grail' : 'deaths')} data-pools="อัญเชิญได้อีก: กองกลาง ${g.stage === 'choose' && g.poolShown ? g.poolShown.pool : g.pool.length} · กอง Alter ${g.stage === 'choose' && g.poolShown ? g.poolShown.alter : g.alterPool.length}">${pill}</div>
       ${sit ? `<div class="sit" ${help('daily')}><span class="pill-tag warn">อีเวนต์ประจำวัน</span> <b>${esc(sit.name)}</b> <small>${esc(sit.text)}${g.shadowArea ? ` · ที่${AREAS[g.shadowArea].name}` : ''}</small></div>` : ''}`;
   }
 
@@ -765,7 +765,7 @@ export class UI {
         }).join('')}</div></div>`;
     }
     const dayItems = [...new Set(me.items)].filter((k) => ITEMS[k].phase.includes('day'));
-    const unknown = g.alive().filter((x) => x !== me && x.servant && !x.catalystPending && !x.catalystReveal && !g.knowsName(me, x));
+    const unknown = g.alive().filter((x) => x !== me && x.servant && !x.catalystPending && !g.knowsName(me, x));
     const itemWhy = (k) => using(k) ? '' : k === 'hero_record' && !unknown.length ? 'รู้จัก Servant ทุกคนแล้ว'
       : g.dayItemUsable(me, k) ? '' : k === 'potion' ? 'HP เต็มแล้ว' : k === 'mana_vial' ? 'มานาเต็มแล้ว' : '';
     const itemBtns = dayItems.map((k) => optBtn({ cls: 'small', sel: using(k) || (k === 'hero_record' && this.sel.hero), attrs: `data-item="${k}"`, off: !!itemWhy(k),
@@ -774,7 +774,7 @@ export class UI {
     const sealBtn = optBtn({ cls: 'small seal', sel: this.sel.sealHeal, attrs: 'data-seal="heal"', off: !!healWhy, label: '◆ รักษา! (Command Seal)', desc: DAY.sealHeal[0], when: DAY.sealHeal[1], why: healWhy });
     const heroAt = this.sel.items.find((x) => x.key === 'hero_record')?.target;
     const heroPick = this.sel.hero ? `<p class="note">บันทึกวีรชน: เลือกเป้าหมาย</p><div class="tools">${unknown.map((x) =>
-      `<button class="small ${heroAt === x.id ? 'on' : ''}" data-hero="${x.id}">${esc(x.name)} (${x.servant.cls})</button>`).join('')}</div>` : '';
+      `<button class="small ${heroAt === x.id ? 'on' : ''}" data-hero="${x.id}">${esc(x.name)} (${x.catalystReveal ? 'รออัญเชิญ' : x.servant.cls})</button>`).join('')}</div>` : '';
     const planned = [...this.sel.items.map((x) => ITEMS[x.key].name + (x.key === 'hero_record' ? ` (${g.players[x.target].name})` : '')), ...(this.sel.sealHeal ? ['รักษา!'] : [])];
     // over the item limit: pick what to drop (design 2); the items being used do not count
     const usedIdx = new Set();

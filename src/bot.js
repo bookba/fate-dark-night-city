@@ -166,10 +166,10 @@ function evalCombo(game, pl, cards, area, vsPlayers = true) {
 
 // design 12 / ก.5: the strongest pair it can pay for; mana only breaks ties.
 // Against the church monster raw power decides, effects only break ties.
-function bestCombo(game, pl, cards, area, mana, withNp, church = false) {
+function bestCombo(game, pl, cards, area, mana, withNp, { church = false, vsPlayers = true } = {}) {
   const cost = (combo) => combo.reduce((a, c) => a + game.cardCost(c), 0);
   const rank = (combo) => (church ? comboPower(game, pl, combo, area) * 100 + evalCombo(game, pl, combo, area, false)
-    : evalCombo(game, pl, combo, area)) - cost(combo) * 0.01;
+    : evalCombo(game, pl, combo, area, vsPlayers)) - cost(combo) * 0.01;
   const list = combosOf(cards).filter((c) => cost(c) <= mana && c.some((x) => x.kind === 'np') === withNp);
   return list.sort((a, b) => rank(b) - rank(a))[0] || null;
 }
@@ -224,8 +224,10 @@ function chooseMove(game, pl, opts) {
     const there = others.filter((x) => x.area === a);
     const threat = bestThreat(game, pl, a, there);
     if (threat === -Infinity) return prize(a);
-    const combo = bestCombo(game, pl, game.playable(pl), a, mana, false) || [];
-    const edge = evalCombo(game, pl, combo, a) - threat;
+    // "foe" lowers other Masters only, so it is worth nothing against the shadow monster alone
+    const vsPlayers = there.length > 0;
+    const combo = bestCombo(game, pl, game.playable(pl), a, mana, false, { vsPlayers }) || [];
+    const edge = evalCombo(game, pl, combo, a, vsPlayers) - threat;
     if (edge >= 3 || (grailAt(a) && edge >= 0)) return prize(a);
     return edge - 3;
   };
@@ -253,7 +255,8 @@ export function chooseCards(game, pl, ctx) {
   const cards = ctx.cards || game.playable(pl);
   const s = pl.servant;
   const hpPct = s.hp / s.maxHp;
-  const plain = bestCombo(game, pl, cards, fight.area, pl.mana, false, !!fight.church) || [];
+  const vsPlayers = fight.players.length > 1;
+  const plain = bestCombo(game, pl, cards, fight.area, pl.mana, false, { church: !!fight.church, vsPlayers }) || [];
   const ids = (combo) => combo.map((c) => c.id);
   // design 12: against the church monster, the strongest pair it can pay for. HP
   // cannot drop below 1 there, so no Command Seal or item is spent on it.
@@ -262,9 +265,9 @@ export function chooseCards(game, pl, ctx) {
     (game.grail.holder && fight.players.includes(game.grail.holder));
   const foes = fight.players.length - 1 + (fight.monster ? 1 : 0);
   // the Noble Phantasm: in a Grail fight, or when it makes a likely win out of a doubtful one
-  const withNp = bestCombo(game, pl, cards, fight.area, pl.mana, true);
+  const withNp = bestCombo(game, pl, cards, fight.area, pl.mana, true, { vsPlayers });
   const threat = bestThreat(game, pl, fight.area, fight.players);
-  const sure = (combo) => evalCombo(game, pl, combo, fight.area) >= threat + 3;
+  const sure = (combo) => evalCombo(game, pl, combo, fight.area, vsPlayers) >= threat + 3;
   const useNp = withNp && (grailFight || (sure(withNp) && !sure(plain)));
   const out = { cards: ids(useNp ? withNp : plain), boost: false, sealHeal: false, items: [] };
   // "เพิ่มพลัง!" in a Grail fight; no Command Seal use ever spends the last one
