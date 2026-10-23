@@ -268,7 +268,9 @@ export class Game {
     const line = ents.map((e) => `${e.name} ${e.atk}`).join(' · ');
     this.log(`⚔ ${L.name}: ${line} → ${win.name} ชนะ`, 'fight');
     for (const e of ents.slice(1)) this.log(e.escaped ? `${e.name} ใช้ Command Spell หนี` : `${e.name} เสีย HP ${e.dmg} · Curse +1`, e.pl.isHuman ? 'bad' : '');
-    return { loc, fight: true, ents: ents.map(({ pl, ...r }) => r), got: got.map((e) => e.id), people: here.map((p) => p.id) };
+    const res = { loc, fight: true, win: win.id, ents: ents.map(({ pl, ...r }) => r), got: got.map((e) => e.id), people: here.map((p) => p.id) };
+    this.emit('fight', { res });
+    return res;
   }
 
   knockOut(pl, why, by = null) {

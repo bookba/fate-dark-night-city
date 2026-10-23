@@ -3,6 +3,7 @@
 import { Game, LOCS, LOC_KEYS, COLORS, CNAME, CAP, CS_MAX, DAYS, SPLIT, CS_BOOST, CS_HEAL, CHURCH_HEAL, skillsOf, condText, PASSIVE } from './game.js';
 import { botDecide } from './bot.js';
 import { SV_ART, MAP_ART } from './art.js';
+import { skillIcon, csIcon, classEmblem } from './icons.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -16,7 +17,9 @@ function newGame() {
   closeModal();
   draft = null;
   wait = null;
-  g = new Game({ decide, onEvent: () => render() });
+  battle = null;
+  drawBattle();
+  g = new Game({ decide, onEvent });
   g.run();
 }
 
@@ -25,7 +28,7 @@ function decide(game, pl, kind, ctx) {
   if (kind === 'phaseEnd' && (skip || g.over)) return null;
   return new Promise((res) => { wait = { kind, ctx, res }; draft = kind === 'loc' ? null : draft; render(); });
 }
-function answer(v) { const w = wait; wait = null; draft = null; $('#modal').hidden = true; w.res(v); }
+function answer(v) { const w = wait; wait = null; draft = null; $('#modal').hidden = true; w.res(v); if (battle) drawBattle(); }
 
 // ---------- drawing ----------
 const tokChips = (t, full = false) => TOK.map((k) => `<span class="tok t${k}" title="${CNAME[k]}">${k === 'M' ? 'M' : k === 'C' ? '☠' : k}${t[k]}${full ? `<small>/${CAP[k]}</small>` : ''}</span>`).join('');
@@ -76,8 +79,8 @@ function render() {
   $('#log').innerHTML = `<h4>บันทึก</h4>` + g.logs.slice(-120).map((l) => `<div class="l-${l.cls}">${esc(l.text)}</div>`).join('');
   $('#log').scrollTop = $('#log').scrollHeight;
 
-  if (wait?.kind === 'fight' && $('#modal').hidden) showFight();
-  if (g.over && !overShown && $('#modal').hidden) { overShown = true; showOver(); }
+  if (wait?.kind === 'fight' && !battle) openBattle();
+  if (g.over && !overShown && !battle && $('#modal').hidden) { overShown = true; showOver(); }
 }
 
 function drawMap() {
@@ -161,29 +164,95 @@ function resultHtml(r) {
 function openModal(html) { $('#modal .sheet').innerHTML = html; $('#modal').hidden = false; }
 function closeModal() { $('#modal').hidden = true; if (g && !g.over) render(); }
 
-function showFight() {
+// ---------- battle screen ----------
+// pick: everyone in the location with my skills as icons; result: who used what, ATK, winner
+let battle = null;
+
+function svCard(p, e = null) {
+  const show = p.isHuman || p.revealed;
+  const pic = show ? `<img src="${SV_ART[p.sv.key]}" alt="" />` : `<div class="emblem">${classEmblem(p.sv.cls)}</div>`;
+  let out = '';
+  if (e) {
+    const won = battle.res.win === p.id;
+    out = `<div class="atk ${won ? 'won' : ''}">${won ? '<i>👑</i>' : ''}<b>${e.atk}</b><small>ATK</small></div>
+      <div class="used">${esc(e.skill)}${e.np ? ' (NP)' : ''}${e.boost ? ' · CS +5' : ''}${e.healed ? ' · CS ฟื้น HP' : ''}</div>
+      <div class="fate ${won ? 'good' : e.escaped ? '' : 'bad'}">${won ? 'ชนะ' : e.escaped ? 'หนีด้วย Command Spell' : `HP −${e.dmg} · Curse +1`}${e.died ? ' · ตกรอบ' : ''}</div>
+      ${e.got ? `<div class="got">ได้ ${esc(e.got)}</div>` : ''}`;
+  }
+  return `<div class="sv ${p.isHuman ? 'mine' : ''} ${e && battle.res.win === p.id ? 'winner' : ''} ${e?.died ? 'dead' : ''}">
+    <div class="pic">${pic}<span class="clsb">${p.sv.cls}</span>${g.grail.holder === p ? '<span class="grailb">✦ จอก</span>' : ''}</div>
+    <div class="nm"><b>${p.isHuman ? 'คุณ' : esc(p.name)}</b><span>${show ? esc(p.sv.name) : 'ยังไม่รู้ชื่อ Servant'}</span></div>
+    ${hpBar(p)}
+    <div class="row">${seals(p.cs)}</div>
+    <div class="toks">${tokChips(p.tok)}</div>${out}</div>`;
+}
+
+function openBattle() {
   const me = g.human;
   const { loc, foes } = wait.ctx;
-  const opts = g.options(me).sort((a, b) => b.p.atk - a.p.atk);
-  const st = { skill: opts[0].sk.key, boost: false, heal: false, escape: false };
-  const can = g.canSpell(me);
-  const draw = () => {
+  const opts = g.options(me);
+  const best = [...opts].sort((a, b) => b.p.atk - a.p.atk)[0];
+  battle = { loc, people: [me, ...foes], st: { skill: best.sk.key, boost: false, heal: false, escape: false }, res: null };
+  drawBattle();
+}
+
+function drawBattle() {
+  const B = $('#battle');
+  if (!battle) { B.hidden = true; return; }
+  const me = g.human;
+  const L = LOCS[battle.loc];
+  const grailFight = (g.grail.appeared && !g.grail.holder && g.grail.loc === battle.loc) || battle.people.includes(g.grail.holder);
+  const head = `<header><h2>⚔ ต่อสู้ที่${L.name}</h2><span>${battle.people.length} คน · ที่นี่รับ ${L.cap} คน · รางวัล ${L.reward}${grailFight ? ' · <b class="gold">✦ แย่งจอก</b>' : ''}</span></header>`;
+  let body;
+  if (battle.res) {
+    const ents = Object.fromEntries(battle.res.ents.map((e) => [e.id, e]));
+    const order = battle.res.ents.map((e) => g.players[e.id]);
+    const myE = ents[me.id];
+    const verdict = battle.res.win === me.id ? '🏆 คุณชนะ!' : myE?.escaped ? 'คุณหนีรอดมาได้' : myE?.died ? 'คุณตกรอบ' : 'คุณแพ้';
+    body = `<div class="field">${order.map((p) => svCard(p, ents[p.id])).join('')}</div>
+      <div class="hand sticky"><h3 class="verdict">${verdict}</h3><button class="go" id="btclose">ปิด ดูผลทั้งหมด</button></div>`;
+  } else if (wait?.kind === 'fight') {
+    const st = battle.st;
+    const can = g.canSpell(me);
     const used = st.boost + st.heal + st.escape;
-    const atk = opts.find((o) => o.sk.key === st.skill).p.atk + (st.boost ? CS_BOOST : 0);
-    openModal(`<h3>⚔ ต่อสู้ที่${LOCS[loc].name}</h3>
-      <div class="foes">${foes.map((p) => `<div><b>${esc(p.name)}</b> ${p.sv.cls}${p.revealed ? ` (${esc(p.sv.name)})` : ''} · HP ${p.hp} · ${seals(p.cs)} ${tokChips(p.tok)}</div>`).join('')}</div>
-      <h4>เลือกสกิล 1 อย่าง</h4>
-      ${opts.map((o) => `<label class="opt"><input type="radio" name="sk" value="${o.sk.key}" ${st.skill === o.sk.key ? 'checked' : ''}/> <b>${esc(o.sk.name)}${o.sk.np ? ' (NP)' : ''}</b> ATK ${o.p.atk} <small>จ่าย ${payText(o.p.pay)}</small></label>`).join('')}
-      <h4>Command Spell (เหลือ ${me.cs}${can ? '' : ', ใช้ไม่ได้'})</h4>
-      ${[['boost', `ATK +${CS_BOOST}`], ['heal', `ฟื้น HP ${CS_HEAL} ก่อนสู้`], ['escape', 'ถ้าแพ้ ให้หนี (ไม่เสีย HP ไม่โดน Curse ไม่ได้รางวัล)']].map(([k, t]) =>
-        `<label class="opt ${can ? '' : 'dim'}"><input type="checkbox" data-cs="${k}" ${st[k] ? 'checked' : ''} ${can && (st[k] || used < me.cs) ? '' : 'disabled'}/> ${t}</label>`).join('')}
-      <p>ATK ของคุณ: <b>${atk}</b> · คนที่ ATK สูงสุดชนะ เสมอกันให้คนคะแนนน้อยกว่าชนะ</p>
-      <button class="go" id="fightgo">สู้!</button>`);
-    for (const r of document.querySelectorAll('input[name=sk]')) r.onchange = () => { st.skill = r.value; draw(); };
-    for (const c of document.querySelectorAll('[data-cs]')) c.onchange = () => { st[c.dataset.cs] = c.checked; draw(); };
-    $('#fightgo').onclick = () => answer({ ...st });
-  };
-  draw();
+    const pick = g.plan(me, skillsOf(me.sv).find((k) => k.key === st.skill));
+    const atk = pick.atk + (st.boost ? CS_BOOST : 0);
+    const tiles = skillsOf(me.sv).map((sk) => {
+      const p = g.plan(me, sk);
+      const un = g.unlocked(me, sk);
+      const why = !un ? `ต้องมี ${condText(sk.cond)}` : !p ? 'โทเคนไม่พอจ่าย' : `จ่าย ${payText(p.pay)}`;
+      return `<button class="skt ${p ? '' : 'locked'} ${st.skill === sk.key ? 'on' : ''} ${sk.np ? 'np' : ''}" data-sk="${sk.key}" ${p ? '' : 'disabled'}>
+        <span class="ico">${skillIcon(sk, me.sv)}${p ? '' : '<i class="lock">🔒</i>'}</span>
+        <b>${esc(sk.name)}</b><span class="a">ATK ${p ? p.atk : sk.key === 's2' ? '= Mana' : sk.atkText}</span><small>${why}</small></button>`;
+    }).join('');
+    const spells = [['boost', `ATK +${CS_BOOST}`], ['heal', `ฟื้น HP ${CS_HEAL}`], ['escape', 'ถ้าแพ้ให้หนี']].map(([k, t]) => {
+      const ok = can && (st[k] || used < me.cs);
+      return `<button class="cst ${st[k] ? 'on' : ''}" data-cs="${k}" ${ok ? '' : 'disabled'}><span class="ico">${csIcon[k]}</span><b>${t}</b></button>`;
+    }).join('');
+    body = `<div class="field">${battle.people.map((p) => svCard(p)).join('')}</div>
+      <div class="hand">
+        <h4>เลือกสกิล 1 อย่าง</h4><div class="skills">${skillsOf(me.sv).length ? tiles : ''}</div>
+        <h4>Command Spell <span>เหลือ ${me.cs}${can ? '' : ' · ใช้ไม่ได้ (Curse 5 หรือหมด)'}</span></h4><div class="spells">${spells}</div>
+        <div class="goline"><span>ATK ของคุณ <b>${atk}</b></span><button class="go big" id="fightgo">สู้!</button></div>
+        <p class="tip">ทุกคนเลือกพร้อมกัน ATK สูงสุดชนะ เสมอกันให้คนคะแนนน้อยกว่าชนะ คนแพ้เสีย HP เท่าส่วนต่าง ATK และได้ Curse 1</p>
+      </div>`;
+  } else {
+    body = `<div class="field">${battle.people.map((p) => svCard(p)).join('')}</div><div class="hand"><p>กำลังเปิดผล…</p></div>`;
+  }
+  const mode = battle.res ? 'res' : 'pick';
+  const anim = battle.drawn !== mode;
+  battle.drawn = mode;
+  B.innerHTML = `<div class="bt ${anim ? 'anim' : ''}" style="--btbg:url(${MAP_ART.night})">${head}${body}</div>`;
+  B.hidden = false;
+  for (const b of B.querySelectorAll('[data-sk]')) b.onclick = () => { battle.st.skill = b.dataset.sk; drawBattle(); };
+  for (const b of B.querySelectorAll('[data-cs]')) b.onclick = () => { battle.st[b.dataset.cs] = !battle.st[b.dataset.cs]; drawBattle(); };
+  if ($('#fightgo')) $('#fightgo').onclick = () => answer({ ...battle.st });
+  if ($('#btclose')) $('#btclose').onclick = () => { battle = null; drawBattle(); render(); };
+}
+
+function onEvent(ev) {
+  if (ev.type === 'fight' && battle && ev.res.people.includes(g.human.id)) { battle.res = ev.res; drawBattle(); }
+  render();
 }
 
 function showOver() {
