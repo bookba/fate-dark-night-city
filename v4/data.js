@@ -32,7 +32,7 @@ export const MASTERS = [
   { key: 'shirou', name: 'เอมิยะ ชิโร่', short: 'ชิโร่', en: 'Emiya Shirou', color: '#c2553a', mana: 2, cs: 3,
     abil: [['Kanshou & Bakuya', 'การ์ดสกิลของ Master: มานา 1 พลัง 5 ชนิดกำลัง ใช้ตามกฎมานา 8'], ['Avalon', 'รอดการคัดออกได้ 1 ครั้ง (จบรอบ 8–10) แต่มานาหมด']] },
   { key: 'rin', name: 'โทซากะ ริน', short: 'ริน', en: 'Tohsaka Rin', color: '#b8323a', mana: 4, cs: 3, gems: 10,
-    abil: [['Jewel Magecraft', 'อัญมณี 10 อัน · จ่ายแทนมานาได้ หรือเพิ่มพลังอันละ +1 (สูงสุด 3 ต่อรอบ, ค่าแทน)'], ['Absolute Obedience Order', 'รอบ 1 เสีย Command Spell 1 ดวง']] },
+    abil: [['Jewel Magecraft', 'อัญมณี 10 อัน ใช้ได้ 3 แบบ แบบละรอบละครั้ง: จ่ายแทนมานา (1 อัน = 1) · ลงการ์ด Gand (1 อัน) · แลกการ์ดในมือ (1 อัน) · จำนวนอันเป็นค่าแทน'], ['Absolute Obedience Order', 'รอบ 1 เสีย Command Spell 1 ดวง']] },
   { key: 'sakura', name: 'มาโต้ ซากุระ', short: 'ซากุระ', en: 'Matou Sakura', color: '#7b52c7', mana: 4, cs: 0,
     abil: [['ไม่มี Command Spell', ''], ['เงาดำ', 'จบรอบถ้าอยู่อันดับสุดท้ายคนเดียว จ่ายมานา 2 ได้ 2 VP'], ['จอกที่แปดเปื้อน', 'รอบไคลแมกซ์ถ้าไม่ได้อันดับ 1 มานาไม่จำกัด ลงการ์ดได้ 3 ใบ']] },
   { key: 'illya', name: 'อิลิยาสฟีล ฟอน ไอน์ซเบิร์น', short: 'อิลิยา', en: 'Illyasviel', color: '#9aa0b8', mana: 6, cs: 3,
@@ -44,7 +44,11 @@ export const MASTERS = [
   { key: 'kirei', name: 'โคโตมิเนะ คิเรย์', short: 'คิเรย์', en: 'Kotomine Kirei', color: '#3a3430', mana: 4, cs: 3,
     abil: [['ผู้ควบคุม', 'ตอนชื่อจริงยังซ่อน: เห็นคลาส Servant ทุกคน · ไปลาดตระเวนด้วยมานา 2 จากที่ไหนก็ได้'], ['ผู้แทน', 'ตอนชื่อจริงเปิดแล้ว: พลังรวม +2']] },
 ];
-export const KANSHOU = { name: 'Kanshou & Bakuya', type: 'S', power: 5, mana: 1, fx: {}, text: 'การ์ดสกิลของชิโร่ ใช้ตามกฎมานา 8 [NW]', master: true };
+export const KANSHOU = { name: 'Kanshou & Bakuya', type: 'S', power: 5, mana: 1, fx: { npBan: true }, text: 'การ์ดสกิลของชิโร่ ใช้ตามกฎมานา 8 · ใช้ในรอบที่ห้าม NP ไม่ได้ [NW]', master: true };
+// Rin's attack card from outside the deck, opened with a jewel [NW]; jewel counts and mana ph
+export const GAND = { name: 'Gand', type: 'M', power: 1, mana: 0, fx: { gand: true }, text: 'การ์ดโจมตีนอกสำรับของริน · ใช้อัญมณี 1 อัน รอบละครั้ง · หงายเท่านั้น · ไม่ต้องใช้กฎมานา 8 [NW] (จำนวนอัญมณีและมานาเป็นค่าแทน)' };
+export const GEM_GAND = 1;
+export const GEM_SWAP = 1;
 
 const c = (type, power, mana, fx = null) => ({ type, power, mana, fx });
 const G = { guard: true }; // a Special card: safe from Mystic Eyes of Petrification

@@ -1,6 +1,6 @@
 // Simple bots for the v4.0 demo: they estimate the power they can reach and pick the
 // place, move and cards with the best expected VP, plus some noise.
-import { AREAS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, CS_MANA, CS_POWER } from './game.js';
+import { AREAS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, CS_MANA, CS_POWER, GEM_GAND } from './game.js';
 
 const MANA_W = 0.4; // how much a bot values one mana kept for later
 const winChance = (mine, theirs) => 1 / (1 + Math.exp(-(mine - theirs) / 2.5));
@@ -79,14 +79,15 @@ function move(g, p, opts) {
 // down, at least one face up; plus Unlimited Blade Works and Riding builds
 function combos(g, p, mana) {
   const skills = g.usableSkills(p, mana);
-  const pool = [...p.hand, ...skills];
+  const gand = p.gand && !p.roundUse.gand && p.gems >= GEM_GAND ? [p.gand] : [];
+  const pool = [...p.hand, ...skills, ...gand];
   const max = g.maxCards(p);
   const out = [];
   const flips = (set) => {
     const n = set.length;
     for (let m = 0; m < 1 << n; m++) {
       if (m === (1 << n) - 1) continue; // all face down is not allowed on a battlefield
-      if (set.some((c, i) => m & (1 << i) && c.skill)) continue; // skills are never face down
+      if (set.some((c, i) => m & (1 << i) && (c.skill || c.fx?.gand))) continue; // skills and Gand are never face down
       out.push(set.map((c, i) => ({ c, down: !!(m & (1 << i)) })));
     }
   };
@@ -128,15 +129,15 @@ function cards(g, p, ctx) {
   const inf = g.infinite(p);
   const tries = [{ cs4: false, mana: p.mana }];
   if (!ctx.cs4used && p.cs > 0 && !alone && late) tries.push({ cs4: true, mana: p.mana + CS_MANA });
-  const gemPay = p.m.key === 'rin' ? Math.min(p.gems, 3) : 0;
   const scored = [];
   for (const t of tries) {
     for (const cb of combos(g, p, t.mana)) {
       const cardsUp = cb.filter((x) => !x.down);
       const cost = cardsUp.reduce((s, x) => s + g.costOf(p, x.c), 0);
+      const gemPay = p.m.key === 'rin' ? p.gems - (cb.some((x) => x.c.fx?.gand) ? GEM_GAND : 0) : 0;
       if (!inf && cost > t.mana + gemPay) continue;
       const reveals = !p.revealed && cardsUp.some((x) => x.c.fx?.reveal || g.tsubame(p, x.c));
-      const play = { cards: cb.map(({ c, down }) => ({ ...c, down })), cs2: 0, gems: 0 };
+      const play = { cards: cb.map(({ c, down }) => ({ ...c, down })), cs2: 0 };
       const pw = g.powerOf(p, play, { f, revealing: reveals }).total;
       let extra = 0; let vp = 0;
       for (const { c } of cardsUp) {
@@ -163,14 +164,31 @@ function cards(g, p, ctx) {
   if (!scored.length) return { ids: p.hand.slice(0, 2).map((c) => c.uid), down: p.hand.slice(1, 2).map((c) => c.uid) };
   scored.sort((a, b) => b.v - a.v);
   const best = scored[0];
-  const ans = { ids: best.cb.map((x) => x.c.uid), down: best.cb.filter((x) => x.down).map((x) => x.c.uid), cs4: best.cs4, cs2: 0, gems: 0, gemMana: 0 };
+  const ans = { ids: best.cb.map((x) => x.c.uid), down: best.cb.filter((x) => x.down).map((x) => x.c.uid), cs4: best.cs4, cs2: 0, gemMana: 0 };
   const mana = p.mana + (best.cs4 ? CS_MANA : 0);
   if (best.cost > mana) ans.gemMana = best.cost - mana;
-  const gap = foe - best.pw;
-  const csLeft = p.cs - (best.cs4 ? 1 : 0);
-  if (!alone && gap >= 0 && gap < CS_POWER * Math.min(2, csLeft) && (late || csLeft >= 2)) ans.cs2 = Math.min(csLeft, Math.ceil((gap + 1) / CS_POWER));
-  if (p.m.key === 'rin' && !alone && gap >= 0 && gap < 3) ans.gems = Math.min(3, p.gems - ans.gemMana, gap + 1);
-  return ans;
+  return ans; // Command Spell power waits for the combat window, when every play is known
+}
+
+// ability windows: Rin swaps a weak hand; in the combat window a Command Spell tips a close
+// fight, or a hopeless one is left for recon late in the game
+function ability(g, p, ctx) {
+  const has = (k, to) => ctx.opts.some((o) => o.kind === k && (to == null || o.to === to));
+  if (has('gemSwap') && (ctx.stage === 'prep' || ctx.stage === 'action-cards')) {
+    const weak = p.hand.filter((c) => c.power <= 2);
+    if (weak.length >= 2 && p.gems >= 3) return { kind: 'gemSwap', ids: weak.map((c) => c.uid) };
+  }
+  if (ctx.stage !== 'combat' || !p.play || !AREAS[p.at]?.field) return null;
+  const foes = g.here(p.at).filter((q) => q !== p);
+  if (!foes.length) return null;
+  const mine = g.powerOf(p, p.play).total;
+  const foe = Math.max(...foes.map((q) => (q.play ? g.powerOf(q, q.play).total : 0)));
+  const late = g.climax() || g.round >= 7;
+  const gap = foe - mine;
+  const need = Math.ceil((gap + 1) / CS_POWER);
+  if (has('csPower') && gap >= 0 && need <= Math.min(2, p.cs) && (late || p.cs > need)) return { kind: 'csPower' };
+  if (gap >= 6 && late && has('csMove', 'recon')) return { kind: 'csMove', to: 'recon' };
+  return null;
 }
 const c5 = (p) => Math.min(p.vp + 3, 5);
 
@@ -178,5 +196,6 @@ export function botDecide(g, p, kind, ctx) {
   if (kind === 'place') return place(g, p, ctx.opts);
   if (kind === 'move') return move(g, p, ctx.opts);
   if (kind === 'cards') return cards(g, p, ctx);
+  if (kind === 'ability') return ability(g, p, ctx);
   return null;
 }

@@ -3,7 +3,7 @@
 // Numbers not in the sources are placeholders (data.js). No DOM code, so it runs headless (v4/sim.mjs).
 import {
   AREAS, PATH, STEP_COST, WORKSHOP, TERRAIN, RECON_VP, HAND, SKILL_MANA, ROUNDS, REGULAR, CUT,
-  CS_MANA, CS_POWER, CS_VP, MASTERS, SERVANTS, KANSHOU, SNAKE, EVENTS, CLIMAX, OBJECTS,
+  CS_MANA, CS_POWER, CS_VP, MASTERS, SERVANTS, KANSHOU, SNAKE, EVENTS, CLIMAX, OBJECTS, GAND, GEM_GAND, GEM_SWAP,
 } from './data.js';
 
 export * from './data.js';
@@ -34,7 +34,7 @@ export class Game {
       if (m.key === 'shirou') skills.push(inst(KANSHOU, { skill: true, gone: false, resident: false }));
       return {
         id, m, name: m.short, isHuman: id === h, sv, deck: this.shuffle(deck), hand: [], trash: [], skills,
-        mana: m.mana, cs: m.cs, vp: 0, gems: m.gems || 0, revealed: false, out: false, outRound: 0,
+        mana: m.mana, cs: m.cs, vp: 0, gems: m.gems || 0, gand: m.key === 'rin' ? inst(GAND) : null, roundUse: {}, revealed: false, out: false, outRound: 0,
         at: null, slot: null, terrain: 0, play: null, avalonUsed: false, uses: {}, swords: new Set(), godLost: 0, vpStart: 0,
       };
     });
@@ -112,7 +112,7 @@ export class Game {
     if (c.gone) return 'ใช้หมดแล้ว';
     if (c.resident) return 'วางค้างอยู่';
     if (c.fx?.constant) return 'ติดตัวถาวร';
-    if (c.type === 'N' && this.efx('noNP')) return 'อีเวนต์ห้ามใช้ NP';
+    if ((c.type === 'N' || c.fx?.npBan) && this.efx('noNP')) return 'อีเวนต์ห้ามใช้ NP';
     if (c.fx?.maxRound && this.round > c.fx.maxRound) return `ใช้ได้แค่รอบ 1–${c.fx.maxRound}`;
     if (!this.infinite(p) && mana < SKILL_MANA) return `ต้องมีมานา ${SKILL_MANA}`;
     return '';
@@ -158,7 +158,6 @@ export class Game {
     const unify = this.efx('unify') + (f ? this.ofx(f, 'unify') : 0);
     if (unify && up.length >= 2 && up.every((c) => c.type === up[0].type)) parts.push(['การ์ดชนิดเดียวกัน', unify]);
     if (play.cs2) parts.push(['Command Spell', play.cs2 * CS_POWER]);
-    if (play.gems) parts.push(['อัญมณี', play.gems]);
     if (p.m.key === 'kirei' && p.revealed) parts.push(['ผู้แทน', 2]);
     const res = p.skills.find((c) => c.resident);
     if (res && f && AREAS[f].field) parts.push([res.name, res.power]);
@@ -175,16 +174,19 @@ export class Game {
     if (!field) {
       const ids = (ans.ids || []).filter((id) => p.hand.some((c) => c.uid === id)).slice(0, 2);
       for (const c of p.hand) if (ids.length < Math.min(2, p.hand.length) && !ids.includes(c.uid)) ids.push(c.uid);
-      return { ids, down: ids, cs2: 0, gems: 0, gemMana: 0, cs4: false, cost: 0 };
+      return { ids, down: ids, cs2: 0, gemMana: 0, gand: false, cs4: false, cost: 0 };
     }
     let mana = p.mana;
     const cs4 = !!ans.cs4 && p.cs > 0;
     if (cs4) mana += CS_MANA;
-    const gemMana = p.m.key === 'rin' ? Math.max(0, Math.min(p.gems, Math.floor(ans.gemMana || 0))) : 0;
+    // Gand: Rin's card from outside the deck, paid with a jewel, once a round [NW]
+    const gandOk = !!p.gand && !p.roundUse.gand && p.gems >= GEM_GAND;
+    const wantGand = gandOk && (ans.ids || []).includes(p.gand.uid);
+    const gemMana = p.m.key === 'rin' ? Math.max(0, Math.min(p.gems - (wantGand ? GEM_GAND : 0), Math.floor(ans.gemMana || 0))) : 0;
     const inf = this.infinite(p);
     const skills = this.usableSkills(p, mana); // the 8-mana rule looks at mana before paying (gems are paid, not held)
     const ubw = (ans.ids || []).some((id) => skills.some((c) => c.uid === id && c.fx.ubw));
-    const pool = [...p.hand, ...skills, ...(ubw ? p.deck : [])];
+    const pool = [...p.hand, ...skills, ...(gandOk ? [p.gand] : []), ...(ubw ? p.deck : [])];
     let picked = [...new Set(ans.ids || [])].map((id) => pool.find((c) => c.uid === id)).filter(Boolean);
     const riding = picked.find((c) => c.fx?.riding);
     const ubwCard = picked.find((c) => c.fx?.ubw);
@@ -195,7 +197,7 @@ export class Game {
       else if (riding && extra.length < riding.fx.extra && !c.skill && c.power <= riding.fx.riding) extra.push(c);
     }
     picked = [...core, ...extra];
-    const down = new Set((ans.down || []).filter((id) => picked.some((c) => c.uid === id && !c.skill)));
+    const down = new Set((ans.down || []).filter((id) => picked.some((c) => c.uid === id && !c.skill && !c.fx?.gand)));
     const budget = mana + gemMana;
     const costOf = (c) => (down.has(c.uid) ? 0 : this.costOf(p, c));
     let cost = picked.reduce((s, c) => s + costOf(c), 0);
@@ -214,14 +216,14 @@ export class Game {
       if (ok) { down.delete(ok.uid); cost += inf ? 0 : ok.mana; }
     }
     const csLeft = p.cs - (cs4 ? 1 : 0);
-    const gems = p.m.key === 'rin' ? Math.max(0, Math.min(3, p.gems - gemMana, Math.floor(ans.gems || 0))) : 0;
     const cs2 = Math.max(0, Math.min(csLeft, Math.floor(ans.cs2 || 0)));
     const mover = picked.find((c) => !down.has(c.uid) && (c.fx?.bell || c.fx?.move));
     const moveOk = (k) => PATH.slice(1).includes(k) && k !== p.at && (k !== 'recon' || this.reconFree(p));
     const moveTo = mover && moveOk(ans.moveTo) ? ans.moveTo : null;
     const paid = inf ? 0 : cost;
     const gemPay = Math.min(gemMana, Math.max(0, paid - mana));
-    return { ids: picked.map((c) => c.uid), down: [...down], cs2, gems, gemMana: gemPay, cs4, cost: paid - gemPay, moveTo, ubw: !!ubwCard };
+    const gand = !!p.gand && picked.includes(p.gand);
+    return { ids: picked.map((c) => c.uid), down: [...down], cs2, gemMana: gemPay, gand, cs4, cost: paid - gemPay, moveTo, ubw: !!ubwCard };
   }
 
   applyCards(p, a, field) {
@@ -233,11 +235,13 @@ export class Game {
     if (a.cs4) { p.cs--; p.mana += CS_MANA; this.log(`${p.name} ใช้ Command Spell ได้มานา +${CS_MANA}`, 'cs'); }
     if (a.ubw) { p.hand.push(...p.deck); p.deck = []; }
     p.mana -= a.cost;
-    p.gems -= a.gems + a.gemMana;
+    p.gems -= a.gemMana + (a.gand ? GEM_GAND : 0);
+    if (a.gand) p.roundUse.gand = true;
     p.cs -= a.cs2;
     const cards = [];
     const down = new Set(a.down);
     for (const id of a.ids) {
+      if (p.gand && id === p.gand.uid) { cards.push({ ...p.gand, down: false }); continue; }
       let c = p.skills.find((x) => x.uid === id);
       if (c) {
         cards.push({ ...c, down: false, paid: this.skillCost(p, c) });
@@ -262,16 +266,71 @@ export class Game {
     }
     // Saber Class: an NP card played → 1 VP, 2 on the reveal round [NW]
     if (p.skills.some((c) => c.fx.saberVP) && cards.some((c) => !c.down && c.type === 'N')) { const n = revealing ? 2 : 1; p.vp += n; this.log(`${p.name} ได้ ${n} VP จาก Saber Class`, p.isHuman ? 'good' : ''); }
-    p.play = { cards, cs2: a.cs2, gems: a.gems, revealing };
+    p.play = { cards, cs2: a.cs2, revealing };
     const mover = cards.find((c) => !c.down && (c.fx?.bell || c.fx?.move));
     if (mover && a.moveTo) {
       const was = p.at;
       this.enter(p, a.moveTo, 'card');
       if (mover.fx.bell && AREAS[a.moveTo].field) for (const q of this.here(a.moveTo)) if (q !== p) { p.terrain += q.terrain; q.terrain = 0; }
       this.log(`${p.name} ใช้ ${mover.name} ย้ายจาก${AREAS[was].name}ไป${AREAS[a.moveTo].name}`, 'reveal');
-      if (!AREAS[a.moveTo].field) { for (const c of cards) if (!c.skill) p.trash.push(c); p.play = null; return; }
+      if (!AREAS[a.moveTo].field) { this.dropPlay(p); return; }
     }
     p.play.pre = this.powerOf(p, p.play).total;
+  }
+
+  // attack cards of a play go to the discard pile (skill cards and Gand do not)
+  dropPlay(p) {
+    if (p.play) for (const c of p.play.cards) if (!c.skill && !c.fx?.gand) { delete c.down; p.trash.push(c); }
+    p.play = null;
+  }
+
+  // ---------- ability windows (paper section 7, v4.1) ----------
+  // Command Spells work in any window [NW, timing inferred]; Rin's card swap once a round [NW]
+  abilityOpts(p) {
+    const o = [];
+    const field = AREAS[p.at]?.field;
+    if (p.cs > 0) {
+      o.push({ kind: 'csMana' });
+      if (field && p.play) o.push({ kind: 'csPower' });
+      if (field) for (const to of PATH.slice(1)) if (to !== p.at && (to !== 'recon' || this.reconFree(p))) o.push({ kind: 'csMove', to });
+    }
+    if (p.m.key === 'rin' && p.gems >= GEM_SWAP && !p.roundUse.swap && p.hand.length) o.push({ kind: 'gemSwap' });
+    return o;
+  }
+
+  useAbility(p, a) {
+    if (!a || !this.abilityOpts(p).some((o) => o.kind === a.kind && (o.to ?? null) === (a.to ?? null))) return false;
+    if (a.kind === 'csMana') { p.cs--; p.mana += CS_MANA; this.log(`${p.name} ใช้ Command Spell ได้มานา +${CS_MANA}`, 'cs'); }
+    else if (a.kind === 'csPower') {
+      p.cs--; p.play.cs2 = (p.play.cs2 || 0) + 1; p.play.pre = this.powerOf(p, p.play).total;
+      this.log(`${p.name} ใช้ Command Spell พลัง +${CS_POWER} ที่${AREAS[p.at].name} (พลังตอนนี้ ${p.play.pre})`, 'cs');
+    } else if (a.kind === 'csMove') {
+      p.cs--;
+      this.enter(p, a.to, 'cs');
+      if (p.play) { if (AREAS[a.to].field) p.play.pre = this.powerOf(p, p.play).total; else this.dropPlay(p); }
+    } else if (a.kind === 'gemSwap') {
+      const ids = new Set((a.ids || []).filter((id) => p.hand.some((c) => c.uid === id)));
+      if (!ids.size) return false;
+      const n = p.hand.length;
+      p.trash.push(...p.hand.filter((c) => ids.has(c.uid)));
+      p.hand = p.hand.filter((c) => !ids.has(c.uid));
+      this.drawTo(p, n);
+      p.gems -= GEM_SWAP; p.roundUse.swap = true;
+      this.log(`${p.name} ใช้อัญมณีแลกการ์ด ${ids.size} ใบ`, p.isHuman ? 'me' : '');
+    } else return false;
+    this.emit('update');
+    return true;
+  }
+
+  async abilityWindow(stage, list = this.order()) {
+    for (const p of list) {
+      for (let i = 0; i < 12 && !p.out; i++) {
+        const opts = this.abilityOpts(p);
+        if (!opts.length) break;
+        const a = await this.decide(this, p, 'ability', { stage, opts });
+        if (!a || a.kind === 'pass' || !this.useAbility(p, a)) break;
+      }
+    }
   }
 
   // ---------- the game ----------
@@ -318,13 +377,14 @@ export class Game {
       p.mana += this.event.mana;
       if (p.m.key === 'illya' && !this.climax()) p.mana += 1;
       if (p.m.key === 'rin' && this.round === 1 && p.cs > 0) { p.cs--; this.log(`${p.name} เสีย Command Spell 1 ดวง (Absolute Obedience Order)`, 'cs'); }
-      p.at = null; p.slot = null; p.terrain = 0; p.play = null; p.vpStart = p.vp;
+      p.at = null; p.slot = null; p.terrain = 0; p.play = null; p.vpStart = p.vp; p.roundUse = {};
     }
     if (this.event.mana) this.log(`อีเวนต์ ${this.event.name}: ทุกคนได้มานา +${this.event.mana}`, 'sys');
     this.objs = { miyama: [], shinto: [] };
     for (const f of FIELDS) { this.objs[f].push(this.drawObj()); if (this.efx('extraObj') && this.event.fx.extraObj === f) this.objs[f].push(this.drawObj()); }
     this.shintoOpen = false;
     this.emit('phase');
+    await this.abilityWindow('prep');
   }
 
   drawObj() {
@@ -336,6 +396,7 @@ export class Game {
     this.phase = 'outpost';
     this.emit('phase');
     for (const p of this.order()) {
+      await this.abilityWindow('outpost-before', [p]);
       const opts = ['miyama', 'shinto'];
       if (this.here('workshop').length < WORKSHOP.length) opts.unshift('workshop');
       const ans = await this.decide(this, p, 'place', { opts });
@@ -355,6 +416,7 @@ export class Game {
         this.log(`${p.name} วางที่${AREAS[to].name}${p.terrain ? ` ได้เปรียบพื้นที่ +${p.terrain}` : ''}`, p.isHuman ? 'me' : '');
       }
       this.emit('update');
+      await this.abilityWindow('outpost-after', [p]);
     }
   }
 
@@ -366,6 +428,7 @@ export class Game {
     for (const p of this.order()) {
       this.turn = p;
       this.emit('update');
+      await this.abilityWindow('action-move', [p]);
       const mv = (await this.decide(this, p, 'move', { opts: this.moveOptions(p) })) || {};
       let cs4 = false;
       if (mv.cs4 && p.cs > 0) { p.cs--; p.mana += CS_MANA; cs4 = true; this.log(`${p.name} ใช้ Command Spell ได้มานา +${CS_MANA}`, 'cs'); }
@@ -378,11 +441,13 @@ export class Game {
         if (o.how === 'kirei') this.log(`${p.name} ใช้ผู้ควบคุมไปลาดตระเวน (มานา 2)`, '');
       }
       this.emit('update');
+      await this.abilityWindow('action-cards', [p]);
       const field = AREAS[p.at].field;
       const ans = await this.decide(this, p, 'cards', { field, cs4used: cs4 });
       this.applyCards(p, this.cleanCards(p, ans, field), field);
       if (field && p.play) this.log(`${p.name} ลงการ์ดที่${AREAS[p.at].name} พลังที่ประกาศ ${p.play.pre}`, p.isHuman ? 'me' : '');
       this.emit('update');
+      await this.abilityWindow('action-after', [p]);
     }
     this.turn = null;
   }
@@ -390,6 +455,9 @@ export class Game {
   async combat() {
     this.phase = 'combat';
     this.results = [];
+    this.turn = null;
+    this.emit('phase');
+    await this.abilityWindow('combat'); // last chance before the winners are decided [NW]
     for (const f of FIELDS) {
       const people = this.order().filter((p) => p.at === f);
       if (!people.length) continue;
@@ -487,8 +555,7 @@ export class Game {
     const sak = left.find((p) => p.m.key === 'sakura');
     if (sak && left.length > 1 && sak.mana >= 2 && left.every((q) => q === sak || q.vp > sak.vp)) { sak.mana -= 2; sak.vp += 2; this.log(`${sak.name} จ่ายมานา 2 ได้ 2 VP (เงาดำ)`, ''); }
     for (const p of left) {
-      if (p.play) for (const c of p.play.cards) if (!c.skill) { delete c.down; p.trash.push(c); }
-      p.play = null;
+      this.dropPlay(p);
     }
     for (const f of FIELDS) this.objUsed.push(...this.objs[f]);
     const n = this.players.length;
