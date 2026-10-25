@@ -249,7 +249,7 @@ export class Game {
         cards.push({ ...c, down: false });
         p.uses[c.name] = (p.uses[c.name] || 0) + 1;
         if (c.fx.once) c.gone = true;
-        if (c.fx.residual) { c.resident = true; c.residentFrom = this.round + 1; } // 残留: works from next round [p.18]
+        if (c.fx.residual) { c.resident = true; c.residentFrom = this.round + 1; } // residual: works from next round [p.18]
         continue;
       }
       const i = p.hand.findIndex((x) => x.uid === id);
@@ -267,7 +267,7 @@ export class Game {
       if (c.fx?.reveal) reveal(c.name);
       if (c.fx?.playVP) { p.vp += c.fx.playVP; this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.playVP} VP`, p.isHuman ? 'good' : ''); }
     }
-    if (this.tsubame(cards)) reveal('燕返し Tsubame Gaeshi');
+    if (this.tsubame(cards)) reveal('Tsubame Gaeshi');
     p.play = { cards, cs2: a.cs2, revealing };
     const mover = cards.find((c) => !c.down && (c.fx?.bell || c.fx?.move));
     const go = (to, how, label) => {
@@ -480,7 +480,7 @@ export class Game {
     const card = (e, k) => (cancelled.has(e) ? null : e.up.find((c) => c.fx?.[k]));
     const defeated = new Set();
     const rbBonus = new Map();
-    // 対決時 effects one by one in seat order [p.11]
+    // on-clash effects one by one in seat order [p.11]
     for (const a of ents) {
       const foes = ents.filter((b) => b !== a);
       if (card(a, 'petrify')) for (const b of foes) if (!b.up.some((c) => c.type === 'X' && !this.efx(f, 'noSpecial'))) { defeated.add(b); b.notes.push('ถูกสะกดด้วยดวงตาศิลา'); }
