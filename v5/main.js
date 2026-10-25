@@ -18,7 +18,8 @@ const SUN = '★';
 const wide = () => window.matchMedia('(min-width: 1100px)').matches; // the side column fits
 
 let g = null, wait = null, draft = null, skip = false, overShown = false, outShown = false, info = null, started = false;
-let pop = null; // the open pop-up: { k: 'act' | 'opts' | 'area' | 'me' | 'rank' | 'log' | 'sit' | 'menu', f }
+let pop = null; // the open pop-up: { k: 'act' | 'opts' | 'area' | 'me' | 'rank' | 'log' | 'sit' | 'menu', f, min }
+let popBack = null; // the action pop-up to return to after looking at something else
 const swapSel = new Set(); // hand cards Rin marked for a jewel swap
 const setup = { master: 'shirou' };
 
@@ -26,7 +27,7 @@ document.documentElement.style.setProperty('--map', `url("${MAP_ART.night}")`);
 
 // ---------- game flow ----------
 function startGame() {
-  skip = false; overShown = false; outShown = false; wait = null; draft = null; info = null; started = true; logCount = 0; pop = null;
+  skip = false; overShown = false; outShown = false; wait = null; draft = null; info = null; started = true; logCount = 0; pop = null; popBack = null;
   closeSheet();
   const game = new Game({ decide, onEvent, humanMaster: setup.master });
   g = game;
@@ -49,7 +50,7 @@ function decide(game, pl, kind, ctx) {
     wait = { kind, ctx, res };
     draft = firstDraft(kind, ctx);
     info = null;
-    if (kind === 'cards') pop = { k: 'act' }; // playing cards is the action at your own area
+    if (kind === 'cards') { pop = { k: 'act' }; popBack = null; } // playing cards is the action at your own area
     render();
     if (kind === 'combatEnd') showResults(ctx.results);
   });
@@ -57,6 +58,7 @@ function decide(game, pl, kind, ctx) {
 function answer(v) {
   const w = wait; wait = null; draft = null; info = null; swapSel.clear();
   if (pop && ['act', 'opts', 'area'].includes(pop.k)) pop = null;
+  popBack = null;
   closeSheet(); w.res(v); render();
 }
 
@@ -405,26 +407,67 @@ function toast(text, cls) {
 }
 
 // ---------- pop-ups ----------
+// The frame of a pop-up is built once when it opens; later renders only replace the parts whose
+// content changed, so the window stays put (no re-opening) while you pick cards. Folded, it
+// shrinks to its title bar at the bottom and the board can be used again.
 function drawPop() {
   const el = $('#pop');
   const b = pop && started ? popBody() : null;
   if (!b) {
     if (pop && started) pop = null;
-    el.hidden = true; el.innerHTML = ''; delete el.dataset.k;
+    el.hidden = true; el.innerHTML = ''; delete el.dataset.k; el.classList.remove('min');
     return;
   }
   const key = `${pop.k}:${pop.f || ''}`;
-  const body = el.querySelector('.pop-body');
-  const same = el.dataset.k === key && body;
-  const top = same ? body.scrollTop : 0;
-  const nearEnd = same && body.scrollHeight - body.scrollTop - body.clientHeight < 60;
-  el.innerHTML = `<div class="pop-dlg${b.wide ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(b.title)}">
-    <div class="pop-head"><div><h2>${esc(b.title)}</h2>${b.sub ? `<span class="sub">${b.sub}</span>` : ''}</div><button class="x" data-act="popclose" aria-label="ปิด">✕</button></div>
-    <div class="pop-body">${b.html}</div>${b.foot ? `<div class="pop-foot">${b.foot}</div>` : ''}</div>`;
+  let dlg = el.querySelector('.pop-dlg');
+  if (el.dataset.k !== key || !dlg) {
+    el.innerHTML = `<div class="pop-dlg" role="dialog"><div class="pop-head"><div class="pop-title"><h2></h2><span class="sub"></span><span class="mini"></span></div>
+      <button class="x fold" data-act="popmin"></button><button class="x" data-act="popclose" aria-label="ปิด">✕</button></div><div class="pop-body"></div><div class="pop-foot"></div></div>`;
+    el.dataset.k = key;
+    dlg = el.querySelector('.pop-dlg');
+    drawPop.last = {};
+  }
+  const last = drawPop.last;
+  const set = (sel, html) => { if (last[sel] !== html) { last[sel] = html; dlg.querySelector(sel).innerHTML = html; } };
+  const body = dlg.querySelector('.pop-body');
+  const top = body.scrollTop;
+  const nearEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 60;
+  const min = !!pop.min;
+  el.classList.toggle('min', min);
+  dlg.classList.toggle('wide', !!b.wide);
+  dlg.setAttribute('aria-modal', String(!min));
+  dlg.setAttribute('aria-label', b.title);
+  set('h2', esc(b.title));
+  set('.sub', b.sub || '');
+  set('.mini', b.mini || '');
+  set('.pop-body', b.html);
+  set('.pop-foot', b.foot || '');
+  dlg.querySelector('.pop-foot').hidden = !b.foot;
+  const fold = dlg.querySelector('.fold');
+  fold.textContent = min ? '▴' : '▾';
+  fold.title = min ? 'ขยายหน้าต่าง' : 'พับหน้าต่าง';
+  fold.setAttribute('aria-label', fold.title);
   el.hidden = false;
-  el.dataset.k = key;
-  const nb = el.querySelector('.pop-body');
-  nb.scrollTop = pop.k === 'log' && (!same || nearEnd) ? nb.scrollHeight : top;
+  if (min) return;
+  if (pop.scroll != null) { body.scrollTop = pop.scroll; pop.scroll = null; } // back from folded
+  else body.scrollTop = pop.k === 'log' && nearEnd ? body.scrollHeight : top;
+}
+function foldPop(on) {
+  if (!pop) return;
+  if (on) pop.scroll = $('#pop .pop-body')?.scrollTop ?? 0;
+  pop.min = on;
+  render();
+}
+// open another pop-up; an action pop-up waits behind it and comes back when that one closes
+function openPop(next) {
+  if (pop && ['act', 'opts'].includes(pop.k) && !['act', 'opts'].includes(next.k)) popBack = { ...pop, scroll: pop.min ? pop.scroll : $('#pop .pop-body')?.scrollTop };
+  pop = next;
+  render();
+}
+function closePop() {
+  pop = popBack;
+  popBack = null;
+  render();
 }
 
 function popBody() {
@@ -479,7 +522,7 @@ function areaPop(f) {
     return `<div class="foe">${chip(q)}<span>${q.terrain ? `ได้เปรียบ +${q.terrain}` : 'ไม่มีได้เปรียบ'}${q.play ? ` · พลัง <b class="pw">${q.play.pre}</b>` : ''}</span>${cards ? `<div class="cards">${cards}</div>` : ''}</div>`;
   }).join('');
   html += `<div class="pop-sec"><p class="row-lab">อยู่ที่นี่ ${here.length} คน</p>${rows ? `<div class="foes">${rows}</div>` : '<p class="p-text">ยังไม่มีใคร</p>'}</div>`;
-  return { title: A.name, sub: A.field ? 'สนามรบ' : f === 'workshop' ? 'เก็บมานา' : 'เก็บ VP', html, foot: areaActs(f) };
+  return { title: A.name, sub: A.field ? 'สนามรบ' : f === 'workshop' ? 'เก็บมานา' : 'เก็บ VP', mini: `อยู่ที่นี่ ${here.length} คน${A.field && g.evs[f].length ? ` · ${esc(prizeText(f))}` : ''}`, html, foot: areaActs(f) };
 }
 
 function areaActs(f) {
@@ -520,7 +563,7 @@ function placeOpts() {
     }
     return `<button class="opt" data-act="place" data-to="${k}"><b>${esc(AREAS[k].name)}</b>${sub}</button>`;
   }).join('');
-  return { title: 'ตั้งมั่น · วางหมาก Master', sub: 'โรงฝึกเวทให้มานา · สนามรบให้ได้เปรียบพื้นที่ 2 คนแรก · ลาดตระเวนวางตอนนี้ไม่ได้', html: `<div class="opts">${opts}</div>` };
+  return { title: 'ตั้งมั่น · วางหมาก Master', sub: 'โรงฝึกเวทให้มานา · สนามรบให้ได้เปรียบพื้นที่ 2 คนแรก · ลาดตระเวนวางตอนนี้ไม่ได้', mini: 'ตาของคุณ · เลือกจุดวางหมาก', html: `<div class="opts">${opts}</div>` };
 }
 
 function moveBtn(o, short) {
@@ -546,6 +589,7 @@ function moveOptsPop() {
   return {
     title: 'ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม',
     sub: `เดินตามลูกศรได้ทางเดียว จ่ายมานาตามลูกศร · มานาคุณ ${p.mana}${draft.cs4 ? ` → ${mana}` : ''}`,
+    mini: `ตาของคุณ · มานา ${mana}`,
     html: `${engaged}${p.cs > 0 && p.mana < MANA_MAX ? `<label class="check"><input type="checkbox" id="mv-cs4"${draft.cs4 ? ' checked' : ''}> ◆ ใช้ Command Spell 1 ดวงรับมานา +${CS_MANA} ก่อนย้าย (สูงสุด ${MANA_MAX})</label>` : ''}
       <div class="opts">${moveOpts().map((o) => moveBtn(o, false)).join('')}</div>`,
   };
@@ -566,6 +610,7 @@ function discardPop() {
   return {
     title: `ทิ้งการ์ดคว่ำ ${n} ใบ`,
     sub: `คุณอยู่${esc(AREAS[p.at].name)} ไม่ได้สู้ · ลงการ์ด ${PLAY} ใบแบบคว่ำไปกองทิ้ง ไม่เสียมานา · เก็บใบดีไว้รอบหน้า`,
+    mini: `เลือกแล้ว ${ids.length}/${n} ใบ`,
     html: `<div class="cards">${p.hand.map((c) => tile(c, { btn: true, sel: ids.includes(c.uid) })).join('')}</div>${swapBox()}`,
     foot: `<span class="dim">เลือกแล้ว ${ids.length}/${n}</span><button class="btn primary" data-act="discard"${ids.length === n ? '' : ' disabled'}>ทิ้งการ์ดคว่ำ</button>`,
   };
@@ -640,6 +685,7 @@ function cardsPop() {
   return {
     title: `ลงการ์ดที่${AREAS[p.at].name}`,
     sub: `${esc(prizeText(p.at))}${prizeText(p.at) ? ' · ' : ''}เลือก ${max} ใบ${g.infinite(p) ? ' (Hidden Secret: มานาไม่จำกัด)' : ''} · หงาย = จ่ายมานาและมีพลัง · คว่ำ = พลัง 0 มานา 0 · NP/สกิลต้องมีมานา ${SKILL_MANA}+`,
+    mini: `${off ? 'ย้ายไปลาดตระเวน' : `พลังรวม ${pw.total}`} · มานาเหลือ ${left} · เลือกแล้ว ${a.ids.length} ใบ`,
     wide: true,
     html: `${foes ? `<div class="foes">${foes}</div>` : '<p class="p-text">ยังไม่มีคู่ต่อสู้ที่นี่ (คนที่ยังไม่เล่นอาจย้ายเข้ามา)</p>'}
       <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ${p.specials.length ? ' · การ์ดพิเศษสีเขียวอยู่ในมือตลอด' : ''}</p><div class="cards">${p.hand.map((c) => pick(c)).join('')}${specials}</div></div>
@@ -769,14 +815,15 @@ function showOver() {
 
 // ---------- clicks ----------
 document.addEventListener('click', (ev) => {
-  if (ev.target.id === 'pop') { pop = null; render(); return; } // a tap outside the pop-up closes it
+  if (ev.target.id === 'pop') { closePop(); return; } // a tap outside the pop-up closes it
+  if (pop?.min && ev.target.closest('#pop .pop-title')) { foldPop(false); return; } // a tap on a folded title opens it again
   const t = ev.target.closest('[data-act]');
   if (!t) return;
   const act = t.dataset.act;
   const d = draft;
   switch (act) {
-    case 'rules': pop = null; drawPop(); showRules(); break;
-    case 'new': case 'pickmaster': pop = null; drawPop(); showStart(); break;
+    case 'rules': pop = null; popBack = null; drawPop(); showRules(); break;
+    case 'new': case 'pickmaster': pop = null; popBack = null; drawPop(); showStart(); break;
     case 'master': setup.master = t.dataset.m; showStart(); break;
     case 'start': case 'again': closeModal(); startGame(); break;
     case 'go': { closeModal(); const go = summonGo; summonGo = null; go?.(); break; }
@@ -787,10 +834,13 @@ document.addEventListener('click', (ev) => {
     case 'skip': skip = true; closeModal(); if (wait?.kind === 'combatEnd') answer(null); render(); break;
     case 'skipall': skip = true; answer(null); break;
     case 'cont': if (wait?.kind === 'combatEnd') answer(null); break;
-    case 'pop': pop = { k: t.dataset.k }; render(); break;
-    case 'popclose': pop = null; render(); break;
-    case 'area': if (started) { pop = { k: 'area', f: t.dataset.to }; render(); } break;
-    case 'openact': if (myTurn() && wait.kind === 'cards') { pop = { k: 'act' }; render(); } break;
+    case 'pop': openPop({ k: t.dataset.k }); break;
+    case 'popclose': closePop(); break;
+    case 'popmin': foldPop(!pop?.min); break;
+    case 'area': if (started) openPop({ k: 'area', f: t.dataset.to }); break;
+    case 'openact':
+      if (myTurn() && wait.kind === 'cards') { if (pop?.k === 'act') foldPop(false); else { pop = { k: 'act' }; popBack = null; render(); } }
+      break;
     case 'mvcs4': if (wait?.kind === 'move') { d.cs4 = !d.cs4; render(); } break;
     case 'place': if (wait?.kind === 'place') answer({ to: t.dataset.to }); break;
     case 'move': if (wait?.kind === 'move') answer({ to: t.dataset.to, how: t.dataset.how, cs4: d.cs4 }); break;
@@ -837,7 +887,7 @@ document.addEventListener('change', (ev) => {
 });
 document.addEventListener('keydown', (ev) => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('.area[data-act]')) { ev.preventDefault(); ev.target.click(); }
-  if (ev.key === 'Escape' && pop && $('#modal').hidden && $('#sheet').hidden) { pop = null; render(); }
+  if (ev.key === 'Escape' && pop && $('#modal').hidden && $('#sheet').hidden) closePop();
 });
 
 // first screen: an empty board behind the Master picker

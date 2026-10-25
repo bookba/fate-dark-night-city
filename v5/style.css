@@ -386,11 +386,29 @@ small, .dim { color: var(--dim); }
 .pop-foot .opt { flex: 1 1 200px; }
 .pop-sec { display: grid; gap: 6px; }
 .menu { display: grid; gap: 8px; }
+.pop-head .mini { display: none; font-size: 12.5px; color: var(--grail); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-head .mini:empty { display: none !important; }
+.x.fold { font-size: 14px; color: var(--grail); }
+/* folded: a bar at the bottom, the board stays visible and tappable behind it */
+#pop.min {
+  inset: auto 0 calc(12px + env(safe-area-inset-bottom, 0px)) 0; padding: 0 12px; place-items: end center;
+  grid-template-rows: auto; background: none; backdrop-filter: none; pointer-events: none;
+}
+#pop.min .pop-dlg { pointer-events: auto; animation: none; box-shadow: 0 10px 34px rgba(0, 0, 0, .6); border-color: color-mix(in srgb, var(--grail) 45%, var(--line)); }
+#pop.min .pop-dlg.wide { width: min(560px, 100%); }
+#pop.min .pop-body, #pop.min .pop-foot, #pop.min .pop-head .sub { display: none !important; }
+#pop.min .pop-head { border-bottom: 0; align-items: center; padding: 8px 10px 8px 14px; }
+#pop.min .pop-head h2 { font-size: 15px; }
+#pop.min .pop-head .mini { display: block; }
+#pop.min .pop-title { cursor: pointer; }
+@media (max-width: 1099px) { #pop.min { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); } }
 @media (max-width: 599px) {
   #pop { place-items: end stretch; padding: calc(20px + env(safe-area-inset-top, 0px)) 0 0; }
   .pop-dlg, .pop-dlg.wide { width: 100%; border-radius: 16px 16px 0 0; border-bottom: 0; }
   .pop-foot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   .pop-head h2 { font-size: 17px; }
+  #pop.min { padding: 0 8px; place-items: end stretch; }
+  #pop.min .pop-dlg { border-radius: 14px; border-bottom: 1px solid color-mix(in srgb, var(--grail) 45%, var(--line)); }
 }
 
 /* pop-up contents */
