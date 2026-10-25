@@ -52,7 +52,7 @@ function decide(game, pl, kind, ctx) {
     info = null;
     if (kind === 'cards') { pop = { k: 'act' }; popBack = null; } // playing cards is the action at your own area
     render();
-    if (kind === 'combatEnd') showResults(ctx.results);
+    if (kind === 'combatEnd' && !myBattle()) showResults(ctx.results); // your own fight plays out on the board first
   });
 }
 function answer(v) {
@@ -116,19 +116,33 @@ const cardName = (c) => c.name || `${TYPES[c.type]} ${c.power}`;
 const clean = (t) => t.replace(/\s*\[(p\.\d+(–\d+)?|4G|GZ|NW|ฟามิซือ)\]/g, ''); // source tags belong to the paper, not the table
 const cardText = (c) => (c.text ? clean(c.text) : [`${TYPES[c.type]} พลัง ${c.power} มานา ${c.mana}`, ...tags(c)].join(' · '));
 
-// a card tile. o: { btn, act, sel, down, back, lock, power, cost, mini, sm, note }
+// where a card comes from (paper 4.6): a Servant's skill slot, or a Master's ability
+// (Kanshou & Bakuya, Gand, Snake). NP cards keep their NP label.
+const MASTER_CARD = { 'Kanshou & Bakuya': 'shirou', Gand: 'rin', Snake: 'kuzuki' };
+const srcOf = (c) => (c.skill && c.type !== 'N' ? 'sv' : c.special ? 'ms' : '');
+const masterOf = (c) => MASTERS.find((m) => m.key === MASTER_CARD[c.name])?.short || '';
+function srcText(c, owner) {
+  const s = srcOf(c);
+  if (s === 'sv') return `สกิลของ ${owner && seen(owner) ? owner.sv.cls : 'Servant'}`;
+  if (s === 'ms') return `สกิลของ Master ${masterOf(c)}`;
+  return c.skill ? `NP ของ ${owner && seen(owner) ? owner.sv.cls : 'Servant'}` : '';
+}
+const srcBand = (s) => (s ? `<b class="src ${s}">สกิล<span class="who"> ${s === 'sv' ? 'Servant' : 'Master'}</span></b>` : '');
+
+// a card tile. o: { btn, act, sel, down, back, lock, power, cost, mini, sm, hd, note }
 function tile(c, o = {}) {
-  const size = o.mini ? ' mini' : o.sm ? ' sm' : '';
+  const size = o.mini ? ' mini' : o.sm ? ' sm' : o.hd ? ' hd' : '';
   if (o.back) return `<div class="card back${size}" title="การ์ดคว่ำ"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`;
   const down = o.down ?? c.down;
-  const cls = ['card', `t${c.type}`, c.skill ? 'skill' : '', c.keep || c.special ? 'sp' : '', o.sel ? 'sel' : '', down ? 'down' : '', o.lock ? 'lock' : '', c.gone ? 'gone' : '', c.resident ? 'res' : ''].filter(Boolean).join(' ') + size;
+  const src = srcOf(c);
+  const cls = ['card', `t${c.type}`, c.skill ? 'skill' : '', c.keep || c.special ? 'sp' : '', src ? 'has-src' : '', o.sel ? 'sel' : '', down ? 'down' : '', o.lock ? 'lock' : '', c.gone ? 'gone' : '', c.resident ? 'res' : ''].filter(Boolean).join(' ') + size;
   const pw = o.power ?? c.power;
   const up = pw > c.power ? `<sup>+${pw - c.power}</sup>` : '';
   const fx = o.note ?? (c.gone ? 'ใช้แล้ว' : c.resident ? 'ค้างอยู่' : tags(c).slice(0, 2).join(' · '));
-  const body = `<span class="ty">${down ? 'คว่ำ · ' : ''}${TYPES[c.type]}</span><span class="pw">${down ? 0 : Math.min(pw, c.power)}${down ? '' : up}</span>`
+  const body = `${srcBand(src)}<span class="ty">${down ? 'คว่ำ · ' : ''}${TYPES[c.type]}</span><span class="pw">${down ? 0 : Math.min(pw, c.power)}${down ? '' : up}</span>`
     + `<span class="mn" title="มานา">${o.cost ?? c.mana}</span>`
     + `<span>${c.name ? `<span class="nm">${esc(c.name)}</span>` : ''}${fx ? `<span class="fx">${esc(fx)}</span>` : ''}</span>`;
-  const title = esc(cardText(c));
+  const title = esc([srcText(c), cardText(c)].filter(Boolean).join(' · '));
   if (o.btn) return `<button class="${cls}" data-act="${o.act || 'pick'}" data-uid="${c.uid}" title="${title}" aria-pressed="${!!o.sel}">${body}</button>`;
   return `<div class="${cls}" title="${title}">${body}</div>`;
 }
@@ -205,6 +219,13 @@ function drawBar() {
       ? `<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="mvcs4" aria-pressed="${!!draft.cs4}">◆ มานา +${CS_MANA} ก่อนย้าย</button>` : '';
     const btn = k === 'cards' ? `<button class="btn sm primary" data-act="openact">${wait.ctx.field ? 'เปิดหน้าลงการ์ด' : 'เปิดหน้าทิ้งการ์ด'}</button>` : '<button class="btn sm" data-act="pop" data-k="opts">ดูตัวเลือกทั้งหมด</button>';
     html = `<span class="yourturn">ตาของคุณ</span><b>${esc(what)}</b>${hint}<span class="acts">${cs4}${btn}</span>`;
+  } else if (wait?.kind === 'combatEnd') {
+    const bt = myBattle();
+    const r = bt?.res;
+    const mine = r?.ents.find((e) => e.id === p.id);
+    const how = !mine ? '' : mine.defeated ? ' · คุณ [แพ้]' : mine.won ? ` · คุณชนะ +${mine.gain} VP` : ' · คุณแพ้';
+    html = `<span class="who">ผลการต่อสู้</span><b>${esc(bt ? `${AREAS[bt.f].name}${how}` : 'ทุกสนามรบ')}</b>
+      <span class="acts"><button class="btn sm" data-act="allres">ดูผลทุกสนามรบ</button><button class="btn sm primary" data-act="cont">จบรอบ</button></span>`;
   } else {
     const t = g.turn;
     const what = !g.round ? 'กำลังเรียก Servant…' : t ? `${t.name} กำลังเลือก` : g.phase === 'combat' ? 'กำลังตัดสินผลการต่อสู้' : 'กำลังเตรียมรอบ';
@@ -232,8 +253,9 @@ function drawBoard() {
     const kz = me().m.key === 'kuzuki' && i === 0 && started;
     return `<div class="arrow a${i + 1}" aria-hidden="true"><i>➜</i><span class="cost" title="${kz ? 'คุซุกิเดินช่องนี้ฟรี' : 'มานาที่ใช้เดิน'}">${kz ? 0 : STEP_COST[i]}</span></div>`;
   };
+  const bt = myBattle();
   $('#board').innerHTML = `${sitLine()}
-    <div class="map">${workshop(can)}${arrow(0)}${field('miyama', can)}${arrow(1)}${field('shinto', can)}${arrow(2)}${recon(can)}</div>
+    <div class="map${bt ? ` big-${bt.f}` : ''}">${workshop(can)}${arrow(0)}${field('miyama', can, bt)}${arrow(1)}${field('shinto', can, bt)}${arrow(2)}${recon(can)}</div>
     ${strip()}${handStrip()}`;
 }
 
@@ -260,13 +282,14 @@ function strip() {
   return `<button class="strip" data-act="pop" data-k="rank" aria-label="อันดับ VP ของทุกคน"><span class="lab">VP</span>${s}</button>`;
 }
 
-// your cards along the bottom of the board (computer; phones open them from a button)
+// your cards along the bottom of the board, on every screen (paper 4.6); the deck opens from its end
 function handStrip() {
   if (!started) return '';
   const p = me();
-  const hand = p.hand.map((c) => tile(c, { sm: true })).join('') + p.specials.map((c) => tile(c, { sm: true, note: specialNote(c) })).join('');
-  const skills = p.skills.map((c) => tile(c, { sm: true, note: skillNote(c), lock: skillLocked(c) })).join('');
-  return `<div class="hand"><span class="lab">การ์ดของคุณ</span><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div><i class="sep"></i><div class="cards">${skills}</div></div>`;
+  const hand = p.hand.map((c) => tile(c, { hd: true })).join('') + p.specials.map((c) => tile(c, { hd: true, note: specialNote(c) })).join('');
+  const skills = p.skills.map((c) => tile(c, { hd: true, note: skillNote(c), lock: skillLocked(c) })).join('');
+  return `<div class="hand"><span class="lab">การ์ดในมือ</span><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div><i class="sep"></i><div class="cards">${skills}</div>
+    <button class="deckbtn" data-act="pop" data-k="deck"><b>ดูเดค</b><small>สำรับ ${p.deck.length} ใบ</small></button></div>`;
 }
 const skillNote = (c) => {
   const p = me();
@@ -276,7 +299,7 @@ const skillNote = (c) => {
   return g.round && !g.over ? g.skillState(p, c) || 'พร้อมใช้' : 'คว่ำไว้';
 };
 const skillLocked = (c) => !c.gone && !c.resident && !!(g.round && !g.over && g.skillState(me(), c));
-const specialNote = (c) => (g.round && !g.over ? g.specialState(me(), c) || 'การ์ดพิเศษ' : 'การ์ดพิเศษ');
+const specialNote = (c) => (g.round && !g.over ? g.specialState(me(), c) || 'อยู่ในมือตลอด' : 'อยู่ในมือตลอด');
 
 function areaAttrs(k, can) {
   return ` data-act="area" data-to="${k}" role="button" tabindex="0" aria-label="${esc(`${AREAS[k].name}${can[k] ? ' · เลือกได้' : ''} · ดูรายละเอียด`)}"`;
@@ -308,9 +331,14 @@ function occ(p) {
   const note = `${p.terrain ? ` · ได้เปรียบ +${p.terrain}` : ''}${p.play ? ` · พลัง ${p.play.pre}` : ''}`;
   return `<span class="occ${p.play ? ' played' : ''}">${tok(p, note)}${p.terrain ? `<i class="tr">+${p.terrain}</i>` : ''}${p.play ? `<b class="pw">${p.play.pre}</b>` : ''}</span>`;
 }
-function field(f, can) {
+function field(f, can, bt) {
   const A = AREAS[f];
   const here = g.here(f);
+  if (bt?.f === f) { // your fight, drawn inside the area (paper 4.6)
+    return `<div class="area field f-${f}${areaCls(f, can)} fighting"${areaAttrs(f, can)}>
+      <div class="ah"><h3>${A.name}</h3><span class="kind">${bt.res ? 'ผลการต่อสู้' : 'ต่อสู้'}</span><span class="bprize">${esc(bt.res ? `ผู้ชนะได้ ${bt.res.pool} VP` : prizeText(f))}</span></div>
+      <div class="battle n${Math.min(here.length, 5)}${here.length >= 5 ? ' dense' : ''}">${battleRows(f, bt.res, false)}</div></div>`;
+  }
   const early = !g.round || g.phase === 'prep' || g.phase === 'outpost';
   const free = early ? TERRAIN.filter((_, i) => !here.some((q) => q.slot === i)).map((t) => `<span class="slot"><i>+${t}</i></span>`).join('') : '';
   const engaged = g.phase === 'action' && g.engagedAt(f) ? '<span class="tag-engaged" title="มี 2 คนขึ้นไป เดินออกตามปกติไม่ได้">ติดพัน</span>' : '';
@@ -319,6 +347,76 @@ function field(f, can) {
     <div class="ah"><h3>${A.name}</h3><span class="kind">สนามรบ</span>${engaged}</div>
     <div class="evs">${evCards(f, true)}</div>${vp}
     <div class="slots">${here.map(occ).join('')}${free}</div></div>`;
+}
+
+// ---------- your fight (paper 4.6) ----------
+// From the first card laid on your battlefield until the fight's result, that area shows who is
+// there, the cards they laid and their power. In the combat phase the on-clash results come in
+// one Master at a time in seat order.
+function myBattle() {
+  if (!started || g.over || !g.round) return null;
+  const p = me();
+  if (p.out || !p.at || !AREAS[p.at].field) return null;
+  const f = p.at;
+  const here = g.here(f);
+  if (here.length < 2) return null;
+  if (g.phase === 'action' && here.some((q) => q.play)) return { f, res: null };
+  if (g.phase === 'combat') { const res = g.results.find((r) => r.f === f); if (res && !res.alone) return { f, res }; }
+  return null;
+}
+const RES_STEP = 450; // ms between the Masters' results
+let resAnim = null; // { res, t0 }: when the result first showed, so redraws carry on the animation
+function bcard(c, q) {
+  if (c.down && !q.isHuman) return '<span class="bc back" title="การ์ดคว่ำ">?</span>';
+  const s = srcOf(c);
+  const title = esc(`${c.down ? 'ลงคว่ำ · ' : ''}${cardName(c)} · ${[srcText(c, q), cardText(c)].filter(Boolean).join(' · ')}`);
+  return `<span class="bc t${c.type}${c.down ? ' down' : ''}${s ? ` src-${s}` : ''}" title="${title}"><b>${c.down ? 0 : c.power}</b><small>${c.down ? 'คว่ำ' : s ? 'สกิล' : TYPES[c.type]}</small></span>`;
+}
+function powerDiff(q, e) {
+  if (!q.play) return '';
+  const pre = g.powerOf(q, q.play).parts;
+  const val = (ps, t) => ps.find(([k]) => k === t)?.[1] || 0;
+  const labels = [...new Set([...pre, ...e.parts].map(([t]) => t))];
+  return labels.map((t) => [t, val(e.parts, t) - val(pre, t)]).filter(([, d]) => d).map(([t, d]) => `${d > 0 ? '+' : ''}${d} ${t}`).join(' · ');
+}
+function battleRows(f, res, full) {
+  const people = g.order().filter((q) => q.at === f);
+  const ents = res ? new Map(res.ents.map((e) => [e.id, e])) : null;
+  if (res && resAnim?.res !== res) resAnim = { res, t0: performance.now() };
+  const since = res ? performance.now() - resAnim.t0 : 0;
+  const top = Math.max(0, ...people.map((q) => q.play?.pre ?? 0));
+  return people.map((q, i) => {
+    const e = ents?.get(q.id);
+    const n = q.play?.cards.length || 0;
+    const cards = q.play
+      ? q.play.cards.map((c) => (full ? (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true })) : bcard(c, q))).join('')
+      : '<span class="bwait">ยังไม่ลงการ์ด</span>';
+    const lead = !res && q.play && q.play.pre === top && top > 0;
+    let out = '';
+    let note = '';
+    let short = ''; // the result under the power, for narrow areas
+    let pw = q.play ? q.play.pre : '–';
+    let sub = q.terrain ? `<i title="ได้เปรียบพื้นที่">${full ? 'ได้เปรียบ ' : ''}+${q.terrain}</i>` : '';
+    if (e) {
+      const diff = powerDiff(q, e);
+      const vp = (t, k) => `${t}${k ? ` +${k}<small> VP</small>` : ''}`;
+      const what = e.defeated ? '[แพ้]' : e.won ? vp('ชนะ', e.gain) : vp('แพ้', e.gain);
+      note = [diff, ...e.notes.filter((x) => x !== '[แพ้]')].filter(Boolean).join(' · ');
+      const d = q.play && !e.defeated ? e.power - q.play.pre : 0;
+      pw = e.defeated ? '–' : e.power;
+      sub = d ? `<i class="dl${d < 0 ? ' neg' : ''}" title="${esc(note)}">${d > 0 ? '+' : ''}${d}</i>` : '';
+      out = `<span class="bres${e.won ? ' won' : e.defeated ? ' def' : ''}">${what}</span>`;
+      short = e.defeated ? '[แพ้]' : e.won ? `ชนะ${e.gain ? ` +${e.gain}` : ''}` : 'แพ้';
+    }
+    const delay = res ? `style="--d:${i * RES_STEP - since}ms;--dw:${people.length * RES_STEP - since}ms"` : '';
+    const cls = `brow${q.isHuman ? ' me' : ''}${lead ? ' lead' : ''}${e ? ` res${e.won ? ' won' : ' lost'}` : ''}${n >= 4 ? ' c4' : n === 3 ? ' c3' : ''}`;
+    const fx = full && q.play ? q.play.cards.filter((c) => !(c.down && !q.isHuman) && (c.text || tags(c).length))
+      .map((c) => `<li><b>${esc(cardName(c))}</b> ${esc([c.down ? 'ลงคว่ำ ไม่มีผล' : '', srcText(c, q), cardText(c)].filter(Boolean).join(' · '))}</li>`).join('') : '';
+    return `<div class="${cls}" ${delay}><span class="bwho">${full ? chip(q) : `${tok(q)}<b>${esc(q.name)}</b>`}</span>
+      <span class="bcards">${cards}</span>${out ? `<span class="bout">${out}</span>` : ''}
+      <span class="bpw${e?.won ? ' won' : ''}"${short ? ` data-res="${esc(short)}"` : ''}><b>${pw}</b>${sub}</span>${note ? `<span class="bnote">${esc(note)}</span>` : ''}
+      ${fx ? `<ul class="bfx">${fx}</ul>` : ''}</div>`;
+  }).join('');
 }
 
 // event cards of a battlefield: Miyama face up, Shinto face down until the action phase [p.3]
@@ -476,6 +574,7 @@ function popBody() {
   if (k === 'opts') return myTurn() && wait.kind === 'place' ? placeOpts() : myTurn() && wait.kind === 'move' ? moveOptsPop() : null;
   if (k === 'area') return areaPop(pop.f);
   if (k === 'me') return mePop();
+  if (k === 'deck') return deckPop();
   if (k === 'rank') { const s = standingsHtml(); return { title: 'อันดับ VP ของทุกคน', sub: esc(s.sub), html: s.html }; }
   if (k === 'log') return { title: 'บันทึกสงคราม', html: `<div class="loglist">${logHtml()}</div>` };
   if (k === 'sit') return sitPop();
@@ -517,6 +616,11 @@ function areaPop(f) {
     html += `<p class="p-text">รับ 1 คน · ย้ายเข้าตอนปฏิบัติการได้ ${RECON_VP} VP ทันที · วางตอนตั้งมั่นไม่ได้ · ไม่ได้สู้</p>`;
   }
   if (next) html += `<p class="p-text">ทางออก: ไป${AREAS[next].name} มานา ${kz ? '0 (คุณเดินฟรี)' : STEP_COST[i]} · ทางเดียว</p>`;
+  const bt = myBattle();
+  if (bt?.f === f) {
+    html += `<div class="pop-sec"><p class="row-lab">${bt.res ? 'ผลการต่อสู้ · ผล "ตอนปะทะ" ตามลำดับที่นั่ง' : `ต่อสู้ · อยู่ที่นี่ ${here.length} คน ตามลำดับที่นั่ง`}</p><div class="battle full">${battleRows(f, bt.res, true)}</div></div>`;
+    return { title: A.name, sub: bt.res ? `ผลการต่อสู้ · ผู้ชนะได้ ${bt.res.pool} VP` : 'สนามรบ · กำลังต่อสู้', mini: `ต่อสู้ ${here.length} คน`, html, foot: areaActs(f) };
+  }
   const rows = here.map((q) => {
     const cards = q.play ? q.play.cards.map((c) => (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('') : '';
     return `<div class="foe">${chip(q)}<span>${q.terrain ? `ได้เปรียบ +${q.terrain}` : 'ไม่มีได้เปรียบ'}${q.play ? ` · พลัง <b class="pw">${q.play.pre}</b>` : ''}</span>${cards ? `<div class="cards">${cards}</div>` : ''}</div>`;
@@ -688,7 +792,7 @@ function cardsPop() {
     mini: `${off ? 'ย้ายไปลาดตระเวน' : `พลังรวม ${pw.total}`} · มานาเหลือ ${left} · เลือกแล้ว ${a.ids.length} ใบ`,
     wide: true,
     html: `${foes ? `<div class="foes">${foes}</div>` : '<p class="p-text">ยังไม่มีคู่ต่อสู้ที่นี่ (คนที่ยังไม่เล่นอาจย้ายเข้ามา)</p>'}
-      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ${p.specials.length ? ' · การ์ดพิเศษสีเขียวอยู่ในมือตลอด' : ''}</p><div class="cards">${p.hand.map((c) => pick(c)).join('')}${specials}</div></div>
+      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ${p.specials.length ? ' · สกิล Master (กรอบเขียว) อยู่ในมือตลอด' : ''}</p><div class="cards">${p.hand.map((c) => pick(c)).join('')}${specials}</div></div>
         <div class="cg"><p class="row-lab">การ์ด NP/สกิล · ${esc(p.sv.cls)}</p><div class="cards">${skills}</div></div></div>
       ${deckRow}${infoLine}${swapBox()}
       ${ctrl.length ? `<div class="ctrl"><span class="row-lab">Command Spell (เหลือ ${p.cs})</span>${ctrl.join('')}</div>` : ''}
@@ -713,11 +817,43 @@ function mePop() {
     title: 'กระดาน Master ของคุณ',
     wide: true,
     html: `${meHead(p)}${meStats(p)}
-      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ ${p.hand.length}${p.specials.length ? ' + การ์ดพิเศษ' : ''}</p><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div></div>
+      <div class="me-row"><span class="p-text">สำรับ ${p.deck.length} ใบ · กองทิ้ง ${p.trash.length} ใบ</span><button class="btn sm" data-act="pop" data-k="deck">ดูเดค · รายละเอียดการ์ดทุกใบ</button></div>
+      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ ${p.hand.length}${p.specials.length ? ' + สกิล Master' : ''}</p><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div></div>
         <div class="cg"><p class="row-lab">การ์ด NP/สกิล · คว่ำจนกว่าจะใช้</p><div class="cards">${skills}</div></div></div>
       <div class="pop-sec"><p class="row-lab">ความสามารถ Master</p><ul class="abil">${p.m.abil.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`).join('')}</ul></div>
       <div class="pop-sec"><p class="row-lab">กองทิ้ง ${p.trash.length} ใบ · 5 ใบล่าสุด · วางตามด้านที่ลง คนอื่นเห็นแค่ใบหงาย · สำรับเหลือ ${p.deck.length} ใบ</p><div class="cards">${trash}</div></div>
       <p class="p-text">${p.revealed ? 'ไพ่ทาโรต์หงายแล้ว ทุกคนเห็นว่าคุณเป็นใคร' : 'ไพ่ทาโรต์คว่ำ คู่แข่งไม่รู้ว่าคุณเป็นใคร'}</p>`,
+  };
+}
+
+// every card of your Servant deck, NP/skill slot and Master skills, with full details (paper 4.6).
+// "Still in the deck" is everything minus your hand, the field and the discard pile, which you know
+// anyway, so it shows no secret. The deck's order stays hidden.
+const TYPE_ORDER = 'NSAMX';
+const byType = (a) => [...a].sort((x, y) => TYPE_ORDER.indexOf(x.type) - TYPE_ORDER.indexOf(y.type) || y.power - x.power);
+function deckItem(c, note, o = {}) {
+  const p = me();
+  const fx = c.text ? clean(c.text) : tags(c).join(' · ');
+  const src = srcText(c, p);
+  return `<div class="dk${o.dim ? ' dim-card' : ''}">${tile({ ...c, down: false }, { note, lock: o.lock })}<div class="dk-tx"><b>${esc(cardName(c))}</b>
+    <span class="dk-meta">${src ? `<em class="${srcOf(c) || 'np'}">${esc(src)}</em> · ` : ''}${TYPES[c.type]} · พลัง ${c.power} · มานา ${c.mana}${c.down ? ' · <span class="dn">ลงคว่ำ</span>' : ''}</span>
+    <span>${esc(fx || 'ไม่มีผลพิเศษ')}</span></div></div>`;
+}
+function deckPop() {
+  const p = me();
+  const onField = (p.play?.cards || []).filter((c) => !c.skill && !c.keep);
+  const all = p.hand.length + p.deck.length + p.trash.length + onField.length;
+  const grp = (lab, items) => `<div class="pop-sec"><p class="row-lab">${lab}</p>${items ? `<div class="dkl">${items}</div>` : '<p class="p-text">ไม่มี</p>'}</div>`;
+  return {
+    title: `เดคของคุณ · ${p.sv.cls}`,
+    sub: `${esc(p.sv.name)} · สำรับโจมตี ${all} ใบ: ในมือ ${p.hand.length} · ยังอยู่ในสำรับ ${p.deck.length} · กองทิ้ง ${p.trash.length}${onField.length ? ` · ลงอยู่ ${onField.length}` : ''}`,
+    mini: `สำรับ ${p.deck.length} · ในมือ ${p.hand.length} · กองทิ้ง ${p.trash.length}`,
+    wide: true,
+    html: grp(`ในมือ ${p.hand.length} ใบ${p.specials.length ? ' + สกิล Master ที่อยู่ในมือตลอด' : ''}`, [...p.hand.map((c) => deckItem(c)), ...p.specials.map((c) => deckItem(c, specialNote(c)))].join(''))
+      + (onField.length ? grp(`ลงอยู่ในสนามรบรอบนี้ ${onField.length} ใบ`, onField.map((c) => deckItem(c, c.down ? 'ลงคว่ำ' : 'ลงหงาย')).join('')) : '')
+      + grp(`การ์ด NP/สกิล · ${esc(p.sv.cls)} · คว่ำไว้ข้างไพ่ทาโรต์`, p.skills.map((c) => deckItem(c, skillNote(c), { lock: skillLocked(c), dim: c.gone })).join(''))
+      + grp(`ยังอยู่ในสำรับ ${p.deck.length} ใบ · เรียงตามชนิด ไม่บอกลำดับ`, byType(p.deck).map((c) => deckItem(c)).join(''))
+      + grp(`กองทิ้ง ${p.trash.length} ใบ · ล่าสุดก่อน`, [...p.trash].reverse().map((c) => deckItem(c, c.down ? 'ลงคว่ำ' : 'ลงหงาย')).join('')),
   };
 }
 
@@ -743,7 +879,7 @@ function showSummon(go) {
   summonGo = go;
   const p = me();
   const sk = p.skills.map((c) => `<li><b>${esc(c.name)}</b>${esc(cardText(c))}</li>`).join('');
-  const sp = p.specials.map((c) => `<li class="sp"><b>${esc(c.name)} · การ์ดพิเศษของ Master</b>${esc(cardText(c))}</li>`).join('');
+  const sp = p.specials.map((c) => `<li class="sp"><b>${esc(c.name)} · สกิล Master</b>${esc(cardText(c))}</li>`).join('');
   const deck = p.sv.deck;
   const byType = Object.keys(TYPES).map((t) => [t, deck.filter((c) => c.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${TYPES[t]} ${n}`).join(' · ');
   openModal(`<div class="dlg"><span class="eyebrow">การอัญเชิญสำเร็จ</span><div class="summon"><img src="${SV_ART[p.sv.key]}" alt="${esc(p.sv.name)}">
@@ -767,7 +903,7 @@ function showRules() {
     <div><h3>มานาและการ์ด NP/สกิล</h3><p>มานา 0–${MANA_MAX} · การ์ด NP/สกิลเลือกได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป แล้วจ่ายตามการ์ด · ใช้แล้วใช้ซ้ำได้ ยกเว้น "ครั้งเดียวต่อเกม" · การ์ดที่มี "เปิดชื่อจริง" หงายไพ่ทาโรต์ของคุณ</p></div>
     <div><h3>Command Spell</h3><p>ใช้ได้เฉพาะในตาปฏิบัติการของตัวเอง ก่อนย้าย ระหว่างย้ายกับลงการ์ด หรือหลังลงการ์ด · 1 ดวงต่อ 1 ผล: มานา +${CS_MANA} · พลังรวม +${CS_POWER} และถ้าชนะได้ VP +${CS_VP} · ย้ายไปที่ไหนก็ได้ยกเว้นโรงฝึกเวท ไม่สนการติดพัน</p></div>
     <div><h3>ข้อยกเว้นของ Master</h3><p>ชิโร่ไม่ตกรอบตอนคัดหลังรอบ ${REGULAR} (Avalon) · ชินจิอยู่อันดับสุดท้ายคนเดียวตอนจบรอบ ${REGULAR} ชนะทันที (Clown) · ซากุระตั้งแต่รอบ ${SAKURA_FROM} ถูกบังคับเสียมานา 2 ได้ 2 VP และในไคลแมกซ์ถ้าไม่ได้อันดับ 1 มานาไม่จำกัด</p></div>
-    <div><h3>หน้าจอ</h3><p>แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่นที่นั่น · ตอนลงการ์ดหน้าลงการ์ดจะเปิดเอง · ข้อความที่ยาวเกินกระดานกด "ดูเพิ่ม" · บนมือถือการ์ดของคุณ อันดับ และบันทึกอยู่ที่ปุ่มด้านล่าง</p></div>
+    <div><h3>หน้าจอ</h3><p>แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่นที่นั่น · ตอนลงการ์ดหน้าลงการ์ดจะเปิดเอง กด ▾ พับหน้าต่างเพื่อดูกระดาน · ตอนสู้ พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้ที่บอกว่าใครอยู่ ลงการ์ดอะไร และพลังเท่าไร · การ์ดในมืออยู่ใต้กระดานเสมอ ปุ่ม "ดูเดค" ท้ายแถบเปิดรายละเอียดการ์ดทุกใบ · ป้าย "สกิล Servant" และ "สกิล Master" บอกว่าการ์ดมาจากช่องสกิลของใคร · ข้อความที่ยาวเกินกระดานกด "ดูเพิ่ม" · บนมือถือการ์ดของคุณ อันดับ และบันทึกอยู่ที่ปุ่มด้านล่าง</p></div>
     <p class="dim">อ้างอิงกระดาษออกแบบ v5.0 · ตัวเลขการ์ดทุกใบ การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p></div>
     <div class="acts"><button class="btn primary" data-act="${back}">ปิด</button></div></div>`);
 }
@@ -834,6 +970,7 @@ document.addEventListener('click', (ev) => {
     case 'skip': skip = true; closeModal(); if (wait?.kind === 'combatEnd') answer(null); render(); break;
     case 'skipall': skip = true; answer(null); break;
     case 'cont': if (wait?.kind === 'combatEnd') answer(null); break;
+    case 'allres': if (wait?.kind === 'combatEnd') showResults(wait.ctx.results); break;
     case 'pop': openPop({ k: t.dataset.k }); break;
     case 'popclose': closePop(); break;
     case 'popmin': foldPop(!pop?.min); break;
