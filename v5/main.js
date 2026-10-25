@@ -286,8 +286,9 @@ function strip() {
 function handStrip() {
   if (!started) return '';
   const p = me();
-  const hand = p.hand.map((c) => tile(c, { hd: true })).join('') + p.specials.map((c) => tile(c, { hd: true, note: specialNote(c) })).join('');
-  const skills = p.skills.map((c) => tile(c, { hd: true, note: skillNote(c), lock: skillLocked(c) })).join('');
+  const o = { hd: true, btn: true, act: 'cardinfo' }; // a tap opens the card's details (paper 4.6 item 5)
+  const hand = p.hand.map((c) => tile(c, o)).join('') + p.specials.map((c) => tile(c, { ...o, note: specialNote(c) })).join('');
+  const skills = p.skills.map((c) => tile(c, { ...o, note: skillNote(c), lock: skillLocked(c) })).join('');
   return `<div class="hand"><span class="lab">การ์ดในมือ</span><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div><i class="sep"></i><div class="cards">${skills}</div>
     <button class="deckbtn" data-act="pop" data-k="deck"><b>ดูเดค</b><small>สำรับ ${p.deck.length} ใบ</small></button></div>`;
 }
@@ -516,7 +517,7 @@ function drawPop() {
     el.hidden = true; el.innerHTML = ''; delete el.dataset.k; el.classList.remove('min');
     return;
   }
-  const key = `${pop.k}:${pop.f || ''}`;
+  const key = pop.k === 'card' ? 'card' : `${pop.k}:${pop.f || ''}`; // stepping through cards keeps the window
   let dlg = el.querySelector('.pop-dlg');
   if (el.dataset.k !== key || !dlg) {
     el.innerHTML = `<div class="pop-dlg" role="dialog"><div class="pop-head"><div class="pop-title"><h2></h2><span class="sub"></span><span class="mini"></span></div>
@@ -546,6 +547,10 @@ function drawPop() {
   fold.title = min ? 'ขยายหน้าต่าง' : 'พับหน้าต่าง';
   fold.setAttribute('aria-label', fold.title);
   el.hidden = false;
+  // folded: sit just above the hand bar so its cards stay tappable (paper 4.6 item 5)
+  const hand = min && $('.hand')?.getBoundingClientRect();
+  if (hand?.height) el.style.setProperty('--minb', `${Math.max(0, Math.round(innerHeight - hand.top + 6))}px`);
+  else el.style.removeProperty('--minb');
   if (min) return;
   if (pop.scroll != null) { body.scrollTop = pop.scroll; pop.scroll = null; } // back from folded
   else body.scrollTop = pop.k === 'log' && nearEnd ? body.scrollHeight : top;
@@ -575,6 +580,7 @@ function popBody() {
   if (k === 'area') return areaPop(pop.f);
   if (k === 'me') return mePop();
   if (k === 'deck') return deckPop();
+  if (k === 'card') return cardPop(pop.f);
   if (k === 'rank') { const s = standingsHtml(); return { title: 'อันดับ VP ของทุกคน', sub: esc(s.sub), html: s.html }; }
   if (k === 'log') return { title: 'บันทึกสงคราม', html: `<div class="loglist">${logHtml()}</div>` };
   if (k === 'sit') return sitPop();
@@ -857,6 +863,35 @@ function deckPop() {
   };
 }
 
+// one card of your hand bar in full, read only; ‹ › step along the bar (paper 4.6 item 5)
+const barCards = (p) => [...p.hand, ...p.specials, ...p.skills];
+function cardState(c, p) {
+  if (c.skill) return skillNote(c);
+  if (c.keep) return specialNote(c);
+  if (!g.round || g.over) return 'อยู่ในมือ';
+  return p.mana >= c.mana ? `อยู่ในมือ · มานาพอลงหงาย (มี ${p.mana})` : `อยู่ในมือ · มานาไม่พอลงหงาย (มี ${p.mana}) ลงคว่ำได้`;
+}
+function cardPop(uid) {
+  const p = me();
+  const list = barCards(p);
+  const i = list.findIndex((c) => c.uid === uid);
+  if (i < 0) return null; // the card left the bar (played or discarded)
+  const c = list[i];
+  const fx = c.text ? clean(c.text) : tags(c).join(' · ');
+  const src = srcText(c, p);
+  const step = (d, label) => { const n = list[(i + d + list.length) % list.length]; return `<button class="btn" data-act="cardinfo" data-uid="${n.uid}" aria-label="${label}">${d < 0 ? '‹' : '›'}</button>`; };
+  return {
+    title: cardName(c),
+    sub: `${src ? `${esc(src)} · ` : ''}${TYPES[c.type]} · พลัง ${c.power} · มานา ${c.mana}`,
+    mini: `${esc(cardName(c))} · ใบที่ ${i + 1}/${list.length}`,
+    html: `<div class="cardview">${tile({ ...c, down: false }, { note: '' })}
+      <div class="cv-tx"><p class="cv-state">${esc(cardState(c, p))}</p><p class="cv-fx">${esc(fx || 'ไม่มีผลพิเศษ')}</p>
+      ${c.skill ? `<p class="p-text">การ์ด NP/สกิลใช้ได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป แล้วจ่ายมานาตามการ์ด</p>` : c.keep ? '<p class="p-text">สกิล Master อยู่ในมือตลอด ใช้แล้วกลับมือหลังจบตา</p>' : ''}
+      <p class="p-text">อ่านอย่างเดียว · เลือกลงการ์ดในหน้าลงการ์ด</p></div></div>`,
+    foot: `<div class="acts cv-nav">${step(-1, 'ใบก่อนหน้า')}<span class="dim">${i + 1} / ${list.length}</span>${step(1, 'ใบถัดไป')}</div><button class="btn" data-act="pop" data-k="deck">ดูเดค</button>`,
+  };
+}
+
 // ---------- overlays ----------
 function openModal(html) { $('#modal').innerHTML = html; $('#modal').hidden = false; }
 function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
@@ -973,6 +1008,7 @@ document.addEventListener('click', (ev) => {
     case 'allres': if (wait?.kind === 'combatEnd') showResults(wait.ctx.results); break;
     case 'pop': openPop({ k: t.dataset.k }); break;
     case 'popclose': closePop(); break;
+    case 'cardinfo': if (pop?.k === 'card') { pop.f = +t.dataset.uid; render(); } else openPop({ k: 'card', f: +t.dataset.uid }); break;
     case 'popmin': foldPop(!pop?.min); break;
     case 'area': if (started) openPop({ k: 'area', f: t.dataset.to }); break;
     case 'openact':
@@ -1025,6 +1061,7 @@ document.addEventListener('change', (ev) => {
 document.addEventListener('keydown', (ev) => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('.area[data-act]')) { ev.preventDefault(); ev.target.click(); }
   if (ev.key === 'Escape' && pop && $('#modal').hidden && $('#sheet').hidden) closePop();
+  if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && pop?.k === 'card' && !pop.min) $(`#pop .cv-nav button:${ev.key === 'ArrowLeft' ? 'first' : 'last'}-of-type`)?.click();
 });
 
 // first screen: an empty board behind the Master picker

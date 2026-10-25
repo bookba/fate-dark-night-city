@@ -297,6 +297,7 @@ small, .dim { color: var(--dim); }
   .battle.n4 .tok { width: 20px; height: 20px; font-size: 8px; }
 }
 .battle.n4 .brow, .battle.n5 .brow { padding: 2px 6px 2px 3px; }
+@container area (max-height: 199px) { .battle.n3 { gap: 2px; } .battle.n3 .brow { padding: 1px 6px 1px 3px; } }
 .battle.n4 .bpw b, .battle.n5 .bpw b { font-size: 18px; }
 /* narrow or low areas: names go, then the advantage line */
 @container area (max-width: 300px) { .bwho b { display: none; } .bprize { display: none; } .brow { gap: 0 5px; padding-right: 6px; } }
@@ -511,7 +512,7 @@ small, .dim { color: var(--dim); }
 .x.fold { font-size: 14px; color: var(--grail); }
 /* folded: a bar at the bottom, the board stays visible and tappable behind it */
 #pop.min {
-  inset: auto 0 calc(12px + env(safe-area-inset-bottom, 0px)) 0; padding: 0 12px; place-items: end center;
+  inset: auto 0 var(--minb, calc(12px + env(safe-area-inset-bottom, 0px))) 0; padding: 0 12px; place-items: end center;
   grid-template-rows: auto; background: none; backdrop-filter: none; pointer-events: none;
 }
 #pop.min .pop-dlg { pointer-events: auto; animation: none; box-shadow: 0 10px 34px rgba(0, 0, 0, .6); border-color: color-mix(in srgb, var(--grail) 45%, var(--line)); }
@@ -521,7 +522,7 @@ small, .dim { color: var(--dim); }
 #pop.min .pop-head h2 { font-size: 15px; }
 #pop.min .pop-head .mini { display: block; }
 #pop.min .pop-title { cursor: pointer; }
-@media (max-width: 1099px) { #pop.min { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 1099px) { #pop.min { bottom: var(--minb, calc(60px + env(safe-area-inset-bottom, 0px))); } }
 @media (max-width: 599px) {
   #pop { place-items: end stretch; padding: calc(20px + env(safe-area-inset-top, 0px)) 0 0; }
   .pop-dlg, .pop-dlg.wide { width: 100%; border-radius: 16px 16px 0 0; border-bottom: 0; }
@@ -638,7 +639,25 @@ button.card:hover { transform: translateY(-3px); }
 .card.mini .pw { font-size: 18px; }
 .card.mini .ty { font-size: 9px; padding-right: 0; }
 .card.mini .mn, .card.mini .nm, .card.mini .fx { display: none; }
-@media (max-width: 480px) { .card:not(.mini):not(.sm):not(.hd) { width: 70px; } .card:not(.mini):not(.sm):not(.hd) .pw { font-size: 24px; } }
+@media (max-width: 480px) { .card:not(.mini):not(.sm):not(.hd):not(.cardview *) { width: 70px; } .card:not(.mini):not(.sm):not(.hd):not(.cardview *) .pw { font-size: 24px; } }
+/* one card in full (tap a card in the hand bar) */
+.cardview { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.cardview .card { width: 150px; padding: 10px 10px 8px; border-radius: 12px; }
+.cardview .card .src { margin: -10px -10px 6px; font-size: 12px; padding: 3px 4px; }
+.cardview .card.skill .src { margin: -8px -8px 6px; }
+.cardview .card.has-src .mn { top: 30px; }
+.cardview .card .ty { font-size: 13px; padding-right: 30px; }
+.cardview .card .pw { font-size: 52px; }
+.cardview .card .mn { width: 26px; height: 26px; font-size: 13px; }
+.cardview .card .nm { font-size: 13px; -webkit-line-clamp: 3; }
+.cv-tx { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.cv-state { margin: 0; font-weight: 600; color: var(--grail); }
+.cv-fx { margin: 0; font-size: 14.5px; line-height: 1.5; max-width: 60ch; }
+.cv-nav { align-items: center; margin-right: auto; }
+.cv-nav .btn { min-width: 44px; font-size: 18px; }
+@container popb (max-width: 380px) { .cardview { grid-template-columns: 1fr; justify-items: center; } .cardview .cv-tx { justify-items: start; width: 100%; } }
+.hand button.card:focus-visible { outline: 2px solid var(--grail); outline-offset: 2px; }
+
 /* the deck pop-up: each card with its full text */
 .dkl { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 8px; }
 .dk { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px; border-radius: var(--r); border: 1px solid var(--line); background: var(--night-3); }
