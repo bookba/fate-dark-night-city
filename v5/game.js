@@ -228,7 +228,7 @@ export class Game {
     if (!AREAS[moveTo || csMove || p.at].field) cs2 = 0; // power +2 needs a battlefield
     const paid = inf ? 0 : cost;
     const gemPay = Math.min(gemMana, Math.max(0, paid - mana));
-    return { ids: picked.map((c) => c.uid), down: [...down], cs2, gemMana: gemPay, gand: gandOn, cs4, cost: paid - gemPay, moveTo, csMove, ubw: !!ubwCard };
+    return { ids: picked.map((c) => c.uid), down: [...down], cs2, gemMana: gemPay, gand: gandOn, cs4, cost: paid - gemPay, moveTo, csMove, ubw: !!ubwCard, budget: inf ? Infinity : budget };
   }
 
   applyCards(p, a) {

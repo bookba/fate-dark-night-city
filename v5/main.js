@@ -741,6 +741,9 @@ function swapBox() {
 const allCards = (p) => [...p.hand, ...p.skills, ...p.specials, ...p.deck];
 
 // the play the engine would make from the draft, for the preview
+// picked cards the engine lays face down although the draft has them face up (not enough mana)
+const forcedDown = (a) => new Set(a.down.filter((id) => draft.ids.includes(id) && !draft.down.includes(id)));
+
 function preview() {
   const p = me();
   const a = g.cleanCards(p, draft);
@@ -766,19 +769,27 @@ function cardsPop() {
   const foes = (AREAS[f].field ? g.here(f) : []).filter((q) => q !== p).map((q) => `<div class="foe">${chip(q)}${q.play
     ? `<span>พลัง <b class="pw">${q.play.pre}</b></span><div class="cards">${q.play.cards.map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('')}</div>`
     : `<span>ยังไม่ลงการ์ด${q.terrain ? ` · ได้เปรียบ +${q.terrain}` : ''}</span>`}</div>`).join('');
-  const sel = new Set(draft.ids);
-  const down = new Set(draft.down);
+  const sel = new Set(draft.ids.filter((id) => a.ids.includes(id)));
+  const down = new Set(a.down); // the engine's sides, so a card the mana cannot pay for shows face down
+  const forced = forcedDown(a);
   const ctx = { f };
+  // mana still free now, and what is left for an NP/skill card if every attack card went face down
+  const fixed = cards.filter((c) => !g.canFlip(c)).reduce((s, c) => s + c.mana, 0);
+  const free = a.budget - a.cost - a.gemMana;
   const pick = (c) => {
     const s = sel.has(c.uid);
     const isDown = s && down.has(c.uid);
-    const t = tile(c, { btn: true, sel: s, down: isDown, power: g.cardPower(p, { ...c, down: false }, ctx) });
-    const flip = s && g.canFlip(c) ? `<button class="flip${isDown ? ' down' : ''}" data-act="flip" data-uid="${c.uid}">${isDown ? 'คว่ำอยู่ · กดหงาย' : 'หงาย · กดคว่ำ'}</button>` : '';
+    const note = !s && g.canFlip(c) && c.mana > free ? 'มานาไม่พอ · ลงคว่ำได้' : undefined;
+    const t = tile(c, { btn: true, sel: s, down: isDown, note, power: g.cardPower(p, { ...c, down: false }, ctx) });
+    const flip = !s || !g.canFlip(c) ? ''
+      : forced.has(c.uid) ? `<button class="flip down" disabled>คว่ำอยู่ · มานาไม่พอหงาย</button>`
+      : `<button class="flip${isDown ? ' down' : ''}" data-act="flip" data-uid="${c.uid}">${isDown ? 'คว่ำอยู่ · กดหงาย' : 'หงาย · กดคว่ำ'}</button>`;
     return `<div class="pickcol">${t}${flip}</div>`;
   };
   const locked = (c, why) => `<div class="pickcol">${tile(c, { lock: true, note: why })}</div>`;
-  const skills = p.skills.map((c) => { const why = g.skillState(p, c, mana); return why ? locked(c, why) : pick(c); }).join('');
-  const specials = p.specials.map((c) => { const why = g.specialState(p, c, mana); return why ? locked(c, why) : pick(c); }).join('');
+  const short = (c) => (!sel.has(c.uid) && c.mana > a.budget - fixed ? `มานาไม่พอ (เหลือ ${Math.max(0, a.budget - fixed)} ใช้ ${c.mana})` : '');
+  const skills = p.skills.map((c) => { const why = g.skillState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('');
+  const specials = p.specials.map((c) => { const why = g.specialState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('');
   const ubw = cards.find((c) => c.fx?.ubw);
   const deckRow = ubw ? `<div class="pop-sec"><p class="row-lab">สำรับ (Unlimited Blade Works ลงการ์ดโจมตีได้ถึง ${ubw.fx.ubw} ใบ)</p><div class="cards">${p.deck.map((c) => pick(c)).join('')}</div></div>` : '';
 
@@ -796,7 +807,7 @@ function cardsPop() {
   // what the engine changed from the draft
   const notes = [];
   for (const id of a.ids) if (!sel.has(id)) notes.push(`เติม ${esc(cardName(cards.find((c) => c.uid === id)))} แบบคว่ำให้ครบ ${PLAY} ใบ`);
-  for (const id of a.down) if (sel.has(id) && !down.has(id)) notes.push(`คว่ำ ${esc(cardName(cards.find((c) => c.uid === id)))} เพราะมานาไม่พอ`);
+  for (const id of forced) if (sel.has(id)) notes.push(`คว่ำ ${esc(cardName(cards.find((c) => c.uid === id)))} เพราะมานาไม่พอ`);
   for (const id of draft.ids) if (!a.ids.includes(id)) { const c = allCards(p).find((x) => x.uid === id); if (c) notes.push(`ไม่ได้ลง ${esc(cardName(c))} (เกินจำนวน มานาหรืออัญมณีไม่พอ)`); }
   if (g.tsubame(cards)) notes.push(`ลงดาบครบ 3 ใบ: Tsubame Gaeshi พลัง +${TSUBAME}`);
   if (revealing) notes.push(`ลงชุดนี้แล้วชื่อจริงจะเปิด: ${esc(p.sv.name)}`);
@@ -1195,16 +1206,29 @@ document.addEventListener('click', (ev) => {
         // dropping UBW also drops the deck cards it brought
         if (info?.fx?.ubw) d.ids = d.ids.filter((x) => !p.deck.some((c) => c.uid === x));
       } else {
-        const test = g.cleanCards(p, { ...d, ids: [...d.ids, uid] });
-        if (test.ids.includes(uid)) d.ids = [...d.ids, uid];
-        else toast(`ลง ${cardName(info)} เพิ่มไม่ได้ · เต็มจำนวนหรือมานาไม่พอ เอาใบอื่นออกก่อน`, '');
+        const before = forcedDown(g.cleanCards(p, d));
+        const add = { ...d, ids: [...d.ids, uid] };
+        const test = g.cleanCards(p, add);
+        // an attack card the mana cannot pay for goes in face down, never by turning another card over
+        const flips = test.down.some((id) => add.ids.includes(id) && !add.down.includes(id) && !before.has(id));
+        if (!test.ids.includes(uid)) toast(`ลง ${cardName(info)} เพิ่มไม่ได้ · เต็มจำนวนหรือมานาไม่พอ เอาใบอื่นออกก่อน`, '');
+        else if (flips && g.canFlip(info)) { d.ids = add.ids; d.down = [...d.down, uid]; toast(`มานาไม่พอลง ${cardName(info)} แบบหงาย · ลงแบบคว่ำแทน`, ''); }
+        else d.ids = add.ids;
       }
       render();
       break;
     }
     case 'flip': {
+      if (wait?.kind !== 'cards') break;
       const uid = +t.dataset.uid;
-      d.down = d.down.includes(uid) ? d.down.filter((x) => x !== uid) : [...d.down, uid];
+      if (!d.down.includes(uid)) { d.down = [...d.down, uid]; render(); break; }
+      // face up only when the mana pays for it without turning another card over
+      const p = me();
+      const before = forcedDown(g.cleanCards(p, d));
+      const up = { ...d, down: d.down.filter((x) => x !== uid) };
+      const test = g.cleanCards(p, up);
+      if (test.down.some((id) => up.ids.includes(id) && !up.down.includes(id) && !before.has(id))) toast('มานาไม่พอลงแบบหงาย · คว่ำใบอื่นหรือเอาออกก่อน', '');
+      else d.down = up.down;
       render();
       break;
     }
