@@ -1,14 +1,15 @@
-// Simple bots for the v5.0 demo: they estimate the power they can reach and pick the
+// Simple bots for the v5.1 demo: they estimate the power they can reach and pick the
 // place, move and cards with the best expected VP, plus some noise.
-import { AREAS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, MANA_MAX, CS_MANA, CS_POWER, GEM_GAND, PLAY } from './game.js';
+import { AREAS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, MANA_MAX, CS_MANA, CS_POWER, GEM_GAND, PLAY, FIELDS } from './game.js';
 
 const MANA_W = 0.4; // how much a bot values one mana kept for later
 const winChance = (mine, theirs) => 1 / (1 + Math.exp(-(mine - theirs) / 2.5));
 const late = (g) => g.climax() || g.round >= 7;
 
-// VP a bot expects for winning a battlefield (the Shinto event stays hidden until the action phase)
-function fieldValue(g, f) {
-  if (f === 'shinto' && !g.shintoOpen) return 3 * g.evs[f].length + AREAS[f].bonus + g.sfx('bonusUp');
+// VP a bot expects for winning a battlefield (the Shinto event stays hidden until the action
+// phase, unless the bot looked at it with a card)
+function fieldValue(g, f, p) {
+  if (f === 'shinto' && !g.shintoOpen && p?.peek !== g.round) return 3 * g.evs[f].length + AREAS[f].bonus + g.sfx('bonusUp');
   return g.fieldVP(f);
 }
 
@@ -47,7 +48,7 @@ function place(g, p, opts) {
       const terr = there.length < TERRAIN.length ? TERRAIN[there.length] : 0;
       const mine = handPower(g, p, to) + terr;
       const foe = there.length ? Math.max(...there.map((q) => foePower(g, q))) : 6;
-      v += fieldValue(g, to) * winChance(mine, foe) + terr * 0.3;
+      v += fieldValue(g, to, p) * winChance(mine, foe) + terr * 0.3;
       if (to === 'miyama' && p.m.key === 'shinji') v += 0.5;
       if (p.mana < 2) v -= 1;
       if (g.climax()) v += 1;
@@ -120,11 +121,44 @@ function combos(g, p, mana) {
   return out;
 }
 
-function cards(g, p, ctx) {
-  if (!ctx.field) {
-    const low = [...p.hand].sort((a, b) => a.power - b.power).slice(0, 2);
-    return { ids: low.map((c) => c.uid) };
+// off a battlefield (paper 8.3, v5.1): a moving card can jump into a fight worth taking (or to a
+// free recon); otherwise lay what pays off anywhere face up (mana, residual skills, Self-Modification)
+// and the weakest cards face down
+function offField(g, p) {
+  const pool = [...p.hand, ...g.usableSkills(p), ...g.usableSpecials(p)];
+  let best = null;
+  for (const m of pool.filter((c) => (c.fx?.bell || c.fx?.move) && c.mana <= p.mana)) {
+    const left = p.mana - m.mana;
+    const cost = m.mana * MANA_W + (m.fx.once && !late(g) ? 3 : 0) + (m.fx.reveal && !p.revealed ? 1 : 0);
+    for (const f of FIELDS) {
+      const there = g.here(f);
+      const stolen = m.fx.bell ? there.reduce((s, q) => s + q.terrain, 0) : 0;
+      let second = null;
+      let pw2 = 0;
+      for (const c of pool) if (c !== m && !c.fx?.bell && !c.fx?.move && c.mana <= left && g.cardPower(p, c, { f }) > pw2) { pw2 = g.cardPower(p, c, { f }); second = c; }
+      const mine = g.cardPower(p, m, { f }) + pw2 + stolen;
+      const foe = there.length ? Math.max(...there.map((q) => foePower(g, q))) : 0;
+      const v = (there.length ? fieldValue(g, f, p) * winChance(mine, foe) : g.eventVP(f) * 0.9) - cost - (second ? second.mana * MANA_W : 0);
+      if (!best || v > best.v) best = { v, ids: [m.uid, ...(second ? [second.uid] : [])], moveTo: f };
+    }
+    if (p.at !== 'recon' && g.reconFree(p)) { const v = RECON_VP - cost; if (!best || v > best.v) best = { v, ids: [m.uid], moveTo: 'recon' }; }
   }
+  if (best && best.v > 1.2) return { ids: best.ids, down: [], moveTo: best.moveTo };
+  let left = p.mana;
+  const ids = [];
+  const take = (c) => { if (c && ids.length < g.maxCards(p) && c.mana <= left) { ids.push(c.uid); left -= c.mana; } };
+  const skills = g.usableSkills(p);
+  if (g.round <= 6) take(skills.find((c) => c.fx.residual)); // Territory Creation pays more the sooner it opens
+  if (p.revealed) take(skills.find((c) => c.fx.hide && p.skills.some((z) => z.fx.hiddenOnly && !z.gone)));
+  for (const c of p.hand.filter((x) => x.fx?.mana)) take(c);
+  const low = [...p.hand].filter((c) => !ids.includes(c.uid)).sort((a, b) => a.power - b.power);
+  const down = [];
+  for (const c of low) if (ids.length < Math.min(PLAY, ids.length + low.length)) { ids.push(c.uid); down.push(c.uid); }
+  return { ids, down };
+}
+
+function cards(g, p, ctx) {
+  if (!AREAS[p.at].field) return offField(g, p);
   // Rin: swap a weak hand with a jewel before choosing (ctx.noSwap / ctx.noCs: a suggestion for the player)
   if (!ctx.noSwap && g.canSwap(p) && p.gems >= 3) {
     const weak = p.hand.filter((c) => c.power <= 2);
@@ -136,7 +170,7 @@ function cards(g, p, ctx) {
   const unknown = there.filter((q) => !q.play);
   const foe = Math.max(0, ...there.map((q) => foePower(g, q)));
   const alone = !there.length;
-  const prize = fieldValue(g, f);
+  const prize = fieldValue(g, f, p);
   const inf = g.infinite(p);
   const tries = [{ cs4: false, mana: p.mana }];
   if (!ctx.noCs && p.cs > 0 && !alone && late(g) && p.mana < MANA_MAX) tries.push({ cs4: true, mana: Math.min(MANA_MAX, p.mana + CS_MANA) });
@@ -154,6 +188,8 @@ function cards(g, p, ctx) {
         const fx = c.fx || {};
         if (fx.petrify && there.length) extra += known.some((q) => q.play.cards.some((x) => !x.down && x.type === 'X')) ? 3 : 10;
         if (fx.duel && there.length === 1) extra += 14;
+        if (fx.zab && there.length === 1) { extra += 14; vp += p.vp * 0.6; } // 1 v 1, then VP × 2
+        if (fx.hide) vp += p.revealed && p.skills.some((z) => z.fx.hiddenOnly && !z.gone) ? 3 : -4;
         if (fx.ruleBreaker && there.length) extra += there.some((q) => q.cs <= 1) ? 14 : 2;
         if (fx.zeroOpp) extra += 2;
         if (fx.cancel) extra += unknown.length ? 2 : 0;
@@ -185,9 +221,27 @@ function cards(g, p, ctx) {
   return ans;
 }
 
+// a card window (paper 8.0): use a card when its effect is clearly worth it, else pass
+function windowUse(g, p, ctx) {
+  for (const uid of ctx.cards) {
+    const c = [...p.hand, ...p.specials, ...p.skills].find((x) => x.uid === uid);
+    const fx = g.useLine(p, c, ctx.w)?.fx || {};
+    if (fx.mana && fx.mana > c.mana) return { use: uid };
+    if (fx.vp && fx.vp > c.mana * MANA_W * (late(g) ? 0.3 : 1)) return { use: uid };
+    if (fx.peek && p.hand.length >= 3 && p.mana - c.mana >= 4) return { use: uid };
+    if (fx.freeMove) {
+      // engaged in a fight it is likely to lose: pay to be able to walk out
+      const foe = Math.max(0, ...g.here(p.at).filter((q) => q !== p).map((q) => foePower(g, q)));
+      if (foe > handPower(g, p, p.at, p.mana - c.mana) + p.terrain + 2 && p.mana - c.mana >= 2) return { use: uid };
+    }
+  }
+  return null;
+}
+
 export function botDecide(g, p, kind, ctx) {
   if (kind === 'place') return place(g, p, ctx.opts);
   if (kind === 'move') return move(g, p, ctx.opts);
   if (kind === 'cards') return cards(g, p, ctx);
+  if (kind === 'window') return windowUse(g, p, ctx);
   return null;
 }

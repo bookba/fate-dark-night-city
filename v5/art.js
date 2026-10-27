@@ -7,8 +7,10 @@ import medea from '../src/art/servants/medea.webp';
 import medusa from '../src/art/servants/medusa.webp';
 import heracles from '../src/art/servants/heracles.webp';
 import kojiro from '../src/art/servants/kojiro.webp';
+import gilgamesh from '../src/art/servants/gilgamesh.webp';
+import hassan from '../src/art/servants/hassan.webp';
 import day from '../src/art/map/fuyuki-day.webp';
 import night from '../src/art/map/fuyuki-night.webp';
 
-export const SV_ART = { artoria, emiya, cu, medea, medusa, heracles, kojiro };
+export const SV_ART = { artoria, emiya, cu, medea, medusa, heracles, kojiro, gilgamesh, hassan };
 export const MAP_ART = { day, night };

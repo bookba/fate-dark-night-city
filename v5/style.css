@@ -107,6 +107,10 @@ small, .dim { color: var(--dim); }
 .steps { display: flex; gap: 2px 12px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--dim); white-space: nowrap; }
 .steps li.now { color: var(--bone); font-weight: 600; }
 .steps li.now::before { content: '◆ '; color: var(--seal); }
+/* the numbered step of paper 8.0, e.g. "3.2 ย้าย" */
+.steps .stp { margin-left: 6px; font-weight: 400; color: var(--grail); }
+.steps .stp b { font: 600 11px/1 var(--ff-crest); }
+@media (max-width: 1279px) { .steps .stp .sn { display: none; } }
 .mystat { display: flex; gap: 12px; font-size: 13px; color: var(--dim); white-space: nowrap; }
 .mystat b { font: 700 17px/1 var(--ff-crest); }
 .mystat .m b { color: var(--mana); }
@@ -114,6 +118,8 @@ small, .dim { color: var(--dim); }
 .mystat .v b { color: var(--grail); }
 .hud-btns { display: flex; gap: 6px; margin-left: auto; }
 @media (max-width: 899px) { .steps { display: none; } .track .ph { display: inline; } }
+/* tiny phones: the step code would wrap the HUD to two lines and shrink the board */
+@media (max-width: 399px) { .track .ph .stc { display: none; } }
 @media (max-width: 699px) {
   .crest { display: none; }
   #hud { padding: 5px 6px 5px 10px; gap: 6px 10px; }
@@ -616,6 +622,11 @@ button.card:hover { transform: translateY(-3px); }
 .card.down, .card.back { --t: var(--dim); background: repeating-linear-gradient(45deg, #1a2238 0 6px, #161d31 6px 12px); }
 .card.down .pw, .card.back .pw { color: var(--dim); }
 .card.lock { opacity: .5; }
+/* usable in the card window being asked (paper 8.0 rule 7) */
+.card.glow { box-shadow: 0 0 0 2px var(--grail), 0 0 14px color-mix(in srgb, var(--grail) 70%, transparent); animation: glow 1.4s ease-in-out infinite; }
+@keyframes glow { 50% { box-shadow: 0 0 0 2px var(--grail), 0 0 4px color-mix(in srgb, var(--grail) 40%, transparent); } }
+/* counts as every type (Gate of Babylon) */
+.card.tall { background: linear-gradient(170deg, color-mix(in srgb, var(--ty-S) 22%, var(--night-3)), color-mix(in srgb, var(--ty-A) 18%, var(--night-3)) 35%, color-mix(in srgb, var(--ty-M) 18%, var(--night-2)) 65%, var(--night-2)); }
 .card.lock .fx { color: var(--grail); }
 .card.gone { opacity: .35; }
 .card.res { box-shadow: 0 0 0 2px var(--mana); }
@@ -668,6 +679,38 @@ button.card:hover { transform: translateY(-3px); }
 .dk-meta em { font-style: normal; font-weight: 600; color: var(--grail); }
 .dk-meta em.ms { color: var(--sp); } .dk-meta em.np { color: var(--ty-N); }
 .dk-meta .dn { color: var(--dim); }
+/* the timing label of an effect line: window · where · condition (paper section 9) */
+.when { display: inline-block; margin: 0 6px 2px 0; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
+  color: var(--bone); background: color-mix(in srgb, var(--mana) 22%, var(--night)); border: 1px solid color-mix(in srgb, var(--mana) 55%, transparent); }
+.when.w-clash { background: color-mix(in srgb, var(--seal) 22%, var(--night)); border-color: color-mix(in srgb, var(--seal) 60%, transparent); }
+.when.w-residual { background: color-mix(in srgb, var(--sp) 18%, var(--night)); border-color: color-mix(in srgb, var(--sp) 55%, transparent); }
+.when:not(.w-onUse):not(.w-clash):not(.w-residual) { background: color-mix(in srgb, var(--grail) 20%, var(--night)); border-color: color-mix(in srgb, var(--grail) 60%, transparent); }
+.cv-when { margin: 0; display: flex; flex-wrap: wrap; }
+.wuse .acts { display: flex; margin-top: 4px; }
+
+/* another Master's details (paper 4.6 item 6) */
+.st li[data-act] { cursor: pointer; }
+.st li[data-act]:hover, .st li[data-act]:focus-visible { background: color-mix(in srgb, var(--bone) 7%, transparent); outline: none; }
+.st li.me[data-act]:hover { background: color-mix(in srgb, var(--grail) 15%, transparent); }
+.pl-sv { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.pl-sv img { width: 72px; height: 102px; object-fit: cover; border-radius: 8px; border: 2px solid var(--grail); flex: none; }
+.pl-sv .nm { display: grid; gap: 3px; min-width: 0; }
+.pl-sv b { font-family: var(--ff-head); font-size: 15px; }
+.pl-sv small { font-size: 12px; color: var(--dim); }
+.pl-sv .tarot { width: 72px; height: 102px; border-radius: 8px; flex: none; display: grid; place-items: center; font: 700 30px/1 var(--ff-crest); color: var(--dim);
+  border: 2px solid var(--line); background: repeating-linear-gradient(45deg, #2a1830 0 8px, #1d1224 8px 16px); }
+.pl-hist { display: flex; flex-wrap: wrap; gap: 8px; }
+.pl-h { display: grid; gap: 2px; justify-items: center; }
+.pl-h small { font-size: 10.5px; color: var(--dim); white-space: nowrap; }
+.pl-h small.used { color: var(--grail); }
+.abil .ab-st { font-style: normal; font-weight: 500; font-size: 11.5px; color: var(--grail); margin-left: 6px; }
+.ev.peek { border-style: dashed; }
+
+/* the phase chart in the rules (paper 8.0) */
+.phases { margin: 6px 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 2px 12px; font-size: 13px; color: var(--dim); }
+.phases b { font: 600 12px/1 var(--ff-crest); color: var(--bone); margin-right: 4px; }
+.phases li.win { color: var(--grail); font-weight: 600; }
+.opt-sample { font-size: 13px; color: var(--dim); }
 
 /* ---------- start, summon, rules, results, game over ---------- */
 #sheet, #modal {

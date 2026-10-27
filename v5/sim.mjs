@@ -1,14 +1,19 @@
-// node v5/sim.mjs [games] — bots-only games to check the rules never crash or break state
-import { Game, SERVANTS, MANA_MAX, REGULAR } from './game.js';
+// node v5/sim.mjs [games] [sample] — bots-only games to check the rules never crash or break state;
+// "sample" shuffles in the example window cards of paper section 9
+import { Game, SERVANTS, MANA_MAX, REGULAR, AREAS, SAMPLE } from './game.js';
 import { botDecide } from './bot.js';
 
 const N = +process.argv[2] || 300;
-const st = { rounds: 0, clown: 0, replay: 0, fights: 0, alone: 0, reveals: 0, skills: 0, recon: 0, cs: 0, csPower: 0, csMove: 0, swap: 0, gand: 0, avalon: 0, tsubame: 0, allDown: 0, endVP: 0, out8: 0 };
+const sample = process.argv[3] === 'sample';
+const st = { rounds: 0, clown: 0, replay: 0, fights: 0, alone: 0, reveals: 0, skills: 0, recon: 0, cs: 0, csPower: 0, csMove: 0, swap: 0, gand: 0, avalon: 0, tsubame: 0, allDown: 0, endVP: 0, out8: 0, offPlay: 0, offUse: 0, cardMove: 0, zab: 0, zabWin: 0, hide: 0, winUse: 0 };
 const wins = {};
 const svWins = {};
-const deckSize = Object.fromEntries(SERVANTS.map((s) => [s.key, s.deck.length]));
+const svDealt = {};
+const deckSize = Object.fromEntries(SERVANTS.map((s) => [s.key, s.deck.length + (sample ? SAMPLE.length : 0)]));
 for (let i = 0; i < N; i++) {
-  const g = new Game({ decide: async (g, p, k, c) => botDecide(g, p, k, c) });
+  const g = new Game({ decide: async (g, p, k, c) => botDecide(g, p, k, c), sample });
+  for (const p of g.players) svDealt[p.sv.key] = (svDealt[p.sv.key] || 0) + 1;
+  if (new Set(g.players.map((p) => p.sv.key)).size !== g.players.length) throw new Error('a Servant was dealt twice');
   g.human.isHuman = false; // the human seat plays as a bot too
   const check = () => {
     for (const p of g.players) {
@@ -35,13 +40,22 @@ for (let i = 0; i < N; i++) {
     if (r === REGULAR) st.out8 += out.length;
   };
   const apply = g.applyCards.bind(g);
-  g.applyCards = (p, a, f) => {
+  g.applyCards = (p, a) => {
+    const f = AREAS[p.at].field;
     if (a.gand) st.gand++;
     if (f && a.ids.length && a.ids.every((id) => a.down.includes(id))) st.allDown++;
-    const r = apply(p, a, f);
+    const up = a.ids.filter((id) => !a.down.includes(id)).map((id) => [...p.hand, ...p.skills, ...p.specials, ...p.deck].find((c) => c.uid === id));
+    if (up.some((c) => c?.fx?.hiddenOnly) && p.revealed) throw new Error(`Zabaniya with the true name open r${g.round} ${p.name}`);
+    if (!f) { st.offPlay++; if (up.some((c) => c && (c.fx?.mana || c.fx?.residual || c.fx?.hide || c.fx?.move || c.fx?.bell || c.fx?.reveal))) st.offUse++; }
+    if (up.some((c) => c?.fx?.zab)) st.zab++;
+    const r = apply(p, a);
     if (p.play && g.tsubame(p.play.cards)) st.tsubame++;
+    if (!f && AREAS[p.at].field && !p.play) throw new Error(`moved into a battlefield without cards r${g.round} ${p.name}`);
+    if (!AREAS[p.at].field && p.play) throw new Error(`cards left out of a battlefield r${g.round} ${p.name}`);
     return r;
   };
+  const fight = g.fight.bind(g);
+  g.fight = (f, people) => { const r = fight(f, people); st.zabWin += r.ents.filter((e) => e.notes.some((n) => n.startsWith('Zabaniya'))).length; return r; };
   await g.run();
   check();
   if (!g.over || !g.winner) throw new Error(`game did not finish (round ${g.round}, ${g.alive().length} left)`);
@@ -58,6 +72,9 @@ for (let i = 0; i < N; i++) {
   st.csPower += g.logs.filter((l) => l.text.includes('Command Spell พลัง')).length;
   st.csMove += g.logs.filter((l) => l.text.includes('Command Spell ย้าย')).length;
   st.swap += g.logs.filter((l) => l.text.includes('อัญมณีแลกการ์ด')).length;
+  st.cardMove += g.logs.filter((l) => l.text.includes(' ย้ายจาก')).length;
+  st.hide += g.logs.filter((l) => l.text.includes('ซ่อนชื่อจริงกลับ')).length;
+  st.winUse += g.logs.filter((l) => / ช่วง(เตรียมการ|ก่อนวางหมาก|หลังวางหมาก|ก่อนย้าย|หลังย้าย|หลังลงการ์ด|จบรอบ)/.test(l.text)).length;
   st.avalon += g.players.some((p) => p.avalonUsed) ? 1 : 0;
   st.skills += g.players.reduce((s, p) => s + Object.values(p.uses).reduce((a, b) => a + b, 0), 0);
   st.endVP += g.winner.vp;
@@ -66,3 +83,4 @@ const per = (x) => +(x / N).toFixed(2);
 console.log(N, 'games', Object.fromEntries(Object.entries(st).map(([k, v]) => [k, ['clown', 'avalon'].includes(k) ? v : per(v)])));
 console.log('Master wins', wins);
 console.log('Servant wins', svWins);
+console.log('Servant win rate when dealt', Object.fromEntries(Object.entries(svDealt).map(([k, n]) => [k, +((svWins[k] || 0) / n).toFixed(3)])));
