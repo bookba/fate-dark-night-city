@@ -21,6 +21,7 @@
   --ty-M: #9b80ec;       /* เวท */
   --ty-X: #a9b2c6;       /* พิเศษ */
   --ty-N: #dcb75c;       /* NP */
+  --ty-Z: #8d8f99;       /* ไม่มีชนิด (Archer Class) */
   --sp: #4fd17c;         /* special cards (green backs in the manual) */
   --c-ws: #3fcf7a;       /* magic workshop */
   --c-mi: #7178ee;       /* Miyama */
@@ -259,7 +260,7 @@ small, .dim { color: var(--dim); }
   display: grid; place-content: center; justify-items: center; line-height: 1;
   background: linear-gradient(170deg, color-mix(in srgb, var(--t) 34%, var(--night-3)), var(--night-2) 80%); border: 1px solid color-mix(in srgb, var(--t) 70%, transparent);
 }
-.bc.tS { --t: var(--ty-S); } .bc.tA { --t: var(--ty-A); } .bc.tM { --t: var(--ty-M); } .bc.tX { --t: var(--ty-X); } .bc.tN { --t: var(--ty-N); }
+.bc.tS { --t: var(--ty-S); } .bc.tA { --t: var(--ty-A); } .bc.tM { --t: var(--ty-M); } .bc.tX { --t: var(--ty-X); } .bc.tN { --t: var(--ty-N); } .bc.tZ { --t: var(--ty-Z); }
 .bc b { font: 700 16px/1 var(--ff-crest); }
 .bc small { font-size: 8.5px; color: var(--t); margin-top: 1px; white-space: nowrap; }
 .bc.src-sv { border-top: 4px solid var(--grail); } .bc.src-ms { border-top: 4px solid var(--sp); }
@@ -594,7 +595,7 @@ small, .dim { color: var(--dim); }
   border: 1px solid color-mix(in srgb, var(--t) 60%, transparent); color: var(--bone);
   transition: transform .15s, box-shadow .15s, opacity .15s; overflow: hidden;
 }
-.card.tS { --t: var(--ty-S); } .card.tA { --t: var(--ty-A); } .card.tM { --t: var(--ty-M); } .card.tX { --t: var(--ty-X); } .card.tN { --t: var(--ty-N); }
+.card.tS { --t: var(--ty-S); } .card.tA { --t: var(--ty-A); } .card.tM { --t: var(--ty-M); } .card.tX { --t: var(--ty-X); } .card.tN { --t: var(--ty-N); } .card.tZ { --t: var(--ty-Z); }
 .card .ty { font-size: 11px; font-weight: 600; color: var(--t); line-height: 1.2; padding-right: 22px; }
 .card .pw { font: 700 28px/1 var(--ff-crest); align-self: center; justify-self: center; }
 .card .pw sup { font: 600 11px/1 var(--ff-body); color: var(--ok); vertical-align: top; margin-left: 1px; }
@@ -683,8 +684,8 @@ button.card:hover { transform: translateY(-3px); }
 .when { display: inline-block; margin: 0 6px 2px 0; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap;
   color: var(--bone); background: color-mix(in srgb, var(--mana) 22%, var(--night)); border: 1px solid color-mix(in srgb, var(--mana) 55%, transparent); }
 .when.w-clash { background: color-mix(in srgb, var(--seal) 22%, var(--night)); border-color: color-mix(in srgb, var(--seal) 60%, transparent); }
-.when.w-residual { background: color-mix(in srgb, var(--sp) 18%, var(--night)); border-color: color-mix(in srgb, var(--sp) 55%, transparent); }
-.when:not(.w-onUse):not(.w-clash):not(.w-residual) { background: color-mix(in srgb, var(--grail) 20%, var(--night)); border-color: color-mix(in srgb, var(--grail) 60%, transparent); }
+.when.w-permanent { background: color-mix(in srgb, var(--sp) 18%, var(--night)); border-color: color-mix(in srgb, var(--sp) 55%, transparent); }
+.when:not(.w-onUse):not(.w-clash):not(.w-permanent) { background: color-mix(in srgb, var(--grail) 20%, var(--night)); border-color: color-mix(in srgb, var(--grail) 60%, transparent); }
 .cv-when { margin: 0; display: flex; flex-wrap: wrap; }
 .wuse .acts { display: flex; margin-top: 4px; }
 
