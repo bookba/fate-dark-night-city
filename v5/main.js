@@ -149,7 +149,7 @@ function tile(c, o = {}) {
   if (o.back) return `<div class="card back${size}" title="การ์ดคว่ำ"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`;
   const down = o.down ?? c.down;
   const src = srcOf(c);
-  const cls = ['card', `t${c.type}`, c.types?.length > 1 ? 'multi' : '', c.skill ? 'skill' : '', c.keep || c.special ? 'sp' : '', src ? 'has-src' : '', o.sel ? 'sel' : '', down || c.off ? 'down' : '', o.lock ? 'lock' : '', o.glow ? 'glow' : '', c.gone ? 'gone' : '', c.resident ? 'res' : ''].filter(Boolean).join(' ') + size;
+  const cls = ['card', `t${c.type}`, c.types?.length > 1 ? `multi m${c.types.find((t) => t !== c.type)}` : '', c.skill ? 'skill' : '', c.keep || c.special ? 'sp' : '', src ? 'has-src' : '', o.sel ? 'sel' : '', down || c.off ? 'down' : '', o.lock ? 'lock' : '', o.glow ? 'glow' : '', c.gone ? 'gone' : '', c.resident ? 'res' : ''].filter(Boolean).join(' ') + size;
   const pw = o.power ?? c.power;
   const zero = down || c.off;
   const up = pw > c.power ? `<sup>+${pw - c.power}</sup>` : '';

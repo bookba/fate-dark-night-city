@@ -33,6 +33,17 @@
   --ff-body: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Leelawadee UI', Tahoma, system-ui, sans-serif;
   --r: 10px;
 }
+/* card crests (masks tinted with the card type): Strength swords, Agility wind, Magic circle,
+   Special star, NP grail, no type, and the card back */
+:root {
+  --em-S: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M27 27 L33 29 L66 62 L62 66 L29 33 Z M56 70 L70 56 M65 65 L75 75'/%3E%3Ccircle cx='77' cy='77' r='3'/%3E%3Cpath d='M73 27 L67 29 L34 62 L38 66 L71 33 Z M44 70 L30 56 M35 65 L25 75'/%3E%3Ccircle cx='23' cy='77' r='3'/%3E%3C/svg%3E");
+  --em-A: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M34 30 L52 50 L34 70 M48 30 L66 50 L48 70 M62 30 L80 50 L62 70' stroke-width='4'/%3E%3Cpath d='M14 42 H26 M10 50 H30 M14 58 H26' stroke-width='2'/%3E%3C/svg%3E");
+  --em-M: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='40' stroke-width='5' stroke-dasharray='1.5 5'/%3E%3Ccircle cx='50' cy='50' r='35' stroke-width='1.5'/%3E%3Cpolygon points='50,15 80.3,67.5 19.7,67.5'/%3E%3Cpolygon points='50,85 19.7,32.5 80.3,32.5'/%3E%3Ccircle cx='50' cy='50' r='11'/%3E%3C/svg%3E");
+  --em-X: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpolygon points='50.0,10.0 56.4,43.6 90.0,50.0 56.4,56.4 50.0,90.0 43.6,56.4 10.0,50.0 43.6,43.6' stroke-width='2.5'/%3E%3Cpolygon points='68.4,31.6 58.0,50.0 68.4,68.4 50.0,58.0 31.6,68.4 42.0,50.0 31.6,31.6 50.0,42.0' stroke-width='1.8'/%3E%3Ccircle cx='50' cy='50' r='5'/%3E%3C/svg%3E");
+  --em-N: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M30 26 H70 Q70 52 50 58 Q30 52 30 26 Z M50 58 V70 M38 78 H62 M42 72 H58' stroke-width='3.2'/%3E%3Cpath d='M36 32 H64' stroke-width='1.5'/%3E%3Cpath d='M50 6 V14 M50 86 V94 M6 50 H14 M86 50 H94 M19 19 L25 25 M75 75 L81 81 M81 19 L75 25 M19 81 L25 75' stroke-width='2'/%3E%3C/svg%3E");
+  --em-Z: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpolygon points='50,16 80,50 50,84 20,50' stroke-width='2.5'/%3E%3Cpolygon points='50,32 64,50 50,68 36,50' stroke-width='1.8'/%3E%3C/svg%3E");
+  --em-B: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='47' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='42' stroke-width='4' stroke-dasharray='1.5 4.5'/%3E%3Ccircle cx='50' cy='50' r='37' stroke-width='1.2'/%3E%3Cpolygon points='50.0,14.0 55.4,37.1 75.5,24.5 62.9,44.6 86.0,50.0 62.9,55.4 75.5,75.5 55.4,62.9 50.0,86.0 44.6,62.9 24.5,75.5 37.1,55.4 14.0,50.0 37.1,44.6 24.5,24.5 44.6,37.1' stroke-width='1.6'/%3E%3Ccircle cx='50' cy='50' r='14' stroke-width='2'/%3E%3Cpath d='M50 38 C43 44 43 56 50 62 C57 56 57 44 50 38 Z M38 50 H62' stroke-width='2'/%3E%3C/svg%3E");
+}
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -257,15 +268,20 @@ small, .dim { color: var(--dim); }
 .bcards { display: flex; gap: 4px; align-items: center; height: 100%; min-height: 0; min-width: 0; overflow: hidden; }
 .bc {
   --t: var(--ty-X); position: relative; height: min(100%, 54px); aspect-ratio: 5 / 7; flex: none; border-radius: 5px; overflow: hidden;
-  display: grid; place-content: center; justify-items: center; line-height: 1;
-  background: linear-gradient(170deg, color-mix(in srgb, var(--t) 34%, var(--night-3)), var(--night-2) 80%); border: 1px solid color-mix(in srgb, var(--t) 70%, transparent);
+  display: grid; place-content: center; justify-items: center; line-height: 1; isolation: isolate;
+  background: radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--t) 45%, transparent), transparent 72%), linear-gradient(180deg, #1c2442, #0f1528);
+  border: 1px solid color-mix(in srgb, var(--t) 75%, #000); box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
 }
-.bc.tS { --t: var(--ty-S); } .bc.tA { --t: var(--ty-A); } .bc.tM { --t: var(--ty-M); } .bc.tX { --t: var(--ty-X); } .bc.tN { --t: var(--ty-N); } .bc.tZ { --t: var(--ty-Z); }
+.bc::before { content: ''; position: absolute; inset: 12% 6%; z-index: -1; background: var(--t); opacity: .24; -webkit-mask: var(--em) center / contain no-repeat; mask: var(--em) center / contain no-repeat; }
+.bc.tS { --t: var(--ty-S); --em: var(--em-S); } .bc.tA { --t: var(--ty-A); --em: var(--em-A); } .bc.tM { --t: var(--ty-M); --em: var(--em-M); }
+.bc.tX { --t: var(--ty-X); --em: var(--em-X); } .bc.tN { --t: var(--ty-N); --em: var(--em-N); } .bc.tZ { --t: var(--ty-Z); --em: var(--em-Z); }
+.bc b { text-shadow: 0 0 8px color-mix(in srgb, var(--t) 80%, transparent), 0 1px 2px rgba(0, 0, 0, .7); }
 .bc b { font: 700 16px/1 var(--ff-crest); }
 .bc small { font-size: 8.5px; color: var(--t); margin-top: 1px; white-space: nowrap; }
 .bc.src-sv { border-top: 4px solid var(--grail); } .bc.src-ms { border-top: 4px solid var(--sp); }
 .bc.src-sv small { color: var(--grail); } .bc.src-ms small { color: var(--sp); }
-.bc.down, .bc.back { --t: var(--dim); background: repeating-linear-gradient(45deg, #1a2238 0 5px, #161d31 5px 10px); }
+.bc.down, .bc.back { --t: var(--dim); --em: var(--em-B); border-color: color-mix(in srgb, var(--grail) 45%, #000); background: radial-gradient(60% 45% at 50% 50%, rgba(212, 58, 72, .2), transparent 75%), repeating-linear-gradient(45deg, rgba(220, 183, 92, .08) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, rgba(220, 183, 92, .08) 0 1px, transparent 1px 6px), linear-gradient(180deg, #1a1f3a, #0d1124); }
+.bc.down::before, .bc.back::before { background: var(--grail); opacity: .42; }
 .bc.back b, .bc.back { color: var(--dim); font: 700 15px/1 var(--ff-crest); }
 .bwait { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brow.c3 .bc { height: min(100%, 44px); } .brow.c3 .bc small { display: none; }
@@ -589,19 +605,56 @@ small, .dim { color: var(--dim); }
 
 /* ---------- card tiles ---------- */
 .card {
-  --t: var(--ty-X); position: relative; width: 80px; aspect-ratio: 5 / 7; border-radius: 8px; padding: 6px 6px 5px; flex: none;
-  display: grid; grid-template-rows: auto 1fr auto; text-align: left;
-  background: linear-gradient(170deg, color-mix(in srgb, var(--t) 26%, var(--night-3)) 0%, var(--night-2) 70%);
-  border: 1px solid color-mix(in srgb, var(--t) 60%, transparent); color: var(--bone);
+  --t: var(--ty-X); position: relative; width: 80px; aspect-ratio: 5 / 7; border-radius: 8px; padding: 6px 6px 6px; flex: none;
+  display: grid; grid-template-rows: auto 1fr auto; text-align: left; isolation: isolate; --ck: 8px; --fi: 3px;
+  background:
+    radial-gradient(110% 55% at 50% 0%, color-mix(in srgb, var(--t) 40%, transparent), transparent 70%),
+    radial-gradient(100% 45% at 50% 105%, color-mix(in srgb, var(--t2, var(--t)) 30%, transparent), transparent 75%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #1c2442, #0f1528);
+  border: 1px solid color-mix(in srgb, var(--t) 75%, #000); color: var(--bone); box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
   transition: transform .15s, box-shadow .15s, opacity .15s; overflow: hidden;
 }
-.card.tS { --t: var(--ty-S); } .card.tA { --t: var(--ty-A); } .card.tM { --t: var(--ty-M); } .card.tX { --t: var(--ty-X); } .card.tN { --t: var(--ty-N); } .card.tZ { --t: var(--ty-Z); }
-.card .ty { font-size: 11px; font-weight: 600; color: var(--t); line-height: 1.2; padding-right: 22px; }
-.card .pw { font: 700 28px/1 var(--ff-crest); align-self: center; justify-self: center; }
+/* card faces: the type's crest behind the power, an inner frame with corner marks */
+.card::before {
+  content: ''; position: absolute; left: 50%; top: 52%; width: 80%; aspect-ratio: 1; translate: -50% -50%; z-index: -1; pointer-events: none;
+  background: var(--t); opacity: .2; -webkit-mask: var(--em) center / contain no-repeat; mask: var(--em) center / contain no-repeat;
+}
+.card::after {
+  --cm: linear-gradient(color-mix(in srgb, var(--t) 70%, transparent), color-mix(in srgb, var(--t) 70%, transparent));
+  content: ''; position: absolute; inset: var(--fi); z-index: -1; pointer-events: none; border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--t) 40%, transparent);
+  background: var(--cm) left top / var(--ck) 2px no-repeat, var(--cm) left top / 2px var(--ck) no-repeat, var(--cm) right top / var(--ck) 2px no-repeat, var(--cm) right top / 2px var(--ck) no-repeat,
+    var(--cm) left bottom / var(--ck) 2px no-repeat, var(--cm) left bottom / 2px var(--ck) no-repeat, var(--cm) right bottom / var(--ck) 2px no-repeat, var(--cm) right bottom / 2px var(--ck) no-repeat;
+}
+.card.empty::before, .card.empty::after { display: none; }
+.card.tS { --t: var(--ty-S); --em: var(--em-S); } .card.tA { --t: var(--ty-A); --em: var(--em-A); } .card.tM { --t: var(--ty-M); --em: var(--em-M); }
+.card.tX { --t: var(--ty-X); --em: var(--em-X); } .card.tN { --t: var(--ty-N); --em: var(--em-N); } .card.tZ { --t: var(--ty-Z); --em: var(--em-Z); }
+/* a second type (NP · Strength and so on) tints the foot of the card */
+.card.mS { --t2: var(--ty-S); } .card.mA { --t2: var(--ty-A); } .card.mM { --t2: var(--ty-M); } .card.mX { --t2: var(--ty-X); }
+/* NP: gold frame and rays */
+.card.tN {
+  background:
+    repeating-conic-gradient(from 0deg at 50% 52%, rgba(220, 183, 92, .1) 0 5deg, transparent 5deg 15deg),
+    radial-gradient(110% 55% at 50% 0%, rgba(220, 183, 92, .42), transparent 70%),
+    radial-gradient(100% 50% at 50% 105%, color-mix(in srgb, var(--t2, var(--grail)) 36%, transparent), transparent 75%),
+    linear-gradient(180deg, #2b2440, #120f22);
+  border-color: var(--grail);
+}
+.card.tN::before { opacity: .3; }
+.card.tN::after { border-color: color-mix(in srgb, var(--grail) 70%, transparent); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .35), inset 0 0 0 3px color-mix(in srgb, var(--grail) 30%, transparent); }
+.card .ty { font-size: 11px; font-weight: 600; color: color-mix(in srgb, var(--t) 82%, #fff); line-height: 1.2; padding-right: 22px; text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
+/* the type sits in a header band (cards with a skill band use that band as the header) */
+.card:not(.has-src) .ty {
+  margin: -6px -6px 2px; padding: 4px 24px 3px 6px; border-bottom: 1px solid color-mix(in srgb, var(--t) 45%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--t) 32%, #121830), color-mix(in srgb, var(--t) 12%, #121830));
+}
+.card .pw { font: 700 28px/1 var(--ff-crest); align-self: center; justify-self: center; color: #fff6e0; text-shadow: 0 0 10px color-mix(in srgb, var(--t) 85%, transparent), 0 2px 2px rgba(0, 0, 0, .75); }
 .card .pw sup { font: 600 11px/1 var(--ff-body); color: var(--ok); vertical-align: top; margin-left: 1px; }
 .card .mn {
   position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%;
-  display: grid; place-items: center; font: 600 11px/1 var(--ff-body); background: var(--mana); color: #0b1424;
+  display: grid; place-items: center; font: 600 11px/1 var(--ff-body); color: #06121f;
+  background: radial-gradient(circle at 35% 30%, #e4f7ff 0, var(--mana) 42%, #2b6c96 100%); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35), 0 1px 3px rgba(0, 0, 0, .6);
 }
 .card .nm { font-size: 10.5px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .card .fx { font-size: 9.5px; line-height: 1.2; color: var(--dim); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -620,25 +673,29 @@ small, .dim { color: var(--dim); }
 button.card { cursor: pointer; }
 button.card:hover { transform: translateY(-3px); }
 .card.sel { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--grail), 0 10px 18px rgba(0, 0, 0, .45); }
-.card.down, .card.back { --t: var(--dim); background: repeating-linear-gradient(45deg, #1a2238 0 6px, #161d31 6px 12px); }
-.card.down .pw, .card.back .pw { color: var(--dim); }
+.card.down, .card.back {
+  --t: color-mix(in srgb, var(--grail) 55%, var(--night)); --em: var(--em-B); border-color: color-mix(in srgb, var(--grail) 50%, #000);
+  background: radial-gradient(60% 40% at 50% 52%, rgba(212, 58, 72, .22), transparent 75%), repeating-linear-gradient(45deg, rgba(220, 183, 92, .07) 0 1px, transparent 1px 7px), repeating-linear-gradient(-45deg, rgba(220, 183, 92, .07) 0 1px, transparent 1px 7px), linear-gradient(180deg, #1a1f3a, #0d1124);
+}
+.card.down::before, .card.back::before { background: var(--grail); opacity: .4; width: 74%; }
+.card.down::after, .card.back::after { box-shadow: none; }
+.card.down .ty, .card.back .ty { color: var(--dim); }
+.card.down .pw, .card.back .pw { color: var(--dim); text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
 .card.lock { opacity: .5; }
 /* usable in the card window being asked (paper 8.0 rule 7) */
 .card.glow { box-shadow: 0 0 0 2px var(--grail), 0 0 14px color-mix(in srgb, var(--grail) 70%, transparent); animation: glow 1.4s ease-in-out infinite; }
 @keyframes glow { 50% { box-shadow: 0 0 0 2px var(--grail), 0 0 4px color-mix(in srgb, var(--grail) 40%, transparent); } }
-/* counts as every type (Gate of Babylon) */
-.card.tall { background: linear-gradient(170deg, color-mix(in srgb, var(--ty-S) 22%, var(--night-3)), color-mix(in srgb, var(--ty-A) 18%, var(--night-3)) 35%, color-mix(in srgb, var(--ty-M) 18%, var(--night-2)) 65%, var(--night-2)); }
 .card.lock .fx { color: var(--grail); }
 .card.gone { opacity: .35; }
 .card.res { box-shadow: 0 0 0 2px var(--mana); }
-.card.sm { width: 60px; padding: 4px 4px 3px; border-radius: 6px; }
+.card.sm { width: 60px; padding: 4px 4px 3px; border-radius: 6px; --ck: 6px; --fi: 2px; }
 .card.sm .ty { font-size: 9px; padding-right: 16px; }
 .card.sm .pw { font-size: 20px; }
 .card.sm .mn { width: 16px; height: 16px; font-size: 9.5px; top: 3px; right: 3px; }
 .card.sm .nm { font-size: 9px; -webkit-line-clamp: 1; }
 .card.sm .fx { display: none; }
 .card.sm.skill { padding: 2px; }
-.card.hd { width: auto; height: var(--hh); padding: 5px 5px 4px; }
+.card.hd { width: auto; height: var(--hh); padding: 5px 5px 5px; }
 .card.hd .pw { font-size: calc(var(--hh) * .2); }
 .card.hd .nm { font-size: clamp(9px, calc(var(--hh) * .075), 11px); }
 .card.hd .fx { font-size: clamp(8.5px, calc(var(--hh) * .068), 10px); -webkit-line-clamp: 1; }
@@ -647,18 +704,24 @@ button.card:hover { transform: translateY(-3px); }
 .card.hd.skill { padding: 3px; } .card.hd.skill .src { margin: -3px -3px 2px; }
 .card.hd.has-src .mn { top: calc(var(--hh) * .1 + 8px); }
 @container board (max-height: 520px) { .card.hd .fx { display: none; } }
-.card.mini { width: 50px; padding: 3px 4px; border-radius: 6px; }
+.card.skill:not(.has-src) .ty, .card.sm:not(.has-src) .ty { margin: -4px -4px 2px; padding: 3px 18px 2px 4px; }
+.card.sm.skill:not(.has-src) .ty { margin: -2px -2px 2px; }
+.card.hd:not(.has-src) .ty { margin: -5px -5px 2px; padding: 3px 22px 2px 5px; }
+.card.hd.skill:not(.has-src) .ty { margin: -3px -3px 2px; }
+.card.mini { width: 50px; padding: 3px 4px; border-radius: 6px; --ck: 5px; --fi: 2px; }
 .card.mini .pw { font-size: 18px; }
 .card.mini .ty { font-size: 9px; padding-right: 0; }
 .card.mini .mn, .card.mini .nm, .card.mini .fx { display: none; }
+.card.mini:not(.has-src) .ty { margin: -3px -4px 2px; padding: 2px 4px 1px; }
 @media (max-width: 480px) { .card:not(.mini):not(.sm):not(.hd):not(.cardview *) { width: 70px; } .card:not(.mini):not(.sm):not(.hd):not(.cardview *) .pw { font-size: 24px; } }
 /* one card in full (tap a card in the hand bar) */
 .cardview { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
-.cardview .card { width: 150px; padding: 10px 10px 8px; border-radius: 12px; }
+.cardview .card { width: 150px; padding: 10px 10px 8px; border-radius: 12px; --ck: 12px; --fi: 5px; }
 .cardview .card .src { margin: -10px -10px 6px; font-size: 12px; padding: 3px 4px; }
 .cardview .card.skill .src { margin: -8px -8px 6px; }
 .cardview .card.has-src .mn { top: 30px; }
 .cardview .card .ty { font-size: 13px; padding-right: 30px; }
+.cardview .card:not(.has-src) .ty { margin: -10px -10px 6px; padding: 6px 36px 5px 10px; }
 .cardview .card .pw { font-size: 52px; }
 .cardview .card .mn { width: 26px; height: 26px; font-size: 13px; }
 .cardview .card .nm { font-size: 13px; -webkit-line-clamp: 3; }
