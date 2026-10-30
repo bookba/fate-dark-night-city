@@ -123,6 +123,8 @@ const TAG = {
 const useFx = (fx) => [fx.mana && `มานา +${fx.mana}`, fx.vp && `${fx.vp} VP`, fx.peek && 'ดูอีเวนต์ชินโตะ', fx.freeMove && 'ย้ายแม้ติดพัน'].filter(Boolean).join(' · ');
 const tags = (c) => [...(c.use || []).map((u) => `${WHEN_NAME[u.when]}: ${useFx(u.fx)}`), ...Object.entries(c.fx || {}).filter(([k]) => TAG[k]).map(([k, v]) => (typeof TAG[k] === 'function' ? TAG[k](v) : TAG[k]))];
 const typeName = (c) => (c.types ? c.types.map((t) => TYPES[t]).join(' · ') : TYPES[c.type]); // e.g. Excalibur: NP · กำลัง
+// the same words in each type's colour, for card faces and card lists (NP · กำลัง: gold, then red)
+const typeHtml = (c) => (c.types || [c.type]).map((t) => `<span class="tw tw-${t}">${TYPES[t]}</span>`).join(' · ');
 const cardName = (c) => c.name || `${typeName(c)} ${c.power}`;
 const clean = (t) => t.replace(/\s*\[(p\.\d+(–\d+)?|4G|GZ|NW|FD|ฟามิซือ)\]/g, ''); // source tags belong to the paper, not the table
 const cardText = (c) => (c.text ? clean(c.text) : [`${typeName(c)} พลัง ${c.power} มานา ${c.mana}`, ...tags(c)].join(' · '));
@@ -154,7 +156,7 @@ function tile(c, o = {}) {
   const zero = down || c.off;
   const up = pw > c.power ? `<sup>+${pw - c.power}</sup>` : '';
   const fx = o.note ?? (c.gone ? 'ใช้แล้ว' : c.resident ? 'ถาวรอยู่' : tags(c).slice(0, 2).join(' · '));
-  const body = `${srcBand(src)}<span class="ty">${down ? 'คว่ำ · ' : c.off ? 'ปิด · ' : ''}${typeName(c)}</span><span class="pw">${zero ? 0 : Math.min(pw, c.power)}${zero ? '' : up}</span>`
+  const body = `${srcBand(src)}<span class="ty">${down ? 'คว่ำ · ' : c.off ? 'ปิด · ' : ''}${typeHtml(c)}</span><span class="pw">${zero ? 0 : Math.min(pw, c.power)}${zero ? '' : up}</span>`
     + `<span class="mn" title="มานา">${o.cost ?? (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana)}</span>`
     + `<span>${c.name ? `<span class="nm">${esc(c.name)}</span>` : ''}${fx ? `<span class="fx">${esc(fx)}</span>` : ''}</span>`;
   const title = esc([srcText(c), cardText(c)].filter(Boolean).join(' · '));
@@ -895,7 +897,7 @@ function winPop() {
   const rows = cards.map((c) => {
     const u = g.useLine(p, c, wait.ctx.w);
     return `<div class="dk wuse">${tile({ ...c, down: false }, { note: '' })}<div class="dk-tx"><b>${esc(cardName(c))}</b>
-      <span class="dk-meta"><span class="when w-${u.when}">${esc(lineText({ when: u.when, where: u.where || 'any', cond: u.cond }))}</span> ${esc(typeName(c))} · พลัง ${c.power} · มานา ${g.costOf(p, c)}</span>
+      <span class="dk-meta"><span class="when w-${u.when}">${esc(lineText({ when: u.when, where: u.where || 'any', cond: u.cond }))}</span> ${typeHtml(c)} · พลัง ${c.power} · มานา ${g.costOf(p, c)}</span>
       <span>${esc(cardText(c))}</span><span class="acts"><button class="btn sm primary" data-act="winuse" data-uid="${c.uid}">ใช้ใบนี้${g.costOf(p, c) ? ` · มานา ${g.costOf(p, c)}` : ''}</button></span></div></div>`;
   }).join('');
   return {
@@ -942,7 +944,7 @@ function deckItem(c, note, o = {}) {
   const cost = o.owner ? (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana) : costNow(c, p);
   const t = tile({ ...c, down: false }, { note, lock: o.lock, cost, ...(o.key ? { btn: true, act: 'pcard', key: o.key } : {}) });
   return `<div class="dk${o.dim ? ' dim-card' : ''}">${t}<div class="dk-tx"><b>${esc(cardName(c))}</b>
-    <span class="dk-meta">${pills(c)}${src ? `<em class="${srcOf(c) || 'np'}">${esc(src)}</em> · ` : ''}${typeName(c)} · พลัง ${c.power} · มานา ${cost}${c.down ? ' · <span class="dn">ลงคว่ำ</span>' : ''}</span>
+    <span class="dk-meta">${pills(c)}${src ? `<em class="${srcOf(c) || 'np'}">${esc(src)}</em> · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${cost}${c.down ? ' · <span class="dn">ลงคว่ำ</span>' : ''}</span>
     <span>${esc(fx || 'ไม่มีผลพิเศษ')}</span></div></div>`;
 }
 function deckPop() {
@@ -985,7 +987,7 @@ function cardPop(uid) {
   const use = winCan().has(c.uid) ? `<button class="btn primary" data-act="winuse" data-uid="${c.uid}">ใช้ใบนี้${c.mana ? ` · มานา ${c.mana}` : ''}</button>` : '';
   return {
     title: cardName(c),
-    sub: `${src ? `${esc(src)} · ` : ''}${typeName(c)} · พลัง ${c.power} · มานา ${costNow(c)}`,
+    sub: `${src ? `${esc(src)} · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${costNow(c)}`,
     mini: `${esc(cardName(c))} · ใบที่ ${i + 1}/${list.length}`,
     html: cardView(c, cardState(c, p), `${c.skill ? `<p class="p-text">${c.fx?.no8 ? 'ใบนี้ไม่ต้องมีมานา 8' : `การ์ด NP/สกิลใช้ได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป`} แล้วจ่ายมานาตามการ์ด</p>` : c.consume ? '<p class="p-text">ใช้ช่วงเตรียมการ (ขั้น 1.4) ใช้แล้วหายไป</p>' : c.keep ? '<p class="p-text">สกิล Master อยู่ในช่องสกิล ลงเพิ่มนอกเหนือการ์ด 2 ใบ ใช้แล้วกลับที่เดิม</p>' : ''}
       <p class="p-text">${use ? 'ใช้ได้ในช่วงนี้ หรือเก็บไว้ลงตอนลงการ์ด' : 'อ่านอย่างเดียว · เลือกลงการ์ดในหน้าลงการ์ด'}</p>`),
@@ -1081,7 +1083,7 @@ function pcardPop(id, key) {
   const step = (d, label) => { const n = list[(i + d + list.length) % list.length]; return `<button class="btn" data-act="pcard" data-uid="${n.key}" aria-label="${label}">${d < 0 ? '‹' : '›'}</button>`; };
   return {
     title: cardName(c),
-    sub: `${esc(q.name)} · ${src ? `${esc(src)} · ` : ''}${typeName(c)} · พลัง ${c.power} · มานา ${c.mana}`,
+    sub: `${esc(q.name)} · ${src ? `${esc(src)} · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${c.mana}`,
     mini: `${esc(cardName(c))} · ${esc(q.name)}`,
     html: cardView(c, state, '<p class="p-text">ข้อมูลเปิด ทุกคนเห็น · อ่านอย่างเดียว</p>'),
     foot: `<div class="acts cv-nav">${step(-1, 'ใบก่อนหน้า')}<span class="dim">${i + 1} / ${list.length}</span>${step(1, 'ใบถัดไป')}</div><button class="btn" data-act="player" data-id="${q.id}">กลับไปที่ ${esc(q.name)}</button>`,

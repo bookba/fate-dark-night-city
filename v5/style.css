@@ -649,6 +649,10 @@ small, .dim { color: var(--dim); }
   margin: -6px -6px 2px; padding: 4px 24px 3px 6px; border-bottom: 1px solid color-mix(in srgb, var(--t) 45%, transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--t) 32%, #121830), color-mix(in srgb, var(--t) 12%, #121830));
 }
+/* type words in their own colours (NP · กำลัง on an NP card) */
+.tw-S { color: color-mix(in srgb, var(--ty-S) 85%, #fff); } .tw-A { color: color-mix(in srgb, var(--ty-A) 85%, #fff); } .tw-M { color: color-mix(in srgb, var(--ty-M) 80%, #fff); }
+.tw-X { color: color-mix(in srgb, var(--ty-X) 85%, #fff); } .tw-N { color: var(--grail); } .tw-Z { color: var(--ty-Z); }
+.card.down .tw { color: inherit; }
 .card .pw { font: 700 28px/1 var(--ff-crest); align-self: center; justify-self: center; color: #fff6e0; text-shadow: 0 0 10px color-mix(in srgb, var(--t) 85%, transparent), 0 2px 2px rgba(0, 0, 0, .75); }
 .card .pw sup { font: 600 11px/1 var(--ff-body); color: var(--ok); vertical-align: top; margin-left: 1px; }
 .card .mn {
