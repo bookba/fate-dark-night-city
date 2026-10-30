@@ -9,7 +9,7 @@ import {
   CS_MANA, CS_POWER, CS_VP, STEP_COST, TSUBAME, UBW_PLAY, RIDE_MAX, GANDR, SERVANTS, SAMPLE, SNAKE,
   STEPS, WINDOWS, WHEN_NAME, WHERE, COND, cardLines,
 } from './game.js';
-import { botDecide } from './bot.js';
+import { botDecide, destValue, gateTypes } from './bot.js';
 import { SV_ART, MAP_ART } from './art.js';
 
 const $ = (s) => document.querySelector(s);
@@ -23,13 +23,14 @@ let g = null, wait = null, draft = null, skip = false, overShown = false, outSho
 let pop = null; // the open pop-up: { k: 'act' | 'opts' | 'win' | 'area' | 'me' | 'deck' | 'card' | 'player' | 'pcard' | 'rank' | 'log' | 'sit' | 'menu', f, min, back }
 let popBack = null; // the action pop-up to return to after looking at something else
 const swapSel = new Set(); // hand cards Rin marked for a gem swap (1–3)
+let choice = null; // the skill-choice pop-up over the card step (paper 4.6 item 8): { k, uid, sel, re }
 const setup = { master: 'shirou', sample: false };
 
 document.documentElement.style.setProperty('--map', `url("${MAP_ART.night}")`);
 
 // ---------- game flow ----------
 function startGame() {
-  skip = false; overShown = false; outShown = false; wait = null; draft = null; info = null; started = true; logCount = 0; pop = null; popBack = null;
+  skip = false; overShown = false; outShown = false; wait = null; draft = null; info = null; started = true; logCount = 0; pop = null; popBack = null; choice = null;
   closeSheet();
   const game = new Game({ decide, onEvent, humanMaster: setup.master, sample: setup.sample });
   g = game;
@@ -54,12 +55,13 @@ function decide(game, pl, kind, ctx) {
     info = null;
     if (kind === 'cards') { pop = { k: 'act' }; popBack = null; } // playing cards is the action at your own area
     if (kind === 'window') { pop = { k: 'win' }; popBack = null; } // a card window: asked only when a card can be used
+    if (kind === 'strike1') choice = { k: 'strike1', sel: strikeStart(ctx) }; // 1st Strike's cards, in the fight (paper 4.6 item 8)
     render();
     if (kind === 'combatEnd' && !myBattle()) showResults(ctx.results); // your own fight plays out on the board first
   });
 }
 function answer(v) {
-  const w = wait; wait = null; draft = null; info = null; swapSel.clear();
+  const w = wait; wait = null; draft = null; info = null; choice = null; swapSel.clear();
   if (pop && ['act', 'opts', 'area', 'win'].includes(pop.k)) pop = null;
   popBack = null;
   closeSheet(); w.res(v); render();
@@ -71,7 +73,7 @@ function firstDraft(kind, ctx) {
   if (kind === 'cards') {
     // start from what a bot would play, without Command Spells or a swap; the player can change everything
     const b = botDecide(g, me, 'cards', { ...ctx, noSwap: true, noCs: true }) || {};
-    return { ids: b.ids || [], down: b.down || [], cs4: false, cs2: 0, gemMana: b.gemMana || 0, gandr: b.gandr || 0, gate: b.gate || [], moveTo: b.moveTo || null, csMove: null, rbTarget: null };
+    return { ids: b.ids || [], down: b.down || [], cs4: false, cs2: 0, gemMana: b.gemMana || 0, gandr: b.gandr || 0, gate: b.gate || [], moveTo: b.moveTo || null, mover: null, csMove: null, rbTarget: null };
   }
   return {};
 }
@@ -202,6 +204,7 @@ function render() {
   drawLog();
   drawNav();
   drawPop();
+  drawChoice();
   if (me().out && !outShown && !g.over) { outShown = true; showOut(); }
   if (g.over && !overShown && !wait) { overShown = true; showOver(); }
 }
@@ -236,11 +239,12 @@ function drawBar() {
   } else if (myTurn()) {
     const k = wait.kind;
     const w = k === 'window' ? WINDOWS[wait.ctx.w] : null;
-    const what = k === 'place' ? 'ตั้งมั่น · วางหมาก' : k === 'move' ? 'ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม' : w ? `ช่วง${w.name} · ใช้การ์ดได้` : `ลงการ์ดที่${AREAS[p.at].name}${AREAS[p.at].field ? '' : ' · ไม่คิดพลัง'}`;
-    const hint = k === 'cards' ? '' : w ? `<span class="hint">ขั้น ${w.code} · การ์ดที่ใช้ได้เรืองแสงในแถบการ์ด</span>` : '<span class="hint">แตะพื้นที่ที่เรืองแสงบนกระดาน</span>';
+    const what = k === 'strike1' ? 'ต่อสู้ · 1st Strike เลือกการ์ด' : k === 'place' ? 'ตั้งมั่น · วางหมาก' : k === 'move' ? 'ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม' : w ? `ช่วง${w.name} · ใช้การ์ดได้` : `ลงการ์ดที่${AREAS[p.at].name}${AREAS[p.at].field ? '' : ' · ไม่คิดพลัง'}`;
+    const hint = k === 'cards' ? '' : k === 'strike1' ? '<span class="hint">ขั้น 4.1 · ผล "ตอนปะทะ" ของคุณ</span>' : w ? `<span class="hint">ขั้น ${w.code} · การ์ดที่ใช้ได้เรืองแสงในแถบการ์ด</span>` : '<span class="hint">แตะพื้นที่ที่เรืองแสงบนกระดาน</span>';
     const cs4 = k === 'move' && p.cs > 0 && p.mana < MANA_MAX
       ? `<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="mvcs4" aria-pressed="${!!draft.cs4}">◆ มานา +${CS_MANA} ก่อนย้าย</button>` : '';
-    const btn = k === 'cards' ? '<button class="btn sm primary" data-act="openact">เปิดหน้าลงการ์ด</button>'
+    const btn = k === 'strike1' ? '<button class="btn sm primary" data-act="copen" data-k="strike1">เปิดหน้าเลือก</button>'
+      : k === 'cards' ? '<button class="btn sm primary" data-act="openact">เปิดหน้าลงการ์ด</button>'
       : w ? '<button class="btn sm" data-act="winpass">ผ่าน</button><button class="btn sm primary" data-act="openwin">เปิดหน้าใช้การ์ด</button>'
       : '<button class="btn sm" data-act="pop" data-k="opts">ดูตัวเลือกทั้งหมด</button>';
     html = `<span class="yourturn">ตาของคุณ</span><b>${esc(what)}</b>${hint}<span class="acts">${cs4}${btn}</span>`;
@@ -392,7 +396,11 @@ function myBattle() {
   const here = g.here(f);
   if (here.length < 2) return null;
   if (g.phase === 'action' && here.some((q) => q.play)) return { f, res: null };
-  if (g.phase === 'combat') { const res = g.results.find((r) => r.f === f); if (res && !res.alone) return { f, res }; }
+  if (g.phase === 'combat') {
+    const res = g.results.find((r) => r.f === f);
+    if (res && !res.alone) return { f, res };
+    if (!res && here.some((q) => q.play)) return { f, res: null }; // an on-clash choice before the result (1st Strike)
+  }
   return null;
 }
 const RES_STEP = 450; // ms between the Masters' results
@@ -403,12 +411,20 @@ function bcard(c, q) {
   const title = esc(`${c.down ? 'ลงคว่ำ · ' : ''}${cardName(c)} · ${[srcText(c, q), cardText(c)].filter(Boolean).join(' · ')}`);
   return `<span class="bc t${c.type}${c.down || c.off ? ' down' : ''}${s ? ` src-${s}` : ''}" title="${title}"><b>${c.down || c.off ? 0 : c.power}</b><small>${c.down ? 'คว่ำ' : c.off ? 'ปิด' : s ? 'สกิล' : TYPES[c.type]}</small></span>`;
 }
-function powerDiff(q, e) {
-  if (!q.play) return '';
-  const pre = g.powerOf(q, q.play).parts;
-  const val = (ps, t) => ps.find(([k]) => k === t)?.[1] || 0;
-  const labels = [...new Set([...pre, ...e.parts].map(([t]) => t))];
-  return labels.map((t) => [t, val(e.parts, t) - val(pre, t)]).filter(([, d]) => d).map(([t, d]) => `${d > 0 ? '+' : ''}${d} ${t}`).join(' · ');
+// the short line under a power: "การ์ด 6 · พื้นที่ +3 · CS +2" (paper 4.6 item 9)
+const PART_SHORT = { 'ได้เปรียบพื้นที่': 'พื้นที่', 'Command Spell': 'CS', 'Tsubame Gaeshi': 'Tsubame', 'การ์ดชนิดเดียวกัน': 'ชนิดเดียวกัน', 'Excalibur ไคลแมกซ์': 'Excalibur', 'ชื่อจริงยังซ่อน': 'ชื่อซ่อน' };
+const sgn = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+const shortParts = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? `การ์ด ${n}` : `${PART_SHORT[t] || t} ${sgn(n)}`)).join(' · ');
+// what the clash changed, by name ("Executor", "Invisible Air", "1st Strike"); a bonus already in
+// the power before the fight is left out
+function clashNames(e) {
+  const had = (t, n) => (e.preParts || []).some(([k, v]) => k === t && v === n);
+  const out = [];
+  for (const r of e.rows || []) {
+    if (r.k === 'part' && r.clash && !had(r.label, r.n)) out.push(PART_SHORT[r.label] || r.label);
+    if (r.k === 'card') { if (r.clashIn) out.push('1st Strike'); for (const m of r.mods) if (m.clash) out.push(m.s || m.t); }
+  }
+  return [...new Set(out)].join(' · ');
 }
 function battleRows(f, res, full) {
   const people = g.order().filter((q) => q.at === f);
@@ -427,15 +443,17 @@ function battleRows(f, res, full) {
     let note = '';
     let short = ''; // the result under the power, for narrow areas
     let pw = q.play ? q.play.pre : '–';
-    let sub = q.terrain ? `<i title="ได้เปรียบพื้นที่">${full ? 'ได้เปรียบ ' : ''}+${q.terrain}</i>` : '';
+    let sub = q.terrain ? `<i class="tr" title="ได้เปรียบพื้นที่">${full ? 'ได้เปรียบ ' : ''}+${q.terrain}</i>` : '';
+    const parts = e ? e.parts : q.play?.preParts || [];
     if (e) {
-      const diff = powerDiff(q, e);
       const vp = (t, k) => `${t}${k ? ` +${k}<small> VP</small>` : ''}`;
       const what = e.defeated ? '[แพ้]' : e.won ? vp('ชนะ', e.gain) : vp('แพ้', e.gain);
-      note = [diff, ...e.notes.filter((x) => x !== '[แพ้]')].filter(Boolean).join(' · ');
       const d = q.play && !e.defeated ? e.power - q.play.pre : 0;
+      const names = clashNames(e);
+      const dl = d ? `${sgn(d)}${names ? ` ${names}` : ''}` : ''; // what the clash added, popping up by the power
+      note = [dl, ...e.notes.filter((x) => x !== '[แพ้]')].filter(Boolean).join(' · ');
       pw = e.defeated ? '–' : e.power;
-      sub = d ? `<i class="dl${d < 0 ? ' neg' : ''}" title="${esc(note)}">${d > 0 ? '+' : ''}${d}</i>` : '';
+      sub = dl ? `<i class="dl${d < 0 ? ' neg' : ''}" title="${esc(note)}">${esc(dl)}</i>` : '';
       out = `<span class="bres${e.won ? ' won' : e.defeated ? ' def' : ''}">${what}</span>`;
       short = e.defeated ? '[แพ้]' : e.won ? `ชนะ${e.gain ? ` +${e.gain}` : ''}` : 'แพ้';
     }
@@ -443,10 +461,14 @@ function battleRows(f, res, full) {
     const cls = `brow${q.isHuman ? ' me' : ''}${lead ? ' lead' : ''}${e ? ` res${e.won ? ' won' : ' lost'}` : ''}${n >= 4 ? ' c4' : n === 3 ? ' c3' : ''}`;
     const fx = full && q.play ? q.play.cards.filter((c) => !(c.down && !q.isHuman) && (c.text || tags(c).length))
       .map((c) => `<li><b>${esc(cardName(c))}</b> ${esc([c.down ? 'ลงคว่ำ ไม่มีผล' : '', srcText(c, q), cardText(c)].filter(Boolean).join(' · '))}</li>`).join('') : '';
-    return `<div class="${cls}" ${delay}><span class="bwho">${full ? chip(q) : `${tok(q)}<b>${esc(q.name)}</b>`}</span>
+    // the full table in the pop-up; on the board a tap on the row opens it (paper 4.6 item 9)
+    const table = full && q.play ? `<div class="bpwt">${pwTable(e ? { rows: e.rows || [], total: e.power } : g.powerOf(q, q.play, { detail: true }), q)}</div>` : '';
+    const bar = !full && parts.length ? `<small class="bsum">${esc(shortParts(parts))}</small>` : '';
+    const tap = !full && q.play ? ` data-act="pwrow" data-id="${q.id}" role="button" tabindex="0" aria-label="${esc(`พลังของ ${q.name} · แตะดูที่มา`)}"` : '';
+    return `<div class="${cls}" ${delay}${tap}><span class="bwho">${full ? chip(q) : `${tok(q)}<b>${esc(q.name)}</b>`}</span>
       <span class="bcards">${cards}</span>${out ? `<span class="bout">${out}</span>` : ''}
-      <span class="bpw${e?.won ? ' won' : ''}"${short ? ` data-res="${esc(short)}"` : ''}><b>${pw}</b>${sub}</span>${note ? `<span class="bnote">${esc(note)}</span>` : ''}
-      ${fx ? `<ul class="bfx">${fx}</ul>` : ''}</div>`;
+      <span class="bpw${e?.won ? ' won' : ''}"${short ? ` data-res="${esc(short)}"` : ''}><b>${pw}</b>${sub}${bar}</span>${note ? `<span class="bnote">${esc(note)}</span>` : ''}
+      ${table}${fx ? `<ul class="bfx">${fx}</ul>` : ''}</div>`;
   }).join('');
 }
 
@@ -548,7 +570,7 @@ function drawPop() {
     el.hidden = true; el.innerHTML = ''; delete el.dataset.k; el.classList.remove('min');
     return;
   }
-  const key = ['card', 'player', 'pcard'].includes(pop.k) ? pop.k : `${pop.k}:${pop.f || ''}`; // stepping through cards or players keeps the window
+  const key = ['card', 'player', 'pcard', 'pw'].includes(pop.k) ? pop.k : `${pop.k}:${pop.f || ''}`; // stepping through cards or players keeps the window
   let dlg = el.querySelector('.pop-dlg');
   if (el.dataset.k !== key || !dlg) {
     el.innerHTML = `<div class="pop-dlg" role="dialog"><div class="pop-head"><div class="pop-title"><h2></h2><span class="sub"></span><span class="mini"></span></div>
@@ -611,6 +633,7 @@ function popBody() {
   if (k === 'win') return myTurn() && wait.kind === 'window' ? winPop() : null;
   if (k === 'player') return playerPop(pop.f);
   if (k === 'pcard') return pcardPop(pop.f, pop.c);
+  if (k === 'pw') return pwPop(pop.f, pop.id);
   if (k === 'opts') return myTurn() && wait.kind === 'place' ? placeOpts() : myTurn() && wait.kind === 'move' ? moveOptsPop() : null;
   if (k === 'area') return areaPop(pop.f);
   if (k === 'me') return mePop();
@@ -741,24 +764,15 @@ function moveOptsPop() {
   };
 }
 
-// Rin's gem: discard 1–3 hand cards and draw as many, in her card step before the cards are chosen [FD]
-function swapBox() {
-  const p = me();
-  if (!g.canSwap(p)) return '';
-  const lim = g.gemLimit();
-  return `<div class="swap"><p class="row-lab">อัญมณี: ทิ้ง 1–3 ใบแล้วจั่วเท่ากัน · ใช้ 1 ใบ · ${lim > 1 ? `ไคลแมกซ์ได้ ${lim} ครั้งต่อรอบ` : 'รอบละครั้ง'} (อัญมณีเหลือ ${p.gems})</p><div class="cards">${p.hand.map((c) => tile(c, { btn: true, act: 'swappick', mini: true, sel: swapSel.has(c.uid) })).join('')}
-    <button class="btn sm" data-act="swap"${swapSel.size ? '' : ' disabled'}>${swapSel.size ? `ทิ้ง ${swapSel.size} ใบ แล้วจั่วใหม่` : 'เลือกใบที่จะทิ้ง'}</button></div></div>`;
-}
-
 const allCards = (p) => [...p.hand, ...p.skills, ...p.specials, ...p.deck, ...p.trash];
 
 // the play the engine would make from the draft, for the preview
 // picked cards the engine lays face down although the draft has them face up (not enough mana)
-const forcedDown = (a) => new Set(a.down.filter((id) => draft.ids.includes(id) && !draft.down.includes(id)));
+const forcedDown = (a, d = draft) => new Set(a.down.filter((id) => d.ids.includes(id) && !d.down.includes(id)));
 
-function preview() {
+function preview(d = draft) {
   const p = me();
-  const a = g.cleanCards(p, draft);
+  const a = g.cleanCards(p, d);
   const pool = allCards(p);
   const cards = a.ids.map((id) => {
     const c = pool.find((x) => x.uid === id);
@@ -769,12 +783,12 @@ function preview() {
   const f = a.moveTo || a.csMove || p.at; // where the cards end up
   const off = !AREAS[f].field; // off a battlefield no power counts (paper 8.3)
   // the advantage stays behind; Bellerophon takes both advantage spaces of its battlefield [FD]
-  const bell = a.mover != null && !off && cards.some((c) => c.uid === a.mover && c.fx?.bell);
+  const bell = a.mover != null && !off ? cards.find((c) => c.uid === a.mover && c.fx?.bell) : null;
   const stolen = bell ? TERRAIN.reduce((s, t) => s + t, 0) : 0;
-  const who = dest || bell ? { ...p, terrain: stolen } : p;
+  const who = dest || bell ? { ...p, terrain: stolen, seized: bell ? { by: bell.name, f } : null } : p;
   const revealing = !p.revealed && (cards.some((c) => !c.down && c.fx?.reveal) || g.tsubame(cards));
   const rbQ = a.rbTarget != null ? g.players[a.rbTarget] : null;
-  const pw = g.powerOf(who, { cards, cs2: a.cs2, blocked: a.blocked, rb: rbQ && rbQ.cs === 0 ? 10 : 0 }, { f });
+  const pw = g.powerOf(who, { cards, cs2: a.cs2, blocked: a.blocked, rb: rbQ && rbQ.cs === 0 ? 10 : 0 }, { f, detail: true });
   return { a, cards, pw, revealing, f, off, dest, stolen, rbQ };
 }
 
@@ -803,37 +817,29 @@ function cardsPop() {
     const flip = !s || !g.canFlip(c) ? ''
       : forced.has(c.uid) ? `<button class="flip down" disabled>คว่ำอยู่ · มานาไม่พอหงาย</button>`
       : `<button class="flip${isDown ? ' down' : ''}" data-act="flip" data-uid="${c.uid}">${isDown ? 'คว่ำอยู่ · กดหงาย' : 'หงาย · กดคว่ำ'}</button>`;
-    return `<div class="pickcol">${t}${flip}</div>`;
+    return `<div class="pickcol">${t}${flip}${choiceTag(c, a)}</div>`;
   };
   const locked = (c, why) => `<div class="pickcol">${tile(c, { lock: true, note: why })}</div>`;
   const short = (c) => { const m = g.costOf(p, c); return !inf && !sel.has(c.uid) && m > a.budget - fixed ? `มานาไม่พอ (เหลือ ${Math.max(0, a.budget - fixed)} ใช้ ${m})` : ''; };
   const skills = p.skills.map((c) => { const why = g.skillState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('');
-  const specials = p.specials.map((c) => { const why = c.windowOnly ? 'ใช้ช่วงเตรียมการ' : g.specialState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('');
+  const specials = p.specials.map((c) => { const why = c.windowOnly ? 'ใช้ช่วงเตรียมการ' : g.specialState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('')
+    + (p.m.key === 'rin' ? gemTile(a) : '');
   const handCards = p.hand.map((c) => (c.fx?.luck && p.roundUse.defeated ? locked(c, 'แพ้ไปแล้ว ลง Luck ไม่ได้') : pick(c))).join('');
   const ubw = cards.find((c) => c.fx?.ubw);
   const deckRow = ubw ? `<div class="pop-sec"><p class="row-lab">สำรับและกองทิ้ง (Unlimited Blade Works ลงการ์ดเพิ่มได้ถึง ${ubw.fx.ubw} ใบ · ที่เหลือขึ้นมือ)</p><div class="cards">${[...p.deck, ...p.trash].map((c) => pick(c)).join('')}</div></div>` : '';
 
-  // Command Spells and gems (paper section 10, Rin in section 5); none in a battlefield held by 2nd Strike
+  // Command Spells only (paper section 10): the skills' choices open their own pop-ups (paper 4.6
+  // item 8); none in a battlefield held by 2nd Strike
   const csLeft = p.cs - (a.cs4 ? 1 : 0);
   const ctrl = [];
-  const lim = g.gemLimit();
   if (!a.blocked && p.cs > 0 && p.mana < MANA_MAX) ctrl.push(`<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="cs4" aria-pressed="${!!draft.cs4}">◆ มานา +${CS_MANA} ก่อนจ่าย</button>`);
-  if (!a.blocked && csLeft > 0 && !off) ctrl.push(stepper('cs2', `◆ พลัง +${CS_POWER} (ชนะได้ VP +${CS_VP})`, a.cs2, csLeft));
-  if (p.m.key === 'rin' && p.gems > 0 && !a.blocked) {
-    ctrl.push(stepper('gemMana', 'อัญมณี: มานา +1', a.gemMana, Math.min(lim, p.gems)));
-    ctrl.push(stepper('gandr', 'อัญมณี: Gandr Shot (เวท 1 ลงเพิ่ม)', a.gandr, Math.min(lim, p.gems - a.gemMana)));
-  }
-  const gateCard = cards.find((c) => c.fx?.gate);
-  if (gateCard && !a.blocked) ctrl.push(`<span class="stepper">Gate of Babylon ชนิดเพิ่ม (มานา 1 ต่อชนิด): ${['S', 'A', 'M'].map((t) => `<button class="btn sm${a.gate.includes(t) ? ' on' : ''}" data-act="gate" data-t="${t}" aria-pressed="${a.gate.includes(t)}">${TYPES[t]}</button>`).join('')}</span>`);
-  const rb = cards.find((c) => !c.down && c.fx?.ruleBreaker);
-  const rbTargets = rb && !a.blocked && AREAS[f].field ? g.here(f).filter((q) => q !== p) : [];
-  if (rbTargets.length) ctrl.push(`<span class="stepper">Rule Breaker เป้าหมาย: ${rbTargets.map((q) => `<button class="btn sm${a.rbTarget === q.id ? ' on' : ''}" data-act="rbt" data-id="${q.id}">${esc(q.name)} ◆${q.cs}</button>`).join('')}</span>`);
-  const movers = a.blocked ? [] : cards.filter((c) => !c.down && (c.fx?.bell || c.fx?.move));
-  const dests = [...new Set(movers.flatMap((c) => g.cardDests(p, c)))];
+  if (!a.blocked && csLeft > 0 && !off) ctrl.push(stepper('cs2', `◆ พลัง +${CS_POWER} (ชนะได้ VP +${CS_VP})`, a.cs2, csLeft - (a.csMove ? 1 : 0)));
   const csDests = PATH.slice(1).filter((k) => k !== p.at && (k !== 'recon' || g.reconFree(p)));
-  const destName = (k) => (k === p.at ? `อยู่${AREAS[k].name} ยึดพื้นที่` : AREAS[k].name);
-  if (dests.length) ctrl.push(`<span class="stepper">${esc(movers.map((c) => c.name).join(' / '))} ย้ายไป: ${['', ...dests].map((k) => `<button class="btn sm${(draft.moveTo || '') === k ? ' on' : ''}" data-act="moveTo" data-to="${k}">${k ? esc(destName(k)) : 'ไม่ย้าย'}</button>`).join('')}</span>`);
-  else if (!a.blocked && csLeft - a.cs2 > 0) ctrl.push(`<span class="stepper">◆ หลังลงการ์ดย้ายไป: ${['', ...csDests].map((k) => `<button class="btn sm${(draft.csMove || '') === k ? ' on' : ''}" data-act="csMove" data-to="${k}">${k ? esc(AREAS[k].name) : 'ไม่ย้าย'}</button>`).join('')}</span>`);
+  if (!a.blocked && csLeft > 0 && csDests.length) {
+    // one move a play: a move card already takes you, so this one greys out
+    const why = a.moveTo ? 'การ์ดย้ายแล้ว' : csLeft - a.cs2 <= 0 ? 'Command Spell ใช้กับพลังหมดแล้ว' : '';
+    ctrl.push(`<span class="stepper${why ? ' off' : ''}">◆ หลังลงการ์ดย้ายไป: ${['', ...csDests].map((k) => `<button class="btn sm${!why && (a.csMove || '') === k ? ' on' : ''}" data-act="csMove" data-to="${k}"${why ? ' disabled' : ''}>${k ? esc(AREAS[k].name) : 'ไม่ย้าย'}</button>`).join('')}${why ? `<em class="why">${why}</em>` : ''}</span>`);
+  }
 
   // what the engine changed from the draft
   const notes = [];
@@ -841,7 +847,7 @@ function cardsPop() {
   for (const id of a.ids) if (!sel.has(id) && id > 0) notes.push(`เติม ${esc(cardName(cards.find((c) => c.uid === id)))} แบบคว่ำให้ครบ ${PLAY} ใบ`);
   for (const id of forced) if (sel.has(id)) notes.push(`คว่ำ ${esc(cardName(cards.find((c) => c.uid === id)))} เพราะมานาไม่พอ`);
   for (const id of draft.ids) if (!a.ids.includes(id)) { const c = allCards(p).find((x) => x.uid === id); if (c) notes.push(`ไม่ได้ลง ${esc(cardName(c))} (เกินจำนวนหรือมานาไม่พอ)`); }
-  if (a.temper) notes.push(`Short Temper: รอบ 1 ต้องใช้ Command Spell 1 ดวง · คุณยังไม่ได้ใช้ จึง${a.temper === 'power' ? `ใช้พลัง +${CS_POWER} ให้` : `ใช้รับมานา +${CS_MANA} ให้ แล้วหลังต่อสู้เสียมานา ${CS_MANA}`}`);
+  if (a.temper) notes.push('Short Temper: รอบ 1 ต้องใช้ Command Spell 1 ดวง · คุณยังไม่ได้ใช้ กด "ลงการ์ด" แล้วเลือกว่าใช้แบบไหน');
   if (g.tsubame(cards)) notes.push(`ลงดาบครบ 3 ใบ: Tsubame Gaeshi พลัง +${TSUBAME} และเปิดชื่อจริง`);
   if (revealing) notes.push(`ลงชุดนี้แล้วชื่อจริงจะเปิด: ${esc(p.sv.name)}`);
   const extras = cards.filter((c) => c.fx?.extra || c.temp).map((c) => cardName(c));
@@ -868,7 +874,6 @@ function cardsPop() {
   if (a.ids.length && a.ids.every((id) => a.down.includes(id))) notes.push(off ? 'คว่ำทั้ง 2 ใบ: ไม่เสียมานา คนอื่นไม่รู้ว่าทิ้งอะไร' : 'คว่ำทั้ง 2 ใบ: พลังจากการ์ดเป็น 0 แต่ไม่เสียมานา');
   const left = inf ? p.mana : mana - a.cost;
   const gemsLeft = p.gems - a.gemMana - a.gandr;
-  const parts = pw.parts.filter(([, n]) => n).map(([t, n]) => `${esc(t)} ${n}`).join(' + ') || 'การ์ด 0';
   const infoLine = info ? `<div class="info"><b>${esc(cardName(info))}</b> · ${esc(cardText(info))}</div>` : '';
   const max = g.maxCards(p);
 
@@ -880,12 +885,403 @@ function cardsPop() {
     html: `${foes ? `<div class="foes">${foes}</div>` : AREAS[f].field ? '<p class="p-text">ยังไม่มีคู่ต่อสู้ที่นี่ (คนที่ยังไม่เล่นอาจย้ายเข้ามา)</p>' : ''}
       <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ${p.specials.length ? ' · สกิล Master (กรอบเขียว)' : ''}</p><div class="cards">${handCards}${specials}</div></div>
         <div class="cg"><p class="row-lab">การ์ด NP/สกิล · ${esc(p.sv.cls)}</p><div class="cards">${skills}</div></div></div>
-      ${deckRow}${infoLine}${swapBox()}
+      ${deckRow}${infoLine}
       ${ctrl.length ? `<div class="ctrl"><span class="row-lab">Command Spell (เหลือ ${p.cs})</span>${ctrl.join('')}</div>` : ''}
-      <div class="sum"><div class="parts">${parts}</div>${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
+      <div class="sum">${off ? `<div class="parts">${dest ? `ย้ายไป${esc(AREAS[dest].name)}` : `อยู่${esc(AREAS[p.at].name)}`} · ไม่คิดพลัง</div>` : `<p class="row-lab">ที่มาของพลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}</p>${pwTable(pw, p)}`}${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
     foot: `<div class="tot"><span class="dim">${off ? 'ไม่คิดพลัง' : `พลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}`}</span><b>${off ? '–' : pw.total}</b></div>
       <div class="num"><div>${inf ? 'มานาไม่จำกัด' : `มานา ${mana} − ${a.cost} = <b style="color:var(--mana)">${left}</b>`}</div><div class="dim">${p.m.key === 'rin' ? `อัญมณีเหลือ ${gemsLeft} · ` : ''}Command Spell เหลือ ${csLeft - a.cs2 - (a.csMove ? 1 : 0) - (a.temper === 'mana' ? 1 : 0)}</div></div>
-      <div class="acts"><button class="btn ghost" data-act="reset">ใช้ชุดที่แนะนำ</button><button class="btn primary" data-act="play">ลงการ์ด${off ? '' : ` · พลัง ${pw.total}`}</button></div>`,
+      <div class="acts"><button class="btn ghost" data-act="clear" title="เอาการ์ดที่เลือกออกทั้งหมด ล้าง Command Spell อัญมณี และตัวเลือกของสกิล">รีเซ็ตทั้งหมด</button><button class="btn ghost" data-act="reset">ใช้ชุดที่แนะนำ</button><button class="btn primary" data-act="play">ลงการ์ด${off ? '' : ` · พลัง ${pw.total}`}</button></div>`,
+  };
+}
+
+// ---------- skill choices (paper 4.6 item 8) ----------
+// A small pop-up over the card step asks one thing: where a move card goes, Gate of Babylon's
+// types, Rule Breaker's target, which gem to use, how Short Temper's Command Spell is used; in the
+// fight, 1st Strike's two cards. The suggested answer comes picked; nothing changes before ยืนยัน.
+// Bots never see it and choose as before.
+const cardOf = (uid) => allCards(me()).find((c) => c.uid === uid) || null;
+const rbF = (a) => a.moveTo || a.csMove || me().at; // where the cards end up
+const rbTargets = (a) => (AREAS[rbF(a)].field ? g.here(rbF(a)).filter((q) => q !== me()) : []);
+// which choice a picked card asks for: where it moves, Gate of Babylon's types, Rule Breaker's target
+function choiceKind(c, a) {
+  if (!c || a.blocked || !a.ids.includes(c.uid) || a.down.includes(c.uid)) return '';
+  if ((c.fx?.move || c.fx?.bell) && g.cardDests(me(), c).length) return 'move';
+  if (c.fx?.gate) return 'gate';
+  if (c.fx?.ruleBreaker && rbTargets(a).length) return 'rb';
+  return '';
+}
+// the tag under a picked card that made a choice; a tap opens the pop-up again
+function choiceTag(c, a) {
+  const k = choiceKind(c, a);
+  if (!k) return '';
+  const p = me();
+  const short = (f) => AREAS[f].name.replace(/^ย่าน/, '');
+  const txt = k === 'move' ? (a.mover === c.uid && a.moveTo ? (a.moveTo === p.at ? 'อยู่ที่นี่ · ยึดพื้นที่' : `→ ${short(a.moveTo)}`) : 'ไม่ย้าย')
+    : k === 'gate' ? `${a.gate.length ? a.gate.map((t) => TYPES[t]).join(' ') : 'NP อย่างเดียว'} · X=${a.gate.length}`
+    : `เป้าหมาย: ${g.players[a.rbTarget]?.name || '–'}`;
+  return `<button class="ctag" data-act="copen" data-k="${k}" data-uid="${c.uid}" title="แตะเพื่อเปลี่ยน">${esc(txt)} ▾</button>`;
+}
+// Rin's gems: a tile in the Master card row opens the gem pop-up; chips show what this play uses
+function gemTile(a) {
+  const p = me();
+  const left = p.gems - a.gemMana - a.gandr;
+  const why = a.blocked ? '2nd Strike ใช้ไม่ได้' : p.gems <= 0 ? 'อัญมณีหมด' : '';
+  const chip1 = (k, t) => `<button class="ctag" data-act="gemoff" data-g="${k}" title="แตะเพื่อเอาออก">${t} ✕</button>`;
+  const chips = (a.gemMana ? chip1('gemMana', `มานา +${a.gemMana}`) : '') + (a.gandr ? chip1('gandr', `Gandr Shot ${a.gandr} ใบ`) : '');
+  return `<div class="pickcol"><button class="card tM sp has-src gem${why ? ' lock' : ''}" data-act="copen" data-k="gem"${why ? ' disabled' : ''} title="อัญมณีของริน: มานา +1 · Gandr Shot · ทิ้งแล้วจั่ว">
+    <b class="src ms">สกิล<span class="who"> Master</span></b><span class="ty">อัญมณี</span><span class="pw">◈</span><span><span class="nm">Gem</span><span class="fx">${why || `เหลือ ${left} · แตะเลือก`}</span></span></button>${chips}</div>`;
+}
+const foesAt = (k) => {
+  const qs = g.here(k).filter((q) => q !== me());
+  return `${qs.length ? `อยู่ ${qs.length} คน: ${qs.map((q) => esc(q.name)).join(', ')}` : 'ยังไม่มีใคร'} · ${esc(prizeText(k))}`;
+};
+
+function openChoice(k, uid = null, re = false) {
+  if (k === 'strike1') { if (wait?.kind === 'strike1' && !choice) { choice = { k, sel: strikeStart(wait.ctx) }; render(); } return; }
+  if (wait?.kind !== 'cards') return;
+  choice = { k, uid, re, sel: null };
+  choice.sel = choiceStart();
+  if (k === 'gem') swapSel.clear();
+  render();
+}
+// the answer picked when the pop-up opens: the current one when it was opened from its tag, else the suggestion
+function choiceStart() {
+  const { k, uid, re } = choice;
+  const p = me();
+  const a = g.cleanCards(p, draft);
+  if (k === 'move') {
+    const opts = cardMoveOpts(cardOf(uid));
+    const now = a.mover === uid ? a.moveTo || '' : '';
+    return re && opts.some((o) => o.v === now && !o.dis) ? now : moveRec(opts);
+  }
+  if (k === 'gate') {
+    if (re) return [...a.gate];
+    const sel = [];
+    for (const t of gateTypes(g, rbF(a))) if (gateFits([...sel, t])) sel.push(t);
+    return sel;
+  }
+  if (k === 'rb') return re && a.rbTarget != null ? a.rbTarget : g.rbAuto(rbTargets(a))?.id ?? null;
+  if (k === 'gem') return gemRec(a);
+  if (k === 'temper') return a.temper === 'power' ? 'power' : 'mana';
+  return null;
+}
+const strikeStart = (ctx) => ({ mine: ctx.mine[0], foe: ctx.foes[0]?.uid ?? null }); // the strongest of each
+
+function choiceBody() {
+  const ch = choice;
+  if (ch.k === 'strike1') return myTurn() && wait.kind === 'strike1' ? strikeChoice() : null;
+  if (!myTurn() || wait.kind !== 'cards') return null;
+  if (ch.k === 'gem') return me().m.key === 'rin' ? gemChoice() : null;
+  if (ch.k === 'temper') return temperChoice();
+  const c = cardOf(ch.uid);
+  if (!c || !draft.ids.includes(c.uid)) return null;
+  if (ch.k === 'move') return moveChoice(c);
+  if (ch.k === 'gate') return gateChoice(c);
+  if (ch.k === 'rb') return rbChoice(c);
+  return null;
+}
+// one answer: what it is, what it gives, and why it cannot be picked now
+function copt(v, label, sub, o = {}) {
+  const on = o.on ?? String(choice.sel) === String(v);
+  return `<button class="copt${on ? ' on' : ''}${o.multi ? ' multi' : ''}" data-act="${o.act || 'cpick'}" data-v="${esc(v)}"${o.g ? ` data-g="${o.g}"` : ''} aria-pressed="${on}"${o.dis ? ' disabled' : ''}>
+    <b>${label}${o.rec ? '<em class="rec">แนะนำ</em>' : ''}</b>${sub ? `<span>${sub}</span>` : ''}${o.dis ? `<span class="why">${esc(o.dis)}</span>` : ''}</button>`;
+}
+const cFoot = (ok, no = 'ยกเลิก · เอาการ์ดออก', okDis = false) => `${no ? `<button class="btn ghost" data-act="cno">${no}</button>` : ''}<button class="btn primary" data-act="cok"${okDis ? ' disabled' : ''}>${ok}</button>`;
+
+// Lancer Class, Bellerophon (may stay to take the advantage) and Surveil (the next area only)
+function cardMoveOpts(c) {
+  const p = me();
+  const reach = new Set(g.cardDests(p, c));
+  const next = PATH[PATH.indexOf(p.at) + 1];
+  const named = c.fx.move === 'next' ? [next].filter(Boolean) : PATH.slice(1).filter((k) => k !== p.at || (c.fx.bell && AREAS[k].field));
+  const opts = named.map((k) => ({ v: k, r: preview({ ...draft, moveTo: k, mover: c.uid }), dis: reach.has(k) ? '' : k === 'recon' ? 'มีคนอยู่ลาดตระเวนแล้ว (รับ 1 คน)' : 'ไปไม่ได้' }));
+  // Bellerophon staying in a battlefield seizes the terrain, so it needs no "don't move" as well
+  if (!(c.fx.bell && reach.has(p.at))) opts.push({ v: '', r: preview({ ...draft, moveTo: null, mover: null }) });
+  return opts;
+}
+function moveRec(opts) {
+  const p = me();
+  let best = null;
+  for (const o of opts) {
+    if (o.dis) continue;
+    const at = o.v || (AREAS[o.r.f].field ? o.r.f : null);
+    const v = destValue(g, p, at, o.r.pw.total) + (!o.v || o.v === p.at ? 0.01 : 0); // a tie stays put
+    if (!best || v > best.v) best = { v, k: o.v };
+  }
+  return best ? best.k : '';
+}
+function moveChoice(c) {
+  const p = me();
+  const opts = cardMoveOpts(c);
+  const rec = moveRec(opts);
+  const rows = opts.map((o) => {
+    const { r } = o;
+    let label, sub;
+    if (!o.v) {
+      label = 'ไม่ย้าย';
+      sub = AREAS[r.f].field ? `สู้ที่${esc(AREAS[r.f].name)} · ${foesAt(r.f)} · พลังรวม ${r.pw.total}` : `อยู่${esc(AREAS[r.f].name)} · ไม่คิดพลัง`;
+    } else if (o.v === p.at) {
+      label = `อยู่${esc(AREAS[o.v].name)} · ยึดได้เปรียบพื้นที่`;
+      sub = `${foesAt(o.v)} · ยึดทั้ง 2 ช่อง +${TERRAIN.reduce((s2, t) => s2 + t, 0)} · คนอื่นที่นี่เสียได้เปรียบ · พลังรวม ${r.pw.total}`;
+    } else if (!AREAS[o.v].field) {
+      label = `ย้ายไป${esc(AREAS[o.v].name)}`;
+      sub = `ได้ ${RECON_VP} VP ทันที · ไม่ได้สู้ การ์ดลงกองทิ้ง`;
+    } else {
+      label = `ย้ายไป${esc(AREAS[o.v].name)}`;
+      sub = `${foesAt(o.v)} · พลังรวม ${r.pw.total}${r.stolen ? ` · ยึดได้เปรียบ +${r.stolen}` : ''}${p.terrain && AREAS[p.at].field ? ` · ได้เปรียบเดิม +${p.terrain} หายไป` : ''}`;
+    }
+    return copt(o.v, label, sub, { dis: o.dis, rec: !o.dis && o.v === rec });
+  }).join('');
+  return { title: c.name, sub: esc(cardText(c)), html: `<div class="copts">${rows}</div>`, foot: cFoot('ยืนยัน') };
+}
+
+// Gate of Babylon: the types it counts as besides NP (not Special), X mana = how many [FD]
+function gateFits(sel) {
+  const p = me();
+  const base = forcedDown(g.cleanCards(p, { ...draft, gate: [] }));
+  const a = g.cleanCards(p, { ...draft, gate: sel });
+  return a.gate.length === sel.length && !a.down.some((id) => draft.ids.includes(id) && !draft.down.includes(id) && !base.has(id)); // filled-in face-down cards don't count
+}
+function gateChoice(c) {
+  const sel = choice.sel;
+  const now = preview({ ...draft, gate: sel });
+  const rec = new Set(gateTypes(g, now.f));
+  const rows = ['S', 'A', 'M'].map((t) => {
+    const on = sel.includes(t);
+    const other = preview({ ...draft, gate: on ? sel.filter((x) => x !== t) : [...sel, t] });
+    const [withT, without] = on ? [now, other] : [other, now];
+    const gain = withT.pw.total - without.pw.total;
+    // what the type brings: situation or event cards for it, or the same-type bonus
+    const row = withT.pw.rows?.find((x) => x.k === 'card' && x.uid === c.uid);
+    const why = (row?.mods || []).filter((m) => m.n > 0 && m.t.includes(TYPES[t])).map((m) => m.t);
+    const uni = (r) => r.pw.rows?.find((x) => x.k === 'part' && x.label === 'การ์ดชนิดเดียวกัน');
+    if (uni(withT) && !uni(without)) why.push(`การ์ดชนิดเดียวกัน +${uni(withT).n}`);
+    const sub = `${now.off ? 'ไม่ได้อยู่สนามรบ ไม่คิดพลัง' : gain ? `พลังรวม +${gain}` : 'พลังรวมไม่เปลี่ยน'}${why.length ? ` · ${esc(why.join(' · '))}` : ''} · มานา +1`;
+    return copt(t, `นับเป็น${typeHtml({ type: t })}`, sub, { act: 'ctog', multi: true, on, rec: rec.has(t), dis: on || gateFits([...sel, t]) ? '' : 'มานาไม่พอ' });
+  }).join('');
+  const left = now.a.budget === Infinity ? 'ไม่จำกัด' : now.a.budget - now.a.cost;
+  return {
+    title: c.name,
+    sub: esc(cardText(c)),
+    html: `<p class="p-text">เลือกได้หลายชนิด หรือไม่เลือกเลย · มานา X = จำนวนชนิดที่เลือก</p><div class="copts">${rows}</div>
+      <p class="cnow">มานา X = <b>${sel.length}</b> · มานาเหลือหลังจ่าย ${left}${now.off ? '' : ` · พลังรวม ${now.pw.total}`}</p>`,
+    foot: cFoot('ยืนยัน'),
+  };
+}
+
+function rbChoice(c) {
+  const a = g.cleanCards(me(), draft);
+  const qs = rbTargets(a);
+  const rec = g.rbAuto(qs);
+  const what = (q) => (q.cs >= 2 ? `เสีย Command Spell 1 ดวง (เหลือ ${q.cs - 1})` : q.cs === 1 ? 'เสีย Command Spell ดวงสุดท้าย · เขา [แพ้]' : 'ไม่มี Command Spell · เขา [แพ้] · คุณพลังรวม +10');
+  const rows = qs.map((q) => copt(q.id, `${esc(q.name)} · ◆ ${q.cs}`, `${what(q)} · ${q.play ? `พลัง ${q.play.pre}` : 'ยังไม่ลงการ์ด'} · ${q.vp} VP`, { rec: q === rec })).join('');
+  return { title: c.name, sub: esc(cardText(c)), html: `<p class="p-text">เลือก Master 1 คนใน${esc(AREAS[rbF(a)].name)}</p><div class="copts">${rows}</div>`, foot: cFoot('ยืนยัน') };
+}
+
+// Rin's gem [FD]: one gem for one of mana +1, Gandr Shot, or discard 1–3 and draw; each once a round
+// (up to 3 times in the climax)
+function gemState(a) {
+  const p = me();
+  const lim = g.gemLimit();
+  const left = p.gems - a.gemMana - a.gandr;
+  const block = a.blocked ? '2nd Strike: ใช้อัญมณีที่นี่ไม่ได้' : left <= 0 ? 'อัญมณีหมด' : '';
+  const used = lim > 1 ? `ครบ ${lim} ครั้งแล้วรอบนี้` : 'เลือกแล้วรอบนี้';
+  return {
+    mana: block || (a.gemMana >= lim ? used : a.budget >= MANA_MAX ? 'มานาเต็มแล้ว' : ''),
+    gandr: block || (a.gandr >= lim ? used : ''),
+    swap: (a.blocked ? block : p.gems <= 0 ? 'อัญมณีหมด' : '') || ((p.roundUse.swaps || 0) >= lim ? used : g.ubwOn(p) ? 'Unlimited Blade Works: ทิ้งจั่วไม่ได้' : !p.hand.length ? 'ไม่มีการ์ดในมือ' : ''),
+  };
+}
+function gemRec(a) {
+  const st = gemState(a);
+  const order = forcedDown(a).size ? ['mana', 'gandr', 'swap'] : !AREAS[rbF(a)].field ? ['mana', 'swap', 'gandr'] : ['gandr', 'mana', 'swap'];
+  return order.find((k) => !st[k]) || null;
+}
+function gemChoice() {
+  const p = me();
+  const r = preview();
+  const { a } = r;
+  const st = gemState(a);
+  const sel = choice.sel;
+  const rec = gemRec(a);
+  const g1 = !r.off && !st.gandr ? preview({ ...draft, gandr: a.gandr + 1 }) : null;
+  const lim = g.gemLimit();
+  const rows = copt('mana', 'มานา +1', `มานา ${a.budget === Infinity ? 'ไม่จำกัด' : `${a.budget} → ${Math.min(MANA_MAX, a.budget + 1)}`}${forcedDown(a).size ? ' · หงายการ์ดที่มานาไม่พอได้' : ''}`, { dis: st.mana, rec: rec === 'mana' })
+    + copt('gandr', 'Gandr Shot', `การ์ดเวทพลัง ${GANDR.power} ลงเพิ่มนอก ${PLAY} ใบ · ${r.off ? 'ไม่ได้อยู่สนามรบ ไม่คิดพลัง' : g1 ? `พลังรวม ${r.pw.total} → ${g1.pw.total}` : 'ใช้รอบเดียว'}`, { dis: st.gandr, rec: rec === 'gandr' })
+    + copt('swap', 'ทิ้ง 1–3 ใบแล้วจั่วใหม่', 'การ์ดที่ทิ้งลงกองทิ้งแบบคว่ำ แล้วจั่วเท่ากัน · หน้าลงการ์ดเริ่มชุดแนะนำใหม่', { dis: st.swap, rec: rec === 'swap' });
+  const hand = sel === 'swap' ? `<div class="pop-sec"><p class="row-lab">เลือกการ์ดที่จะทิ้ง 1–3 ใบ</p><div class="cards">${p.hand.map((c) => tile(c, { btn: true, act: 'swappick', mini: true, sel: swapSel.has(c.uid) })).join('')}</div></div>` : '';
+  const ok = sel === 'swap' ? (swapSel.size ? `ทิ้ง ${swapSel.size} ใบแล้วจั่วใหม่` : 'เลือกใบที่จะทิ้ง') : 'ยืนยัน · ใช้อัญมณี 1 ใบ';
+  return {
+    title: 'Gem · อัญมณีของริน',
+    sub: `เหลือ ${p.gems - a.gemMana - a.gandr} ใบ · 1 ใบต่อ 1 อย่าง · ${lim > 1 ? `ไคลแมกซ์เลือกอย่างเดิมได้ถึง ${lim} ครั้ง` : 'แต่ละอย่างรอบละครั้ง'}`,
+    html: `<div class="copts">${rows}</div>${hand}`,
+    foot: cFoot(ok, 'ยกเลิก', !sel || !!st[sel] || (sel === 'swap' && !swapSel.size)),
+  };
+}
+
+// Short Temper [FD]: in round 1 Rin must use a Command Spell; she picks how when she lays the cards
+function temperChoice() {
+  const p = me();
+  const r = preview();
+  const { a } = r;
+  if (!a.temper) return null;
+  const base = r.pw.total - (a.temper === 'power' ? CS_POWER : 0);
+  const fieldOk = AREAS[r.f].field && !g.blocked(p, r.f);
+  const csDests = PATH.slice(1).filter((k) => k !== p.at && (k !== 'recon' || g.reconFree(p)));
+  const rows = copt('power', `◆ พลัง +${CS_POWER}`, fieldOk ? `พลังรวม ${base} → ${base + CS_POWER} · ชนะได้ VP +${CS_VP}` : '', { dis: fieldOk ? '' : 'ไม่ได้อยู่สนามรบ', rec: a.temper === 'power' })
+    + copt('mana', `◆ มานา +${CS_MANA}`, `ได้มานาตอนนี้ · หลังต่อสู้เสียมานา ${CS_MANA} (Short Temper)`, { rec: a.temper === 'mana' })
+    + csDests.map((k) => {
+      const m = preview({ ...draft, csMove: k });
+      return copt(`move:${k}`, `◆ ย้ายไป${esc(AREAS[k].name)}หลังลงการ์ด`, AREAS[k].field ? `การ์ดตามไป · ${foesAt(k)} · พลังรวม ${m.pw.total}` : `ได้ ${RECON_VP} VP ทันที · การ์ดลงกองทิ้ง`, { dis: a.moveTo ? 'การ์ดย้ายแล้ว' : '' });
+    }).join('');
+  return { title: 'Short Temper · ริน', sub: `รอบ 1 ต้องใช้ Command Spell 1 ดวง (เหลือ ${p.cs}) · เลือกว่าใช้แบบไหน แล้วลงการ์ด`, html: `<div class="copts">${rows}</div>`, foot: cFoot('ยืนยันแล้วลงการ์ด', 'ยกเลิก') };
+}
+
+// 1st Strike in the fight (step 4.1): the Strength card it lays from the hand, and the foe's card it turns off
+function strikeChoice() {
+  const p = me();
+  const { f, mine, foes, card } = wait.ctx;
+  const s1 = p.play?.cards.find((c) => c.uid === card);
+  const pw = (q, c) => g.cardPower(q, c, { f });
+  const sel = choice.sel;
+  const my = mine.map((uid) => p.hand.find((c) => c.uid === uid)).filter(Boolean).map((c) => ({ ...c, down: false })); // laid face up
+  const theirs = foes.map(({ id, uid }) => ({ q: g.players[id], c: g.players[id].play?.cards.find((x) => x.uid === uid) })).filter((x) => x.c);
+  const a = my.map((c, i) => copt(c.uid, `${bcard(c, p)}<span>${esc(cardName(c))} · พลัง ${pw(p, c)}</span>`, '', { g: 'mine', on: sel.mine === c.uid, rec: i === 0 })).join('');
+  const b = theirs.map(({ q, c }, i) => copt(c.uid, `${bcard(c, q)}<span>${esc(q.name)}: ${esc(cardName(c))} · พลัง ${pw(q, c)}</span>`, '', { g: 'foe', on: sel.foe === c.uid, rec: i === 0 })).join('');
+  return {
+    title: '1st Strike · ตอนปะทะ',
+    sub: `${esc(AREAS[f].name)} · ขั้น 4.1 · ใบนี้ปิดตัวเอง ลงการ์ดกำลังพื้นฐานจากมือ 1 ใบโดยไม่จ่ายมานา · ได้มานา +${s1?.fx?.strike1 ?? 2}`,
+    html: `<div class="pop-sec"><p class="row-lab">ลงการ์ดกำลังพื้นฐานจากมือ</p><div class="copts">${a}</div></div>
+      ${b ? `<div class="pop-sec"><p class="row-lab">ปิดการ์ดพื้นฐานของคู่ต่อสู้ 1 ใบ (พลังเป็น 0 และไม่มีผล)</p><div class="copts">${b}</div></div>` : '<p class="p-text">คู่ต่อสู้ไม่มีการ์ดพื้นฐานหงายอยู่ ไม่มีใบที่ถูกปิด</p>'}`,
+    foot: cFoot('ยืนยัน', ''),
+  };
+}
+
+function choiceOk() {
+  const ch = choice;
+  if (!ch) return;
+  if (ch.k === 'strike1') { if (wait?.kind === 'strike1') answer({ card: ch.sel.mine, target: ch.sel.foe }); return; }
+  if (wait?.kind !== 'cards') { choice = null; render(); return; }
+  const d = draft;
+  const p = me();
+  if (ch.k === 'move') {
+    if (ch.sel) { d.moveTo = ch.sel; d.mover = ch.uid; d.csMove = null; } // one move a play
+    else if (g.cleanCards(p, d).mover === ch.uid) { d.moveTo = null; d.mover = null; }
+  }
+  if (ch.k === 'gate') d.gate = [...ch.sel];
+  if (ch.k === 'rb') d.rbTarget = ch.sel;
+  if (ch.k === 'gem') {
+    if (ch.sel === 'swap') { if (swapSel.size) answer({ swap: [...swapSel] }); return; }
+    if (ch.sel === 'mana') d.gemMana = (d.gemMana || 0) + 1;
+    if (ch.sel === 'gandr') d.gandr = (d.gandr || 0) + 1;
+  }
+  if (ch.k === 'temper') {
+    d.down = [...new Set([...d.down, ...forcedDown(g.cleanCards(p, d))])]; // keep the sides the card step showed
+    if (ch.sel === 'power') d.cs2 = 1;
+    else if (ch.sel === 'mana') d.cs4 = true;
+    else if (ch.sel?.startsWith('move:')) d.csMove = ch.sel.slice(5);
+    answer({ ...d });
+    return;
+  }
+  choice = null;
+  render();
+}
+// ยกเลิก: a card's choice takes the card out of the play; the gem and Short Temper just close
+function choiceNo() {
+  const ch = choice;
+  if (!ch || ch.k === 'strike1') return;
+  choice = null;
+  swapSel.clear();
+  if (['move', 'gate', 'rb'].includes(ch.k) && wait?.kind === 'cards') dropPick(ch.uid);
+  render();
+}
+// take a picked card out of the draft, with what it chose
+function dropPick(uid) {
+  const d = draft;
+  const p = me();
+  const c = cardOf(uid);
+  if (g.cleanCards(p, d).mover === uid || d.mover === uid) { d.moveTo = null; d.mover = null; }
+  d.ids = d.ids.filter((x) => x !== uid);
+  d.down = d.down.filter((x) => x !== uid);
+  if (c?.fx?.ubw) d.ids = d.ids.filter((x) => !p.deck.some((k) => k.uid === x)); // dropping UBW also drops the deck cards it brought
+  if (c?.fx?.gate) d.gate = [];
+  if (c?.fx?.ruleBreaker) d.rbTarget = null;
+}
+// a card just picked (or turned face up) that needs a choice opens its pop-up
+function autoChoice(uid) {
+  const k = choiceKind(cardOf(uid), g.cleanCards(me(), draft));
+  if (k) openChoice(k, uid, false);
+}
+// รีเซ็ตทั้งหมด (paper 4.6 item 10): nothing picked, every card face up, no Command Spell, gem or skill choice
+function clearDraft() {
+  draft = { ids: [], down: [], cs4: false, cs2: 0, gemMana: 0, gandr: 0, gate: [], moveTo: null, mover: null, csMove: null, rbTarget: null };
+  info = null; choice = null; swapSel.clear();
+  render();
+}
+
+// drawn like the main pop-up: the frame once per question, then only the parts that changed
+function drawChoice() {
+  const el = $('#cpop');
+  const b = choice && started ? choiceBody() : null;
+  if (!b) {
+    if (choice && started) choice = null;
+    el.hidden = true; el.innerHTML = ''; delete el.dataset.k;
+    return;
+  }
+  const key = `${choice.k}:${choice.uid ?? ''}`;
+  let dlg = el.querySelector('.pop-dlg');
+  if (el.dataset.k !== key || !dlg) {
+    el.innerHTML = '<div class="pop-dlg choice" role="dialog" aria-modal="true"><div class="pop-head"><div class="pop-title"><h2></h2><span class="sub"></span></div></div><div class="pop-body"></div><div class="pop-foot"></div></div>';
+    el.dataset.k = key;
+    dlg = el.querySelector('.pop-dlg');
+    drawChoice.last = {};
+  }
+  const last = drawChoice.last;
+  const set = (sel, html) => { if (last[sel] !== html) { last[sel] = html; dlg.querySelector(sel).innerHTML = html; } };
+  dlg.setAttribute('aria-label', b.title);
+  set('h2', esc(b.title));
+  set('.sub', b.sub || '');
+  set('.pop-body', b.html);
+  set('.pop-foot', b.foot || '');
+  el.hidden = false;
+}
+
+// ---------- where the power comes from (paper 4.6 item 9) ----------
+// One line per card and bonus, then the total. Gains are green, losses red, on-clash lines tagged.
+// Someone else's face-down card shows only "การ์ดคว่ำ 0" (paper 4.3).
+function pwTable(pw, q) {
+  const CL = '<em class="clash">ตอนปะทะ</em>';
+  const mod = (m) => `<span class="pm">${m.mul ? `<b class="up">×${m.mul}</b>` : m.zero ? '<b class="dn">→ 0</b>' : `<b class="${m.n < 0 ? 'dn' : m.n ? 'up' : ''}">${m.n ? sgn(m.n) : '·'}</b>`} ${esc(m.t)}${m.clash ? CL : ''}</span>`;
+  const tr = (cls, lab, mods, v) => `<tr class="${cls}"><th scope="row">${lab}</th><td>${mods}</td><td class="v">${v}</td></tr>`;
+  const rows = (pw.rows || []).map((r) => {
+    if (r.k === 'card') {
+      if (r.down && !q.isHuman) return tr('down', 'การ์ดคว่ำ', '', 0);
+      const lab = `${r.down ? 'คว่ำ · ' : ''}${r.name ? `${esc(r.name)} · ` : ''}${typeHtml(r)} ${r.base}${r.clashIn ? CL : ''}`;
+      return tr(r.down ? 'down' : '', lab, r.down ? '<span class="pm dim">ลงคว่ำ พลัง 0</span>' : r.mods.map(mod).join(''), r.val);
+    }
+    if (r.k === 'terrain') return tr('ter', r.base ? `ได้เปรียบพื้นที่ +${r.base}` : 'ได้เปรียบพื้นที่', r.base ? r.mods.map(mod).join('') : `<span class="pm dim">${esc(r.none)}</span>`, sgn(r.val));
+    return tr(r.clash ? 'pw-clash' : '', `${esc(r.label)}${r.clash ? CL : ''}`, r.note ? `<span class="pm dim">${esc(r.note)}</span>` : '', sgn(r.n));
+  }).join('');
+  return `<table class="pwt"><tbody>${rows}${tr('pw-total', 'พลังรวม', '', pw.total)}</tbody></table>`;
+}
+// one Master's power in a fight, from a tap on their row in the battle window; ‹ › step through the fight
+function pwPop(f, id) {
+  const res = g.phase === 'combat' ? g.results.find((r) => r.f === f && !r.alone) : null;
+  const people = res ? res.ents.map((e) => g.players[e.id]) : g.order().filter((q) => q.at === f && q.play);
+  const i = people.findIndex((q) => q.id === id);
+  if (i < 0) return null;
+  const q = people[i];
+  const e = res?.ents.find((x) => x.id === id);
+  const pw = e ? { rows: e.rows || [], total: e.power } : g.powerOf(q, q.play, { detail: true });
+  const cards = (e?.cards || q.play.cards).map((c) => (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
+  const what = !e ? 'ก่อนต่อสู้ · ผล "ตอนปะทะ" ยังไม่ทำงาน' : e.defeated ? '[แพ้]' : e.won ? `ชนะ +${e.gain} VP` : `แพ้${e.gain ? ` +${e.gain} VP` : ''}`;
+  const step = (dd, label) => { const n = people[(i + dd + people.length) % people.length]; return `<button class="btn" data-act="pwrow" data-id="${n.id}" aria-label="${label}">${dd < 0 ? '‹' : '›'}</button>`; };
+  return {
+    title: `พลังของ ${q.name}${q.isHuman ? ' (คุณ)' : ''}`,
+    sub: `${esc(AREAS[f].name)} · ${esc(what)}`,
+    mini: `${esc(q.name)} · พลัง ${pw.total}`,
+    html: `<div class="foe">${chip(q)}<div class="cards">${cards}</div></div>${pwTable(pw, q)}${e?.notes?.length ? `<p class="p-text pw-notes">${e.notes.map(esc).join(' · ')}</p>` : ''}`,
+    foot: people.length > 1 ? `<div class="acts cv-nav">${step(-1, 'คนก่อนหน้า')}<span class="dim">${i + 1} / ${people.length}</span>${step(1, 'คนถัดไป')}</div>` : '',
   };
 }
 
@@ -1153,10 +1549,10 @@ function showResults(results) {
       const p = g.players[e.id];
       const cards = (e.cards || []).map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
       const res = r.alone ? `อยู่คนเดียว +${e.gain} VP` : e.defeated ? '[แพ้]' : e.won ? `ชนะ +${e.gain} VP` : e.gain ? `แพ้ +${e.gain} VP` : 'แพ้';
-      const parts = (e.parts || []).filter(([, n]) => n).map(([t, n]) => `${esc(t)} ${n}`).join(' + ');
+      const table = r.alone ? '' : `<div class="bpwt">${pwTable({ rows: e.rows || [], total: e.power }, p)}</div>`; // paper 4.6 item 9
       return `<div class="ent${e.won ? ' won' : ' lost'}" style="animation-delay:${i * 120}ms"><div class="who">${chip(p)}<div class="cards">${cards}</div></div>
         <div><div class="tot">${r.alone ? '–' : e.power}</div><div class="res${e.defeated ? ' def' : ''}">${res}</div></div>
-        ${parts ? `<div class="parts">${parts}</div>` : ''}${e.notes?.length ? `<div class="notes">${e.notes.map(esc).join(' · ')}</div>` : ''}</div>`;
+        ${table}${e.notes?.length ? `<div class="notes">${e.notes.map(esc).join(' · ')}</div>` : ''}</div>`;
     }).join('');
   };
   const cut = g.round >= REGULAR ? cutInfo() : null;
@@ -1189,6 +1585,7 @@ function showOver() {
 
 // ---------- clicks ----------
 document.addEventListener('click', (ev) => {
+  if (ev.target.id === 'cpop') return; // a skill choice is answered with its buttons only
   if (ev.target.id === 'pop') { closePop(); return; } // a tap outside the pop-up closes it
   if (pop?.min && ev.target.closest('#pop .pop-title')) { foldPop(false); return; } // a tap on a folded title opens it again
   const t = ev.target.closest('[data-act]');
@@ -1212,6 +1609,12 @@ document.addEventListener('click', (ev) => {
     case 'pop': openPop({ k: t.dataset.k }); break;
     case 'popclose': closePop(); break;
     case 'cardinfo': if (pop?.k === 'card') { pop.f = +t.dataset.uid; render(); } else openPop({ k: 'card', f: +t.dataset.uid }); break;
+    case 'pwrow': { // a row of the battle window: where that Master's power comes from (paper 4.6 item 9)
+      const q = g.players[+t.dataset.id];
+      if (!q || !started) break;
+      if (pop?.k === 'pw') { pop.id = q.id; render(); } else openPop({ k: 'pw', f: q.at, id: q.id });
+      break;
+    }
     case 'player': {
       // your own row opens your Master board; another Master opens their public details (paper 4.6 item 6)
       const q = g.players[+t.dataset.id];
@@ -1245,12 +1648,8 @@ document.addEventListener('click', (ev) => {
       const uid = +t.dataset.uid;
       const p = me();
       info = allCards(p).find((c) => c.uid === uid) || null;
-      if (d.ids.includes(uid)) {
-        d.ids = d.ids.filter((x) => x !== uid);
-        d.down = d.down.filter((x) => x !== uid);
-        // dropping UBW also drops the deck cards it brought
-        if (info?.fx?.ubw) d.ids = d.ids.filter((x) => !p.deck.some((c) => c.uid === x));
-      } else {
+      if (d.ids.includes(uid)) dropPick(uid);
+      else {
         const before = forcedDown(g.cleanCards(p, d));
         const add = { ...d, ids: [...d.ids, uid] };
         const test = g.cleanCards(p, add);
@@ -1259,6 +1658,7 @@ document.addEventListener('click', (ev) => {
         if (!test.ids.includes(uid)) toast(`ลง ${cardName(info)} เพิ่มไม่ได้ · เต็มจำนวนหรือมานาไม่พอ เอาใบอื่นออกก่อน`, '');
         else if (flips && g.canFlip(info)) { d.ids = add.ids; d.down = [...d.down, uid]; toast(`มานาไม่พอลง ${cardName(info)} แบบหงาย · ลงแบบคว่ำแทน`, ''); }
         else d.ids = add.ids;
+        if (d.ids.includes(uid)) autoChoice(uid); // a skill that needs a choice asks it now (paper 4.6 item 8)
       }
       render();
       break;
@@ -1266,27 +1666,43 @@ document.addEventListener('click', (ev) => {
     case 'flip': {
       if (wait?.kind !== 'cards') break;
       const uid = +t.dataset.uid;
-      if (!d.down.includes(uid)) { d.down = [...d.down, uid]; render(); break; }
-      // face up only when the mana pays for it without turning another card over
       const p = me();
+      if (!d.down.includes(uid)) { // face down: no effect, so no move either
+        if (g.cleanCards(p, d).mover === uid) { d.moveTo = null; d.mover = null; }
+        d.down = [...d.down, uid]; render(); break;
+      }
+      // face up only when the mana pays for it without turning another card over
       const before = forcedDown(g.cleanCards(p, d));
       const up = { ...d, down: d.down.filter((x) => x !== uid) };
       const test = g.cleanCards(p, up);
       if (test.down.some((id) => up.ids.includes(id) && !up.down.includes(id) && !before.has(id))) toast('มานาไม่พอลงแบบหงาย · คว่ำใบอื่นหรือเอาออกก่อน', '');
-      else d.down = up.down;
+      else { d.down = up.down; autoChoice(uid); }
       render();
       break;
     }
     case 'cs4': d.cs4 = !d.cs4; render(); break;
     case 'step': { const k = t.dataset.key; d[k] = Math.max(0, (d[k] || 0) + +t.dataset.d); render(); break; }
-    case 'moveTo': d.moveTo = t.dataset.to || null; render(); break;
-    case 'gate': { const ty = t.dataset.t; d.gate = (d.gate || []).includes(ty) ? d.gate.filter((x) => x !== ty) : [...(d.gate || []), ty]; render(); break; }
-    case 'rbt': d.rbTarget = +t.dataset.id; render(); break;
     case 'csMove': d.csMove = t.dataset.to || null; render(); break;
-    case 'reset': draft = firstDraft('cards', wait.ctx); info = null; render(); break;
+    case 'reset': if (wait?.kind === 'cards') { draft = firstDraft('cards', wait.ctx); info = null; choice = null; swapSel.clear(); render(); } break;
+    case 'clear': if (wait?.kind === 'cards') clearDraft(); break;
+    case 'copen': openChoice(t.dataset.k, t.dataset.uid ? +t.dataset.uid : null, true); break;
+    case 'cpick': // one answer of a skill choice; 1st Strike has two groups
+      if (!choice) break;
+      if (t.dataset.g) choice.sel = { ...choice.sel, [t.dataset.g]: +t.dataset.v };
+      else choice.sel = choice.k === 'rb' ? +t.dataset.v : t.dataset.v;
+      if (choice.k === 'gem' && choice.sel !== 'swap') swapSel.clear();
+      render();
+      break;
+    case 'ctog': if (choice?.k === 'gate') { const v = t.dataset.v; choice.sel = choice.sel.includes(v) ? choice.sel.filter((x) => x !== v) : [...choice.sel, v]; render(); } break;
+    case 'cok': choiceOk(); break;
+    case 'cno': choiceNo(); break;
+    case 'gemoff': if (wait?.kind === 'cards') { const k = t.dataset.g; d[k] = Math.max(0, (d[k] || 0) - 1); render(); } break;
     case 'swappick': { const uid = +t.dataset.uid; if (swapSel.has(uid)) swapSel.delete(uid); else if (swapSel.size < 3) swapSel.add(uid); else toast('ทิ้งได้ครั้งละ 1–3 ใบ', ''); render(); break; }
-    case 'swap': if (wait?.kind === 'cards' && swapSel.size) answer({ swap: [...swapSel] }); break;
-    case 'play': if (wait?.kind === 'cards') answer({ ...d }); break;
+    case 'play':
+      if (wait?.kind !== 'cards') break;
+      if (g.cleanCards(me(), d).temper) { openChoice('temper'); break; } // Short Temper: Rin picks how to use the Command Spell
+      answer({ ...d });
+      break;
     default: break;
   }
 });
@@ -1295,9 +1711,13 @@ document.addEventListener('change', (ev) => {
   if (ev.target.id === 'opt-sample') setup.sample = ev.target.checked;
 });
 document.addEventListener('keydown', (ev) => {
-  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('.area[data-act], .st li[data-act]')) { ev.preventDefault(); ev.target.click(); }
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches?.('.area[data-act], .st li[data-act], .brow[data-act]')) { ev.preventDefault(); ev.stopPropagation(); ev.target.click(); }
+  if (choice) { // the gem and Short Temper close with Escape; a card's choice needs its buttons
+    if (ev.key === 'Escape' && ['gem', 'temper'].includes(choice.k)) choiceNo();
+    return;
+  }
   if (ev.key === 'Escape' && pop && $('#modal').hidden && $('#sheet').hidden) closePop();
-  if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && ['card', 'player', 'pcard'].includes(pop?.k) && !pop.min) $(`#pop .cv-nav button:${ev.key === 'ArrowLeft' ? 'first' : 'last'}-of-type`)?.click();
+  if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && ['card', 'player', 'pcard', 'pw'].includes(pop?.k) && !pop.min) $(`#pop .cv-nav button:${ev.key === 'ArrowLeft' ? 'first' : 'last'}-of-type`)?.click();
 });
 
 // first screen: an empty board behind the Master picker

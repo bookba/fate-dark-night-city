@@ -83,7 +83,7 @@ function move(g, p, opts) {
 }
 
 // Gate of Babylon: the types that get a bonus at f (situation or event cards)
-function gateTypes(g, f) {
+export function gateTypes(g, f) {
   const ups = [g.sit?.fx, ...(g.evs[f] || []).map((e) => e.fx)].map((x) => x?.up).filter(Boolean);
   return ['S', 'A', 'M'].filter((t) => ups.includes(t));
 }
@@ -279,6 +279,16 @@ function windowUse(g, p, ctx) {
     }
   }
   return null;
+}
+
+// how good an area looks for a move card at this power; the player's pop-up marks the best as
+// "แนะนำ" (paper 4.6 item 8)
+export function destValue(g, p, to, power) {
+  if (!to) return 0;
+  if (!AREAS[to].field) return to === 'recon' && p.at !== 'recon' ? RECON_VP : 0;
+  const there = g.here(to).filter((q) => q !== p);
+  if (!there.length) return g.eventVP(to) * 0.9;
+  return fieldValue(g, to, p) * winChance(power, Math.max(...there.map((q) => foePower(g, q))));
 }
 
 export function botDecide(g, p, kind, ctx) {

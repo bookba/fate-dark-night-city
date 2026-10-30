@@ -65,7 +65,7 @@ for (let i = 0; i < N; i++) {
   };
   const fight = g.fight.bind(g);
   g.fightLog = [];
-  g.fight = (f, people) => { const r = fight(f, people); g.fightLog.push(r); st.zabWin += r.ents.filter((e) => e.notes.some((n) => n.startsWith('Zabaniya'))).length; return r; };
+  g.fight = async (f, people) => { const r = await fight(f, people); g.fightLog.push(r); st.zabWin += r.ents.filter((e) => e.notes.some((n) => n.startsWith('Zabaniya'))).length; return r; };
   await g.run();
   check();
   if (!g.over || !g.winner) throw new Error(`game did not finish (round ${g.round}, ${g.alive().length} left)`);

@@ -144,7 +144,7 @@ export class Game {
 
   enter(p, to, how) {
     if (p.at === to) return;
-    p.terrain = 0; p.slot = null; // advantage stays on the battlefield it was won on
+    p.terrain = 0; p.slot = null; p.lostTerrain = null; p.seized = null; // advantage stays on the battlefield it was won on
     p.at = to;
     if (how === 'cs') this.log(`${p.name} ใช้ Command Spell ย้ายไป${AREAS[to].name}`, 'cs');
     if (to === 'recon') { this.addVP(p, RECON_VP); this.log(`${p.name} เข้าลาดตระเวน ได้ ${RECON_VP} VP`, p.isHuman ? 'good' : ''); }
@@ -192,51 +192,98 @@ export class Game {
   // a special-type NP/skill card face up or permanent: Enuma Elish defeats its Master [FD]
   activeSpecial(p) { return [...(p.play?.cards || []).filter((c) => this.isUp(c)), ...this.perm(p)].some((c) => c.skill && hasType(c, 'X')); }
 
-  // ctx: { f, zero (Set of types) }
-  cardPower(p, c, ctx = {}) {
+  // ctx: { f, zero (the types that count 0: a Set, or a Map of type → { name, owner } of the card) }.
+  // why: an array that gets one entry for each change of the printed power, for the power table
+  // (paper 4.6 item 9): { t: the reason, s: a short name, n: the change, zero, clash }
+  cardPower(p, c, ctx = {}, why = null) {
     if (!this.isUp(c)) return 0;
     const f = ctx.f ?? p.at;
+    const evs = f ? this.evs[f] || [] : [];
     let pw = c.power;
-    if (hasType(c, 'X') && f && this.efx(f, 'noSpecial')) pw = 0;
-    if (ctx.zero && [...ctx.zero].some((t) => hasType(c, t))) pw = 0; // "base power becomes 0", type bonuses still add [p.18]
-    const lowUp = f ? this.efx(f, 'lowUp') : 0;
-    if (lowUp && c.power <= 2) pw += lowUp;
-    for (const x of [this.sit?.fx, ...(f ? this.evs[f] || [] : []).map((e) => e.fx)]) if (x?.up && hasType(c, x.up)) pw += x.n;
+    const zero = (t, s, clash = false) => { if (pw) why?.push({ t, s, n: -pw, zero: true, clash }); pw = 0; };
+    const seal = hasType(c, 'X') && evs.find((e) => e.fx.noSpecial);
+    if (seal) zero(`อีเวนต์ ${seal.name}: การ์ดพิเศษพลัง 0`, seal.name);
+    const zt = ctx.zero && [...ctx.zero.keys()].find((t) => hasType(c, t));
+    if (zt) { const src = ctx.zero.get?.(zt); zero(`${src ? `${src.name} ของ ${src.owner}` : 'คู่ต่อสู้'}: การ์ด${TYPES[zt]}พลังพื้นฐาน 0`, src?.name || TYPES[zt], true); } // "base power becomes 0", type bonuses still add [p.18]
+    for (const e of evs) if (e.fx.lowUp && c.power <= 2) { pw += e.fx.lowUp; why?.push({ t: `อีเวนต์ ${e.name}: การ์ดพลัง 1–2 +${e.fx.lowUp}`, s: e.name, n: e.fx.lowUp }); }
+    for (const [x, kind] of [[this.sit, 'สถานการณ์'], ...evs.map((e) => [e, 'อีเวนต์'])]) {
+      if (x?.fx?.up && hasType(c, x.fx.up)) { pw += x.fx.n; why?.push({ t: `${kind} ${x.name}: การ์ด${TYPES[x.fx.up]} +${x.fx.n}`, s: x.name, n: x.fx.n }); }
+    }
     return pw;
+  }
+  // one card line of the power table: the printed power, then what changed it
+  cardRow(p, c, val, mods) {
+    const bump = c.bump || 0; // God Hand: +3 for every God Hand that left the game [FD]
+    if (bump && this.isUp(c)) mods.unshift({ t: 'God Hand ใบก่อนออกจากเกม', s: 'God Hand', n: bump });
+    if (c.off) mods.push({ t: c.offBy || 'ถูกปิด', s: '1st Strike', n: -c.power, zero: true, clash: true });
+    return { k: 'card', uid: c.uid, name: c.name || '', type: c.type, types: c.types || null, base: c.power - bump, mods, val, down: !!c.down, clashIn: !!c.clashIn };
+  }
+  // why a Master at battlefield f has no advantage, for the power table
+  noTerrain(p, f) {
+    if (p.lostTerrain && p.at === f) return p.lostTerrain;
+    if (p.at !== f || p.slot == null) return 'ย้ายเข้ามาทีหลัง';
+    return 'วางคนที่ 3 ขึ้นไป ไม่มีช่องได้เปรียบ';
   }
 
   // the advantage multipliers are on-use effects: none when 2nd Strike blocked them (ctx.blocked)
-  terrainOf(p, cards, ctx = {}) {
+  terrainOf(p, cards, ctx = {}, why = null) {
     const f = ctx.f ?? p.at;
-    if (!p.terrain || (f && this.efx(f, 'noTerrain'))) return 0;
-    let t = p.terrain + (f ? this.efx(f, 'terrainUp') : 0);
-    if (!ctx.blocked) for (const c of cards) if (this.isUp(c) && c.fx?.terrainMul) t *= c.fx.terrainMul;
+    if (!p.terrain) return 0;
+    const evs = f ? this.evs[f] || [] : [];
+    const fog = evs.find((e) => e.fx.noTerrain);
+    if (fog) { why?.push({ t: `อีเวนต์ ${fog.name}: ได้เปรียบพื้นที่ไม่มีผล`, s: fog.name, n: -p.terrain, zero: true }); return 0; }
+    let t = p.terrain;
+    if (p.seized?.f === f) why?.push({ t: `ยึดทั้ง 2 ช่องด้วย ${p.seized.by}`, s: p.seized.by, n: 0 });
+    for (const e of evs) if (e.fx.terrainUp) { t += e.fx.terrainUp; why?.push({ t: `อีเวนต์ ${e.name}: ได้เปรียบพื้นที่ +${e.fx.terrainUp}`, s: e.name, n: e.fx.terrainUp }); }
+    for (const c of cards) {
+      if (!this.isUp(c) || !c.fx?.terrainMul) continue;
+      if (ctx.blocked) { why?.push({ t: `${c.name} ×${c.fx.terrainMul} ไม่ทำงาน (2nd Strike)`, s: c.name, n: 0 }); continue; }
+      why?.push({ t: c.name, s: c.name, mul: c.fx.terrainMul, n: t * (c.fx.terrainMul - 1) });
+      t *= c.fx.terrainMul;
+    }
     return t;
   }
 
-  // ctx.clash: the clash effects work (no 2nd Strike of someone else here)
+  // ctx.clash: the clash effects work (no 2nd Strike of someone else here). ctx.detail: also return
+  // rows, one line per card and bonus with where each point comes from (paper 4.6 item 9)
   powerOf(p, play, ctx = {}) {
     const f = ctx.f ?? p.at;
     const cards = play.cards;
     const up = cards.filter((c) => this.isUp(c));
     const clash = ctx.clash ?? !this.blocked(p, f);
     const cx = { ...ctx, f, cards, blocked: play.blocked };
-    const parts = [['การ์ด', cards.reduce((s, c) => s + this.cardPower(p, c, cx), 0)]];
-    const t = this.terrainOf(p, cards, cx);
+    const rows = ctx.detail ? [] : null;
+    let sum = 0;
+    for (const c of cards) {
+      const mods = rows && [];
+      const n = this.cardPower(p, c, cx, mods);
+      sum += n;
+      rows?.push(this.cardRow(p, c, n, mods));
+    }
+    const parts = [['การ์ด', sum]];
+    const tm = rows && [];
+    const t = this.terrainOf(p, cards, cx, tm);
     if (t) parts.push(['ได้เปรียบพื้นที่', t]);
-    if (play.tsubame ?? this.tsubame(cards)) parts.push(['Tsubame Gaeshi', TSUBAME]);
+    if (rows && AREAS[f]?.field) rows.push({ k: 'terrain', base: p.terrain, mods: tm, val: t, none: p.terrain ? '' : this.noTerrain(p, f) });
+    const add = (label, n, o = {}) => { parts.push([label, n]); rows?.push({ k: 'part', label, n, ...o }); };
+    const evs = f ? this.evs[f] || [] : [];
+    const named = (key) => [this.sit?.fx?.[key] ? `สถานการณ์ ${this.sit.name}` : '', ...evs.filter((e) => e.fx[key]).map((e) => `อีเวนต์ ${e.name}`)].filter(Boolean).join(' · ');
+    if (play.tsubame ?? this.tsubame(cards)) add('Tsubame Gaeshi', TSUBAME, { note: 'ดาบครบ 3 ใบ' });
     const unify = this.sfx('unify') + (f ? this.efx(f, 'unify') : 0);
-    if (unify && up.length >= 2 && ALL_TYPES.some((ty) => up.every((c) => hasType(c, ty)))) parts.push(['การ์ดชนิดเดียวกัน', unify]);
-    if (play.cs2) parts.push(['Command Spell', play.cs2 * CS_POWER]);
-    if (clash && p.m.key === 'kirei' && p.revealed) parts.push(['Executor', 2]);
+    if (unify && up.length >= 2 && ALL_TYPES.some((ty) => up.every((c) => hasType(c, ty)))) add('การ์ดชนิดเดียวกัน', unify, { note: named('unify') });
+    if (play.cs2) add('Command Spell', play.cs2 * CS_POWER, { note: `${play.cs2} ดวง` });
+    if (clash && p.m.key === 'kirei' && p.revealed) add('Executor', 2, { clash: true, note: 'คิเรย์ชื่อจริงเปิดแล้ว' });
     const ex = clash && this.climax() ? up.find((c) => c.fx?.excal) : null;
-    if (ex) parts.push(['Excalibur ไคลแมกซ์', ex.fx.excal]);
+    if (ex) add('Excalibur ไคลแมกซ์', ex.fx.excal, { clash: true });
     const hidden = f ? this.efx(f, 'hiddenUp') : 0;
-    if (hidden && !p.revealed) parts.push(['ชื่อจริงยังซ่อน', hidden]);
-    if (ctx.underdog) parts.push(['VP น้อยสุด', ctx.underdog]);
-    if (play.rb) parts.push(['Rule Breaker', play.rb]);
-    return { total: parts.reduce((s, [, n]) => s + n, 0), parts };
+    if (hidden && !p.revealed) add('ชื่อจริงยังซ่อน', hidden, { note: named('hiddenUp') });
+    if (ctx.underdog) add('VP น้อยสุด', ctx.underdog, { clash: true, note: named('underdog') });
+    if (play.rb) add('Rule Breaker', play.rb, { note: 'เป้าหมายไม่มี Command Spell' });
+    const total = parts.reduce((s, [, n]) => s + n, 0);
+    return rows ? { total, parts, rows } : { total, parts };
   }
+  // the power shown before the fight; a later play here can change it (Bellerophon, 2nd Strike)
+  setPre(p) { const pw = this.powerOf(p, p.play); p.play.pre = pw.total; p.play.preParts = pw.parts; }
 
   // check and fix an answer for the card step (3.4). Off a battlefield (workshop, recon) the cards
   // are laid the same way: on-use effects work, no power counts (paper 8.3, v5.1)
@@ -299,7 +346,8 @@ export class Game {
     let cs2 = blockHere ? 0 : clamp(ans.cs2, 0, csLeft);
     // move cards take the cards along, engaged or not [paper 8.3]
     const movers = blockHere ? [] : picked.filter((c) => !down.has(c.uid) && (c.fx?.bell || c.fx?.move));
-    const mover = movers.find((c) => this.cardDests(p, c).includes(ans.moveTo)) || null;
+    const goes = (c) => this.cardDests(p, c).includes(ans.moveTo);
+    const mover = movers.find((c) => c.uid === ans.mover && goes(c)) || movers.find(goes) || null; // ans.mover: the card picked in the pop-up
     const moveTo = mover ? ans.moveTo : null;
     const moveOk = (k) => PATH.slice(1).includes(k) && k !== p.at && (k !== 'recon' || this.reconFree(p));
     // Command Spell move after the cards: the cards go along [paper 10, ph]
@@ -367,8 +415,8 @@ export class Game {
     if (mover && a.moveTo) {
       if (a.moveTo !== was) { this.enter(p, a.moveTo, 'card'); this.log(`${p.name} ใช้ ${mover.name} ย้ายจาก${AREAS[was].name}ไป${AREAS[a.moveTo].name}`, 'reveal'); }
       if (mover.fx.bell && AREAS[a.moveTo].field) {
-        for (const q of this.here(a.moveTo)) if (q !== p) q.terrain = 0;
-        p.terrain = TERRAIN.reduce((s, t) => s + t, 0);
+        for (const q of this.here(a.moveTo)) if (q !== p && q.terrain) { q.terrain = 0; q.lostTerrain = `ถูก ${mover.name} ของ ${p.name} ยึด`; }
+        p.terrain = TERRAIN.reduce((s, t) => s + t, 0); p.seized = { by: mover.name, f: a.moveTo };
         this.log(`${p.name} ใช้ ${mover.name} ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่องที่${AREAS[a.moveTo].name} (+${p.terrain})`, 'reveal');
       }
     }
@@ -405,7 +453,11 @@ export class Game {
     if (a.cs2) this.log(`${p.name} ใช้ Command Spell พลัง +${a.cs2 * CS_POWER} ที่${AREAS[p.at].name}`, 'cs');
     this.record(p, cards);
     this.ubwCheck(p);
-    if (AREAS[p.at].field) { p.play.pre = this.powerOf(p, p.play).total; return; }
+    if (AREAS[p.at].field) {
+      this.setPre(p);
+      for (const q of this.here(p.at)) if (q !== p && q.play) this.setPre(q);
+      return;
+    }
     // off a battlefield the on-use effects are done but no power counts; the cards go to the
     // discard pile the way they were laid (paper 8.3, v5.1)
     const n = cards.length - up.length;
@@ -481,7 +533,7 @@ export class Game {
   // played attack cards go to the discard pile the way they were played [p.11]; NP/skill and
   // the in-hand special cards go back
   dropPlay(p) {
-    if (p.play) for (const c of p.play.cards) if (!c.skill && !c.keep) { delete c.off; p.trash.push(c); }
+    if (p.play) for (const c of p.play.cards) if (!c.skill && !c.keep) { delete c.off; delete c.offBy; delete c.clashIn; p.trash.push(c); }
     p.play = null;
   }
 
@@ -555,7 +607,7 @@ export class Game {
     this.block = {};
     for (const p of this.alive()) {
       this.drawTo(p, HAND);
-      p.at = null; p.slot = null; p.terrain = 0; p.play = null; p.roundUse = {};
+      p.at = null; p.slot = null; p.terrain = 0; p.lostTerrain = null; p.seized = null; p.play = null; p.roundUse = {};
     }
     this.step = '1.2';
     for (const p of this.alive()) this.gain(p, this.sit.mana);
@@ -679,7 +731,7 @@ export class Game {
         this.log(`${AREAS[f].name}: ${p.name} อยู่คนเดียว ได้ ${n} VP`, p.isHuman ? 'good' : '');
         continue;
       }
-      this.results.push(this.fight(f, people));
+      this.results.push(await this.fight(f, people));
     }
     // after the fight [FD]: Kuzuki's VP when he got none, Rin's Short Temper mana back
     for (const p of this.order()) {
@@ -720,7 +772,7 @@ export class Game {
     this.step = '5.2';
   }
 
-  fight(f, people) {
+  async fight(f, people) {
     const ents = people.map((p) => ({ p, cards: p.play?.cards || [], notes: [], gain: 0, loss: 0 }));
     const up = (e) => e.cards.filter((c) => this.isUp(c));
     const blk = this.block[f];
@@ -742,13 +794,14 @@ export class Game {
       if (card(a, 'zab') && this.alive().length === 2) for (const b of foes) defeat(b, `โดน Zabaniya ของ ${a.p.name} (คู่แข่งคนสุดท้าย)`);
       if (card(a, 'enuma')) for (const b of foes) if (this.activeSpecial(b.p)) defeat(b, `โดน Enuma Elish ของ ${a.p.name} (มีการ์ดสกิลชนิดพิเศษ)`);
       const s1 = card(a, 'strike1');
-      if (s1) this.firstStrike(a, s1, foes, f, up);
+      if (s1) await this.firstStrike(a, s1, foes, f, up);
     }
     const lowVP = Math.min(...people.map((p) => p.vp));
     const under = this.efx(f, 'underdog');
     for (const e of ents) {
-      const zero = new Set(ents.filter((o) => o !== e).flatMap((o) => act(o).filter((c) => c.fx?.zeroOpp).map((c) => c.fx.zeroOpp)));
-      e.pw = this.powerOf(e.p, e.p.play || { cards: [] }, { f, zero, clash: ok(e), underdog: under && e.p.vp === lowVP ? under : 0 });
+      const zero = new Map(); // type → the card that zeroes it, for the power table
+      for (const o of ents) if (o !== e) for (const c of act(o)) if (c.fx?.zeroOpp && !zero.has(c.fx.zeroOpp)) zero.set(c.fx.zeroOpp, { name: c.name, owner: o.p.name });
+      e.pw = this.powerOf(e.p, e.p.play || { cards: [] }, { f, zero, clash: ok(e), underdog: under && e.p.vp === lowVP ? under : 0, detail: true });
     }
     // Assassin Class: after the power, the one foe above us falls when 3+ are here [FD]
     if (ents.length >= 3) for (const a of ents) {
@@ -794,7 +847,7 @@ export class Game {
         for (const w of winners) { w.loss += gh.fx.godHand; w.notes.push(`${gh.name} −${gh.fx.godHand} VP`); }
         const own = p.skills.find((s) => s.uid === gh.uid);
         if (own) own.gone = true;
-        for (const s of p.skills) if (s.fx?.godHand && !s.gone) s.power += 3;
+        for (const s of p.skills) if (s.fx?.godHand && !s.gone) { s.power += 3; s.bump = (s.bump || 0) + 3; }
         e.notes.push(`${gh.name}: แพ้แต่ได้ ${gh.fx.godHand} VP แล้วออกจากเกม · God Hand ที่เหลือพลัง +3`);
       }
       // Rain of Light: a loss brings Rule Breaker back [FD]
@@ -814,26 +867,33 @@ export class Game {
     }
     const r = {
       f, pool, winners: winners.map((e) => e.p.id),
-      ents: ents.map((e) => ({ id: e.p.id, cards: e.cards, power: e.pw.total, parts: e.pw.parts, gain: e.gain, notes: e.notes, won: winners.includes(e), defeated: defeated.has(e) })),
+      ents: ents.map((e) => ({ id: e.p.id, cards: e.cards, power: e.pw.total, parts: e.pw.parts, rows: e.pw.rows, pre: e.p.play?.pre ?? 0, preParts: e.p.play?.preParts || [], gain: e.gain, notes: e.notes, won: winners.includes(e), defeated: defeated.has(e) })),
     };
     this.log(`⚔ ${AREAS[f].name}: ${ents.map((e) => `${e.p.name} ${defeated.has(e) ? '[แพ้]' : e.pw.total}`).join(' · ')} → ${winners.length ? winners.map((e) => `${e.p.name} ${e.gain >= 0 ? '+' : ''}${e.gain} VP`).join(', ') : 'ไม่มีผู้ชนะ'}`, 'fight');
     return r;
   }
 
-  // 1st Strike [FD]: it turns itself off and lays a basic Strength card from the hand (free, the
-  // strongest); if it can, +2 mana and the strongest face-up basic card of a foe here turns off
-  firstStrike(a, s1, foes, f, up) {
+  // 1st Strike [FD]: it turns itself off and lays a basic Strength card from the hand (free); if it
+  // can, +2 mana and a face-up basic card of a foe here turns off. The Master picks both cards in
+  // a pop-up (paper 4.6 item 8); a bot, or no answer, takes the strongest of each.
+  async firstStrike(a, s1, foes, f, up) {
     const p = a.p;
-    s1.off = true;
-    const s = p.hand.filter((c) => c.basic && hasType(c, 'S')).sort((x, y) => this.cardPower(p, y, { f }) - this.cardPower(p, x, { f }))[0];
-    if (!s) { a.notes.push('1st Strike ปิดตัวเอง · ไม่มีการ์ดกำลังพื้นฐานในมือ'); return; }
+    s1.off = true; s1.offBy = '1st Strike ปิดตัวเอง';
+    const pw = (q, c) => this.cardPower(q, c, { f });
+    const mine = p.hand.filter((c) => c.basic && hasType(c, 'S')).sort((x, y) => pw(p, y) - pw(p, x));
+    if (!mine.length) { a.notes.push('1st Strike ปิดตัวเอง · ไม่มีการ์ดกำลังพื้นฐานในมือ'); return; }
+    const tgts = foes.flatMap((b) => up(b).filter((c) => c.basic).map((c) => ({ b, c }))).sort((x, y) => pw(y.b.p, y.c) - pw(x.b.p, x.c));
+    this.turn = p;
+    const ans = await this.decide(this, p, 'strike1', { f, card: s1.uid, mine: mine.map((c) => c.uid), foes: tgts.map(({ b, c }) => ({ id: b.p.id, uid: c.uid })) });
+    this.turn = null;
+    const s = mine.find((c) => c.uid === ans?.card) || mine[0];
+    const tgt = tgts.find(({ c }) => c.uid === ans?.target) || tgts[0];
     p.hand.splice(p.hand.indexOf(s), 1);
-    s.down = false;
+    s.down = false; s.clashIn = true;
     a.cards.push(s);
     this.record(p, [s], 'clash');
     this.gain(p, s1.fx.strike1);
-    const tgt = foes.flatMap((b) => up(b).filter((c) => c.basic).map((c) => ({ b, c }))).sort((x, y) => this.cardPower(y.b.p, y.c, { f }) - this.cardPower(x.b.p, x.c, { f }))[0];
-    if (tgt) { tgt.c.off = true; tgt.b.notes.push(`${cardName(tgt.c)} ถูก 1st Strike ปิด`); }
+    if (tgt) { tgt.c.off = true; tgt.c.offBy = `ถูก 1st Strike ของ ${p.name} ปิด`; tgt.b.notes.push(`${cardName(tgt.c)} ถูก 1st Strike ปิด`); }
     a.notes.push(`1st Strike ปิดตัวเอง ลง ${cardName(s)} · มานา +${s1.fx.strike1}${tgt ? ` · ปิด ${cardName(tgt.c)} ของ ${tgt.b.p.name}` : ''}`);
   }
 

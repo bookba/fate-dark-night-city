@@ -293,10 +293,19 @@ small, .dim { color: var(--dim); }
 .bres { font-weight: 600; color: var(--dim); }
 .bres small { font-size: inherit; }
 .bres.won { color: var(--grail); } .bres.def { color: #ff8a92; }
-.bpw i.dl { color: var(--ok); } .bpw i.dl.neg { color: #ff8a92; }
+.bpw i.dl { color: var(--ok); white-space: nowrap; } .bpw i.dl.neg { color: #ff8a92; }
+/* the short power line "การ์ด 6 · พื้นที่ +3 · CS +2"; a tap on the row opens the full table (paper 4.6 item 9) */
+.bsum { font: 500 10px/1.25 var(--ff-body); color: var(--dim); white-space: nowrap; max-width: 16em; overflow: hidden; text-overflow: ellipsis; }
+.brow[data-act] { cursor: pointer; }
+.brow[data-act]:hover, .brow[data-act]:focus-visible { border-color: color-mix(in srgb, var(--grail) 70%, var(--line)); outline: none; }
+@container area (max-width: 300px) { .bsum { display: none; } }
+@container area (min-width: 301px) { .bpw i.tr { display: none; } }
+@container area (max-height: 200px) { .bsum { display: none; } }
 .bnote { display: none; grid-column: 1 / -1; color: var(--dim); font-size: 11px; line-height: 1.25; }
 /* results arrive one Master at a time in seat order; --d is that row's delay (negative after a redraw) */
 .brow.res .bpw b, .brow.res .bout { animation: bin .35s ease-out both; animation-delay: var(--d, 0ms); }
+.brow.res .bpw i.dl { animation: bpop .5s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: var(--d, 0ms); transform-origin: right center; }
+@keyframes bpop { from { opacity: 0; transform: scale(.4); } }
 .brow.res.won { animation: bwin .4s ease-out both; animation-delay: var(--dw, 0ms); }
 .brow.res.lost { animation: blost .4s ease-out both; animation-delay: var(--dw, 0ms); }
 @keyframes bin { from { opacity: 0; transform: translateY(4px); } }
@@ -343,6 +352,7 @@ small, .dim { color: var(--dim); }
 .battle.full .bout { order: 1; grid-column: 1 / -1; text-align: left; font-size: 13px; }
 .battle.full .bnote { order: 2; display: block; font-size: 12px; }
 .battle.full .bfx { order: 3; }
+.battle.full .bpwt { order: 4; grid-column: 1 / -1; }
 .bfx { grid-column: 1 / -1; margin: 0; padding: 0 0 0 14px; font-size: 12px; color: var(--dim); display: grid; gap: 2px; }
 .bfx b { color: var(--bone); font-weight: 600; }
 .card.mini.empty { display: grid; place-items: center; border: 1px dashed var(--line); background: none; font-size: 9px; color: var(--dim); text-align: center; }
@@ -598,6 +608,64 @@ small, .dim { color: var(--dim); }
 .sum .parts { color: var(--dim); }
 .sum .warn { color: var(--grail); }
 .info { font-size: 12px; color: var(--dim); padding: 8px 10px; border-left: 2px solid var(--line); max-width: 75ch; }
+.sum .row-lab { margin: 0; }
+/* where each point of a power comes from (paper 4.6 item 9) */
+.pwt { width: 100%; border-collapse: collapse; font-size: 12.5px; line-height: 1.3; }
+.pwt th, .pwt td { padding: 4px 6px; text-align: left; vertical-align: baseline; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.pwt th { font-weight: 600; color: var(--bone); min-width: 6.5em; max-width: 46%; }
+.pwt td { color: var(--dim); }
+.pwt td.v { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--bone); width: 1%; padding-left: 10px; }
+.pwt .pm { display: block; }
+.pwt .pm b { font-weight: 700; margin-right: 2px; }
+.pwt .up { color: var(--ok); } .pwt .dn { color: #ff8a92; }
+.pwt tr.down th, .pwt tr.down td.v { color: var(--dim); font-weight: 500; }
+.pwt tr.pw-total th, .pwt tr.pw-total td { border-bottom: 0; padding-top: 7px; }
+.pwt tr.pw-total td.v { font: 700 20px/1 var(--ff-crest); color: var(--grail); }
+.pwt em.clash { display: inline-block; font: 600 10px/1 var(--ff-body); font-style: normal; color: #ffb3b9; border: 1px solid color-mix(in srgb, var(--seal) 70%, transparent); border-radius: 999px; padding: 2px 6px; margin-left: 6px; white-space: nowrap; vertical-align: 1px; }
+.ent .bpwt { grid-column: 1 / -1; }
+.ent .bpwt .pwt { font-size: 12px; }
+.pw-notes { color: var(--grail); }
+/* the Command Spell move when a move card already moves you */
+.stepper.off > span, .stepper.off { color: var(--dim); }
+.stepper .why, .ctrl .why { font-style: normal; font-size: 12px; color: var(--dim); }
+
+/* skill choices (paper 4.6 item 8): one question over the card step */
+#cpop {
+  position: fixed; inset: 0; z-index: 18; display: grid; place-items: center; grid-template-rows: minmax(0, 1fr);
+  padding: calc(12px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  background: rgba(6, 9, 18, .5);
+}
+#cpop[hidden] { display: none; }
+#cpop .pop-dlg { width: min(500px, 100%); border-color: color-mix(in srgb, var(--grail) 50%, var(--line)); box-shadow: 0 24px 70px rgba(0, 0, 0, .65); }
+#cpop .pop-head .sub { font-size: 12px; }
+.copts { display: grid; gap: 8px; }
+.copt { display: grid; gap: 3px; text-align: left; padding: 10px 12px; border-radius: var(--r); background: var(--night-3); border: 1px solid var(--line); cursor: pointer; color: inherit; font: inherit; min-width: 0; }
+.copt:hover:not(:disabled) { border-color: color-mix(in srgb, var(--grail) 60%, var(--line)); }
+.copt > b { display: flex; align-items: center; gap: 8px; font-family: var(--ff-head); font-size: 15px; font-weight: 600; min-width: 0; }
+.copt > b::before { content: ''; flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--dim); box-sizing: border-box; }
+.copt.multi > b::before { border-radius: 4px; }
+.copt.on { border-color: var(--grail); background: color-mix(in srgb, var(--grail) 9%, var(--night-3)); box-shadow: inset 0 0 0 1px var(--grail); }
+.copt.on > b::before { border-color: var(--grail); background: radial-gradient(circle, var(--grail) 0 40%, transparent 44%); }
+.copt.multi.on > b::before { background: var(--grail); box-shadow: inset 0 0 0 3px var(--night-3); }
+.copt > span { font-size: 12.5px; color: var(--dim); padding-left: 24px; }
+.copt .why { color: #ff8a92; }
+.copt:disabled { opacity: .55; cursor: not-allowed; }
+.copt .rec { margin-left: auto; flex: none; font: 600 10.5px/1 var(--ff-body); font-style: normal; color: #1d1606; background: var(--grail); border-radius: 999px; padding: 3px 7px; }
+.copt > b .bc { height: 38px; }
+.copt > b > span { min-width: 0; }
+.cnow { margin: 0; font-size: 13px; color: var(--dim); }
+.cnow b { color: var(--mana); }
+/* the tag under a picked card that made a choice; a tap opens it again */
+.ctag { max-width: 112px; font-size: 11px; padding: 2px 9px; min-height: 26px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--grail) 65%, var(--line)); background: color-mix(in srgb, var(--grail) 12%, var(--night)); color: var(--grail); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Rin's gem tile in the Master card row */
+.card.gem { --t: #d4505f; cursor: pointer; }
+.card.gem .pw { color: #ffd6db; }
+.card.gem:disabled { cursor: not-allowed; }
+@media (max-width: 599px) {
+  #cpop { place-items: end stretch; padding: calc(20px + env(safe-area-inset-top, 0px)) 0 0; }
+  #cpop .pop-dlg { width: 100%; border-radius: 16px 16px 0 0; border-bottom: 0; }
+  #cpop .pop-foot { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
 .abil { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .abil li { display: grid; gap: 1px; padding: 6px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, #c0703a 45%, var(--line)); background: color-mix(in srgb, #c0703a 8%, var(--night)); font-size: 12.5px; }
 .abil b { font-weight: 600; font-size: 13px; }
