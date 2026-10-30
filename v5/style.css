@@ -625,6 +625,17 @@ small, .dim { color: var(--dim); }
 .ent .bpwt { grid-column: 1 / -1; }
 .ent .bpwt .pwt { font-size: 12px; }
 .pw-notes { color: var(--grail); }
+/* the power table folded into a dropdown: one short line, a tap opens the table (B 30 ต.ค. 2026) */
+.pwd > summary { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 30px 6px 9px; border-radius: 8px; list-style: none; cursor: pointer; font-size: 12.5px; line-height: 1.35; color: var(--dim); background: color-mix(in srgb, var(--line) 24%, transparent); }
+.pwd > summary::-webkit-details-marker { display: none; }
+.pwd > summary::after { content: '▾'; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); color: var(--grail); transition: transform .15s; }
+.pwd[open] > summary::after { transform: translateY(-50%) rotate(180deg); }
+.pwd > summary:hover { background: color-mix(in srgb, var(--line) 42%, transparent); }
+.pwd > summary:focus-visible { outline: 2px solid var(--grail); outline-offset: 1px; }
+.pwd[open] > summary { margin-bottom: 4px; }
+.pwd-l { color: var(--bone); font-weight: 600; }
+.pwd-s { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .pwd > summary::after { transition: none; } }
 /* the Command Spell move when a move card already moves you */
 .stepper.off > span, .stepper.off { color: var(--dim); }
 .stepper .why, .ctrl .why { font-style: normal; font-size: 12px; color: var(--dim); }

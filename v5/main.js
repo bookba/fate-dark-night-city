@@ -23,6 +23,7 @@ let g = null, wait = null, draft = null, skip = false, overShown = false, outSho
 let pop = null; // the open pop-up: { k: 'act' | 'opts' | 'win' | 'area' | 'me' | 'deck' | 'card' | 'player' | 'pcard' | 'rank' | 'log' | 'sit' | 'menu', f, min, back }
 let popBack = null; // the action pop-up to return to after looking at something else
 const swapSel = new Set(); // hand cards Rin marked for a gem swap (1–3)
+const openDrops = new Set(); // power-table dropdowns left open (data-dk), so a redraw keeps them open
 let choice = null; // the skill-choice pop-up over the card step (paper 4.6 item 8): { k, uid, sel, re }
 const setup = { master: 'shirou', sample: false };
 
@@ -252,7 +253,7 @@ function drawBar() {
     const bt = myBattle();
     const r = bt?.res;
     const mine = r?.ents.find((e) => e.id === p.id);
-    const how = !mine ? '' : mine.defeated ? ' · คุณ [แพ้]' : mine.won ? ` · คุณชนะ +${mine.gain} VP` : ' · คุณแพ้';
+    const how = !mine ? '' : mine.defeated ? ' · คุณ [แพ้]' : mine.won ? ` · คุณชนะ ${pm(mine.gain)} VP` : ' · คุณแพ้';
     html = `<span class="who">ผลการต่อสู้</span><b>${esc(bt ? `${AREAS[bt.f].name}${how}` : 'ทุกสนามรบ')}</b>
       <span class="acts"><button class="btn sm" data-act="allres">ดูผลทุกสนามรบ</button><button class="btn sm primary" data-act="cont">จบรอบ</button></span>`;
   } else {
@@ -414,6 +415,7 @@ function bcard(c, q) {
 // the short line under a power: "การ์ด 6 · พื้นที่ +3 · CS +2" (paper 4.6 item 9)
 const PART_SHORT = { 'ได้เปรียบพื้นที่': 'พื้นที่', 'Command Spell': 'CS', 'Tsubame Gaeshi': 'Tsubame', 'การ์ดชนิดเดียวกัน': 'ชนิดเดียวกัน', 'Excalibur ไคลแมกซ์': 'Excalibur', 'ชื่อจริงยังซ่อน': 'ชื่อซ่อน' };
 const sgn = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+const pm = (n) => (n < 0 ? `−${-n}` : `+${n}`); // a VP change, +0 included
 const shortParts = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? `การ์ด ${n}` : `${PART_SHORT[t] || t} ${sgn(n)}`)).join(' · ');
 // what the clash changed, by name ("Executor", "Invisible Air", "1st Strike"); a bonus already in
 // the power before the fight is left out
@@ -446,7 +448,7 @@ function battleRows(f, res, full) {
     let sub = q.terrain ? `<i class="tr" title="ได้เปรียบพื้นที่">${full ? 'ได้เปรียบ ' : ''}+${q.terrain}</i>` : '';
     const parts = e ? e.parts : q.play?.preParts || [];
     if (e) {
-      const vp = (t, k) => `${t}${k ? ` +${k}<small> VP</small>` : ''}`;
+      const vp = (t, k) => `${t}${k ? ` ${pm(k)}<small> VP</small>` : ''}`;
       const what = e.defeated ? '[แพ้]' : e.won ? vp('ชนะ', e.gain) : vp('แพ้', e.gain);
       const d = q.play && !e.defeated ? e.power - q.play.pre : 0;
       const names = clashNames(e);
@@ -455,14 +457,14 @@ function battleRows(f, res, full) {
       pw = e.defeated ? '–' : e.power;
       sub = dl ? `<i class="dl${d < 0 ? ' neg' : ''}" title="${esc(note)}">${esc(dl)}</i>` : '';
       out = `<span class="bres${e.won ? ' won' : e.defeated ? ' def' : ''}">${what}</span>`;
-      short = e.defeated ? '[แพ้]' : e.won ? `ชนะ${e.gain ? ` +${e.gain}` : ''}` : 'แพ้';
+      short = e.defeated ? '[แพ้]' : e.won ? `ชนะ${e.gain ? ` ${pm(e.gain)}` : ''}` : 'แพ้';
     }
     const delay = res ? `style="--d:${i * RES_STEP - since}ms;--dw:${people.length * RES_STEP - since}ms"` : '';
     const cls = `brow${q.isHuman ? ' me' : ''}${lead ? ' lead' : ''}${e ? ` res${e.won ? ' won' : ' lost'}` : ''}${n >= 4 ? ' c4' : n === 3 ? ' c3' : ''}`;
     const fx = full && q.play ? q.play.cards.filter((c) => !(c.down && !q.isHuman) && (c.text || tags(c).length))
       .map((c) => `<li><b>${esc(cardName(c))}</b> ${esc([c.down ? 'ลงคว่ำ ไม่มีผล' : '', srcText(c, q), cardText(c)].filter(Boolean).join(' · '))}</li>`).join('') : '';
     // the full table in the pop-up; on the board a tap on the row opens it (paper 4.6 item 9)
-    const table = full && q.play ? `<div class="bpwt">${pwTable(e ? { rows: e.rows || [], total: e.power } : g.powerOf(q, q.play, { detail: true }), q)}</div>` : '';
+    const table = full && q.play ? `<div class="bpwt">${pwDrop(e ? { rows: e.rows || [], total: e.power, parts: e.parts || [] } : g.powerOf(q, q.play, { detail: true }), q, { dk: `a:${g.round}:${f}:${q.id}` })}</div>` : '';
     const bar = !full && parts.length ? `<small class="bsum">${esc(shortParts(parts))}</small>` : '';
     const tap = !full && q.play ? ` data-act="pwrow" data-id="${q.id}" role="button" tabindex="0" aria-label="${esc(`พลังของ ${q.name} · แตะดูที่มา`)}"` : '';
     return `<div class="${cls}" ${delay}${tap}><span class="bwho">${full ? chip(q) : `${tok(q)}<b>${esc(q.name)}</b>`}</span>
@@ -887,7 +889,7 @@ function cardsPop() {
         <div class="cg"><p class="row-lab">การ์ด NP/สกิล · ${esc(p.sv.cls)}</p><div class="cards">${skills}</div></div></div>
       ${deckRow}${infoLine}
       ${ctrl.length ? `<div class="ctrl"><span class="row-lab">Command Spell (เหลือ ${p.cs})</span>${ctrl.join('')}</div>` : ''}
-      <div class="sum">${off ? `<div class="parts">${dest ? `ย้ายไป${esc(AREAS[dest].name)}` : `อยู่${esc(AREAS[p.at].name)}`} · ไม่คิดพลัง</div>` : `<p class="row-lab">ที่มาของพลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}</p>${pwTable(pw, p)}`}${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
+      <div class="sum">${off ? `<div class="parts">${dest ? `ย้ายไป${esc(AREAS[dest].name)}` : `อยู่${esc(AREAS[p.at].name)}`} · ไม่คิดพลัง</div>` : pwDrop(pw, p, { label: `ที่มาของพลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}`, dk: 'cards' })}${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
     foot: `<div class="tot"><span class="dim">${off ? 'ไม่คิดพลัง' : `พลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}`}</span><b>${off ? '–' : pw.total}</b></div>
       <div class="num"><div>${inf ? 'มานาไม่จำกัด' : `มานา ${mana} − ${a.cost} = <b style="color:var(--mana)">${left}</b>`}</div><div class="dim">${p.m.key === 'rin' ? `อัญมณีเหลือ ${gemsLeft} · ` : ''}Command Spell เหลือ ${csLeft - a.cs2 - (a.csMove ? 1 : 0) - (a.temper === 'mana' ? 1 : 0)}</div></div>
       <div class="acts"><button class="btn ghost" data-act="clear" title="เอาการ์ดที่เลือกออกทั้งหมด ล้าง Command Spell อัญมณี และตัวเลือกของสกิล">รีเซ็ตทั้งหมด</button><button class="btn ghost" data-act="reset">ใช้ชุดที่แนะนำ</button><button class="btn primary" data-act="play">ลงการ์ด${off ? '' : ` · พลัง ${pw.total}`}</button></div>`,
@@ -1264,6 +1266,12 @@ function pwTable(pw, q) {
   }).join('');
   return `<table class="pwt"><tbody>${rows}${tr('pw-total', 'พลังรวม', '', pw.total)}</tbody></table>`;
 }
+// the table folded into a dropdown: one short line ("การ์ด 6 · พื้นที่ +3 ▾"), a tap opens the table
+// (B 30 ต.ค. 2026: "ข้อมูลเยอะไปให้ทำดรอปดาว"); dk names it so a redraw keeps it open
+function pwDrop(pw, q, { label = 'ที่มาของพลัง', dk = '' } = {}) {
+  const open = dk && openDrops.has(dk);
+  return `<details class="pwd"${dk ? ` data-dk="${esc(dk)}"` : ''}${open ? ' open' : ''}><summary><span class="pwd-l">${label}</span><span class="pwd-s">${esc(shortParts(pw.parts || []))}</span></summary>${pwTable(pw, q)}</details>`;
+}
 // one Master's power in a fight, from a tap on their row in the battle window; ‹ › step through the fight
 function pwPop(f, id) {
   const res = g.phase === 'combat' ? g.results.find((r) => r.f === f && !r.alone) : null;
@@ -1274,7 +1282,7 @@ function pwPop(f, id) {
   const e = res?.ents.find((x) => x.id === id);
   const pw = e ? { rows: e.rows || [], total: e.power } : g.powerOf(q, q.play, { detail: true });
   const cards = (e?.cards || q.play.cards).map((c) => (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
-  const what = !e ? 'ก่อนต่อสู้ · ผล "ตอนปะทะ" ยังไม่ทำงาน' : e.defeated ? '[แพ้]' : e.won ? `ชนะ +${e.gain} VP` : `แพ้${e.gain ? ` +${e.gain} VP` : ''}`;
+  const what = !e ? 'ก่อนต่อสู้ · ผล "ตอนปะทะ" ยังไม่ทำงาน' : e.defeated ? '[แพ้]' : e.won ? `ชนะ ${pm(e.gain)} VP` : `แพ้${e.gain ? ` ${pm(e.gain)} VP` : ''}`;
   const step = (dd, label) => { const n = people[(i + dd + people.length) % people.length]; return `<button class="btn" data-act="pwrow" data-id="${n.id}" aria-label="${label}">${dd < 0 ? '‹' : '›'}</button>`; };
   return {
     title: `พลังของ ${q.name}${q.isHuman ? ' (คุณ)' : ''}`,
@@ -1548,8 +1556,8 @@ function showResults(results) {
     return sorted.map((e, i) => {
       const p = g.players[e.id];
       const cards = (e.cards || []).map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
-      const res = r.alone ? `อยู่คนเดียว +${e.gain} VP` : e.defeated ? '[แพ้]' : e.won ? `ชนะ +${e.gain} VP` : e.gain ? `แพ้ +${e.gain} VP` : 'แพ้';
-      const table = r.alone ? '' : `<div class="bpwt">${pwTable({ rows: e.rows || [], total: e.power }, p)}</div>`; // paper 4.6 item 9
+      const res = r.alone ? `อยู่คนเดียว ${pm(e.gain)} VP` : e.defeated ? '[แพ้]' : e.won ? `ชนะ ${pm(e.gain)} VP` : e.gain ? `แพ้ ${pm(e.gain)} VP` : 'แพ้';
+      const table = r.alone ? '' : `<div class="bpwt">${pwDrop({ rows: e.rows || [], total: e.power, parts: e.parts || [] }, p, { dk: `r:${g.round}:${r.f}:${e.id}` })}</div>`; // paper 4.6 item 9, folded
       return `<div class="ent${e.won ? ' won' : ' lost'}" style="animation-delay:${i * 120}ms"><div class="who">${chip(p)}<div class="cards">${cards}</div></div>
         <div><div class="tot">${r.alone ? '–' : e.power}</div><div class="res${e.defeated ? ' def' : ''}">${res}</div></div>
         ${table}${e.notes?.length ? `<div class="notes">${e.notes.map(esc).join(' · ')}</div>` : ''}</div>`;
@@ -1584,6 +1592,10 @@ function showOver() {
 }
 
 // ---------- clicks ----------
+document.addEventListener('toggle', (ev) => {
+  const dk = ev.target.dataset?.dk;
+  if (dk) { if (ev.target.open) openDrops.add(dk); else openDrops.delete(dk); }
+}, true);
 document.addEventListener('click', (ev) => {
   if (ev.target.id === 'cpop') return; // a skill choice is answered with its buttons only
   if (ev.target.id === 'pop') { closePop(); return; } // a tap outside the pop-up closes it
