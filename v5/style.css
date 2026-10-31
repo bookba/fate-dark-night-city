@@ -34,8 +34,8 @@
   --r: 10px;
 }
 /* card crests (masks tinted with the card type): Strength swords, Agility wind, Magic circle,
-   Special star, NP grail, no type, and the card back. --back-art: the picture on the back of every
-   play card (paper 4.6 item 13): a gold frame, a magic circle, three Command Seal marks and the Grail */
+   Special star, NP grail, no type. The card backs are the Fate/Domination ones (paper 4.6 item 13):
+   --back-atk on every card of the Servant deck, --back-sk on an NP/skill card still face down */
 :root {
   --em-S: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M27 27 L33 29 L66 62 L62 66 L29 33 Z M56 70 L70 56 M65 65 L75 75'/%3E%3Ccircle cx='77' cy='77' r='3'/%3E%3Cpath d='M73 27 L67 29 L34 62 L38 66 L71 33 Z M44 70 L30 56 M35 65 L25 75'/%3E%3Ccircle cx='23' cy='77' r='3'/%3E%3C/svg%3E");
   --em-A: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M34 30 L52 50 L34 70 M48 30 L66 50 L48 70 M62 30 L80 50 L62 70' stroke-width='4'/%3E%3Cpath d='M14 42 H26 M10 50 H30 M14 58 H26' stroke-width='2'/%3E%3C/svg%3E");
@@ -44,7 +44,8 @@
   --em-N: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M30 26 H70 Q70 52 50 58 Q30 52 30 26 Z M50 58 V70 M38 78 H62 M42 72 H58' stroke-width='3.2'/%3E%3Cpath d='M36 32 H64' stroke-width='1.5'/%3E%3Cpath d='M50 6 V14 M50 86 V94 M6 50 H14 M86 50 H94 M19 19 L25 25 M75 75 L81 81 M81 19 L75 25 M19 81 L25 75' stroke-width='2'/%3E%3C/svg%3E");
   --em-Z: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpolygon points='50,16 80,50 50,84 20,50' stroke-width='2.5'/%3E%3Cpolygon points='50,32 64,50 50,68 36,50' stroke-width='1.8'/%3E%3C/svg%3E");
   --em-B: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='47' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='42' stroke-width='4' stroke-dasharray='1.5 4.5'/%3E%3Ccircle cx='50' cy='50' r='37' stroke-width='1.2'/%3E%3Cpolygon points='50.0,14.0 55.4,37.1 75.5,24.5 62.9,44.6 86.0,50.0 62.9,55.4 75.5,75.5 55.4,62.9 50.0,86.0 44.6,62.9 24.5,75.5 37.1,55.4 14.0,50.0 37.1,44.6 24.5,24.5 44.6,37.1' stroke-width='1.6'/%3E%3Ccircle cx='50' cy='50' r='14' stroke-width='2'/%3E%3Cpath d='M50 38 C43 44 43 56 50 62 C57 56 57 44 50 38 Z M38 50 H62' stroke-width='2'/%3E%3C/svg%3E");
-  --back-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140'%3E%3Cdefs%3E%3CradialGradient id='bg' cx='50%25' cy='50%25' r='70%25'%3E%3Cstop offset='0' stop-color='%234a1830'/%3E%3Cstop offset='.5' stop-color='%231b1736'/%3E%3Cstop offset='1' stop-color='%230a0c1b'/%3E%3C/radialGradient%3E%3ClinearGradient id='au' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f6e3a0'/%3E%3Cstop offset='.5' stop-color='%23dcb75c'/%3E%3Cstop offset='1' stop-color='%23a07a2a'/%3E%3C/linearGradient%3E%3CradialGradient id='glow' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0' stop-color='%23f4d27a' stop-opacity='.55'/%3E%3Cstop offset='1' stop-color='%23f4d27a' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cpattern id='lat' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Cpath d='M0 0H8M0 0V8' stroke='%23dcb75c' stroke-opacity='.09' stroke-width='.5'/%3E%3C/pattern%3E%3Cpath id='seal' d='M35.22 51.09A24 24 0 0 1 61.27 48.81A3.1 3.1 0 0 1 58.36 54.28A17.8 17.8 0 0 0 45.69 52.73Z'/%3E%3C/defs%3E%3Crect width='100' height='140' fill='url(%23bg)'/%3E%3Crect width='100' height='140' fill='url(%23lat)'/%3E%3Crect x='3.5' y='3.5' width='93' height='133' rx='5' fill='none' stroke='url(%23au)' stroke-width='1.4'/%3E%3Crect x='7' y='7' width='86' height='126' rx='3' fill='none' stroke='%23dcb75c' stroke-opacity='.5' stroke-width='.6'/%3E%3Cg fill='none' stroke='url(%23au)' stroke-width='1.1' stroke-linecap='round'%3E%3Cpath d='M10 17V10H17M83 10H90V17M90 123V130H83M17 130H10V123'/%3E%3C/g%3E%3Cg fill='%23dcb75c'%3E%3Cpath d='M50 11.5L52.5 14L50 16.5L47.5 14Z M50 123.5L52.5 126L50 128.5L47.5 126Z'/%3E%3Ccircle cx='13' cy='13' r='1'/%3E%3Ccircle cx='87' cy='13' r='1'/%3E%3Ccircle cx='87' cy='127' r='1'/%3E%3Ccircle cx='13' cy='127' r='1'/%3E%3C/g%3E%3Cpath d='M22 14H44M56 14H78M22 126H44M56 126H78' stroke='%23dcb75c' stroke-opacity='.55' stroke-width='.6'/%3E%3Ccircle cx='50' cy='70' r='30' fill='url(%23glow)'/%3E%3Cg fill='none' stroke='url(%23au)'%3E%3Ccircle cx='50' cy='70' r='33' stroke-width='1.1'/%3E%3Ccircle cx='50' cy='70' r='29.6' stroke-width='2.6' stroke-dasharray='.7 2.4' stroke-opacity='.75'/%3E%3Ccircle cx='50' cy='70' r='26' stroke-width='.6' stroke-opacity='.8'/%3E%3Crect x='31.6' y='51.6' width='36.8' height='36.8' stroke-width='.7' stroke-opacity='.7'/%3E%3Crect x='31.6' y='51.6' width='36.8' height='36.8' stroke-width='.7' stroke-opacity='.7' transform='rotate(45 50 70)'/%3E%3Ccircle cx='50' cy='70' r='15' stroke-width='.8'/%3E%3C/g%3E%3Cg stroke='%23f4d27a' stroke-opacity='.35' stroke-width='.5'%3E%3Cpath d='M50 31V40M50 100V109M11 70H20M80 70H89M22.4 42.4L28.8 48.8M71.2 91.2L77.6 97.6M77.6 42.4L71.2 48.8M28.8 91.2L22.4 97.6'/%3E%3C/g%3E%3Cg fill='%23d43a48' fill-opacity='.9'%3E%3Cuse href='%23seal'/%3E%3Cuse href='%23seal' transform='rotate(120 50 70)'/%3E%3Cuse href='%23seal' transform='rotate(240 50 70)'/%3E%3C/g%3E%3Cg fill='url(%23au)' stroke='%232a1a08' stroke-width='.4'%3E%3Cpath d='M42.5 61H57.5Q57.5 70 50 72.5Q42.5 70 42.5 61Z'/%3E%3Cpath d='M49 72.3H51V77.5H49Z'/%3E%3Cpath d='M44.5 80Q50 76.6 55.5 80Z'/%3E%3C/g%3E%3Cpath d='M44.6 62.2Q45 67.5 48.5 70' stroke='%23fff6d8' stroke-opacity='.7' stroke-width='.7' fill='none' stroke-linecap='round'/%3E%3Cg fill='%23f6e3a0'%3E%3Cpath d='M50 22.5L50.8 24.2L52.5 25L50.8 25.8L50 27.5L49.2 25.8L47.5 25L49.2 24.2Z'/%3E%3Cpath d='M50 112.5L50.8 114.2L52.5 115L50.8 115.8L50 117.5L49.2 115.8L47.5 115L49.2 114.2Z'/%3E%3C/g%3E%3C/svg%3E");
+  --back-atk: url('../src/art/cards/attack-back.webp');
+  --back-sk: url('../src/art/cards/skill-back.webp');
 }
 
 * { box-sizing: border-box; }
@@ -285,8 +286,8 @@ small, .dim { color: var(--dim); }
 .bc.perm { border-style: dashed; }
 .bc.perm b.nm { font: 700 9px/1.1 var(--ff-body); letter-spacing: -.02em; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
 /* face down: the card back; your own keeps its label over a darkened back */
-.bc.down, .bc.back { --t: var(--dim); border-color: color-mix(in srgb, var(--grail) 60%, #000); background: var(--back-art) center / cover no-repeat, #141734; }
-.bc.down { background: linear-gradient(rgba(9, 11, 24, .6), rgba(9, 11, 24, .6)), var(--back-art) center / cover no-repeat, #141734; }
+.bc.down, .bc.back { --t: var(--dim); border-color: #000; background: var(--back-atk) center / cover no-repeat, #10233c; }
+.bc.down { background: linear-gradient(rgba(9, 11, 24, .76), rgba(9, 11, 24, .76)), var(--back-atk) center / cover no-repeat, #10233c; }
 .bc.down::before, .bc.back::before { content: none; }
 .bc.back { color: transparent; font-size: 0; }
 .bwait { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -443,7 +444,7 @@ small, .dim { color: var(--dim); }
 .deckbtn b { font: 600 13px/1.2 var(--ff-head); color: var(--grail); }
 .deckbtn .dk {
   justify-self: center; width: 18px; aspect-ratio: 5 / 7; border-radius: 3px; margin-bottom: 1px;
-  background: var(--back-art) center / cover no-repeat; box-shadow: 2px -2px 0 -1px #2a2348, 2px -2px 0 0 color-mix(in srgb, var(--grail) 55%, #000), 0 1px 3px rgba(0, 0, 0, .6);
+  background: var(--back-atk) center / cover no-repeat; box-shadow: 2px -2px 0 -1px #10233c, 2px -2px 0 0 #000, 0 1px 3px rgba(0, 0, 0, .6);
 }
 @container board (max-height: 520px) { .deckbtn .dk { display: none; } }
 .deckbtn small { font-size: 10.5px; color: var(--dim); white-space: nowrap; }
@@ -787,10 +788,11 @@ button.card { cursor: pointer; }
 button.card:hover { transform: translateY(-3px); }
 .card.sel { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--grail), 0 10px 18px rgba(0, 0, 0, .45); }
 .card.down, .card.back {
-  --t: color-mix(in srgb, var(--grail) 55%, var(--night)); border-color: color-mix(in srgb, var(--grail) 60%, #000);
-  background: linear-gradient(rgba(9, 11, 24, .62), rgba(9, 11, 24, .62)), var(--back-art) center / cover no-repeat, #141734;
+  --t: color-mix(in srgb, var(--grail) 55%, var(--night)); border-color: #000;
+  background: linear-gradient(rgba(9, 11, 24, .76), rgba(9, 11, 24, .76)), var(--back-atk) center / cover no-repeat, #10233c; /* dark enough that the word Attack sits back behind the 0 */
 }
-.card.back { background: var(--back-art) center / cover no-repeat, #141734; }
+.card.back { background: var(--back-atk) center / cover no-repeat, #10233c; }
+.card.back.sk { background: var(--back-sk) center / cover no-repeat, #3a0808; }
 .card.down::before, .card.back::before, .card.down::after, .card.back::after { content: none; }
 .card.back > * { visibility: hidden; } /* the picture says it all; the title still says "การ์ดคว่ำ" */
 .card.down:not(.has-src) .ty { background: rgba(9, 11, 24, .55); border-bottom-color: color-mix(in srgb, var(--grail) 30%, transparent); }

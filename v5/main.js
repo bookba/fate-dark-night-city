@@ -1476,7 +1476,7 @@ function playerPop(id) {
   const where = q.out ? `ตกรอบหลังรอบ ${q.outRound}` : q.at ? AREAS[q.at].name : 'ยังไม่วางหมาก';
   const seat = q.out || !g.round ? '' : ` · ที่นั่ง ${g.order().indexOf(q) + 1}${q === sun ? ` ${SUN} ผู้เริ่มรอบ` : ''}`;
   const cardTile = (x, o = {}) => tile({ ...x.c, down: false }, { sm: true, btn: true, act: 'pcard', key: x.key, note: o.note ?? '' });
-  const back = (label) => `<div class="card back sm" title="${esc(label)}"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`;
+  const back = (label, sk = false) => `<div class="card back${sk ? ' sk' : ''} sm" title="${esc(label)}"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`; // sk: the Skill back
   const svHead = open
     ? `<div class="pl-sv"><img src="${SV_ART[q.sv.key]}" alt=""><div class="nm"><b>${esc(q.sv.cls)} · ${esc(q.sv.name)}</b><small>${q.revealed ? 'ไพ่ทาโรต์หงายแล้ว' : 'จบเกมแล้ว เปิดทุกอย่าง'}</small><p class="p-text">${esc(q.sv.note || '')}</p></div></div>`
     : kireiSees() ? `<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>คลาส ${esc(q.sv.cls)} · ยังไม่เปิดชื่อจริง</b><small>คุณเห็นคลาสเพราะ Supervisor · ไม่รู้ชื่อ รูป หรือการ์ด</small></div></div>`
@@ -1484,7 +1484,7 @@ function playerPop(id) {
   // NP/skill cards: used ones lie face up by the tarot card; all three show once the name is open
   const skills = q.skills.map((c) => {
     const x = pub.find((y) => y.key === `s${c.uid}`);
-    return x ? `<div class="pl-h">${cardTile(x)}<small class="${q.uses[c.name] ? 'used' : ''}">${esc(x.state.split(' · ')[0])}</small></div>` : `<div class="pl-h">${back('การ์ด NP/สกิลที่ยังไม่ใช้')}<small>คว่ำอยู่</small></div>`;
+    return x ? `<div class="pl-h">${cardTile(x)}<small class="${q.uses[c.name] ? 'used' : ''}">${esc(x.state.split(' · ')[0])}</small></div>` : `<div class="pl-h">${back('การ์ด NP/สกิลที่ยังไม่ใช้', true)}<small>คว่ำอยู่</small></div>`;
   }).join('');
   const hist = [...q.shown.map((c, i) => ({ c, i }))].reverse().slice(0, 16).map(({ c, i }) => `<div class="pl-h">${c.down ? back('ลงคว่ำ') : cardTile({ key: `h${i}`, c })}<small>รอบ ${c.round}${c.w !== 'onUse' ? ` · ช่วง${esc(WINDOWS[c.w].name)}` : c.down ? ' · คว่ำ' : ''}</small></div>`).join('');
   const deck = open ? pub.filter((x) => x.key[0] === 'd').map((x) => deckItem(x.c, '', { owner: q, key: x.key })).join('') : '';
