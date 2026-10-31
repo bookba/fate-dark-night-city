@@ -34,7 +34,8 @@
   --r: 10px;
 }
 /* card crests (masks tinted with the card type): Strength swords, Agility wind, Magic circle,
-   Special star, NP grail, no type, and the card back */
+   Special star, NP grail, no type, and the card back. --back-art: the picture on the back of every
+   play card (paper 4.6 item 13): a gold frame, a magic circle, three Command Seal marks and the Grail */
 :root {
   --em-S: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M27 27 L33 29 L66 62 L62 66 L29 33 Z M56 70 L70 56 M65 65 L75 75'/%3E%3Ccircle cx='77' cy='77' r='3'/%3E%3Cpath d='M73 27 L67 29 L34 62 L38 66 L71 33 Z M44 70 L30 56 M35 65 L25 75'/%3E%3Ccircle cx='23' cy='77' r='3'/%3E%3C/svg%3E");
   --em-A: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M34 30 L52 50 L34 70 M48 30 L66 50 L48 70 M62 30 L80 50 L62 70' stroke-width='4'/%3E%3Cpath d='M14 42 H26 M10 50 H30 M14 58 H26' stroke-width='2'/%3E%3C/svg%3E");
@@ -43,6 +44,7 @@
   --em-N: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpath d='M30 26 H70 Q70 52 50 58 Q30 52 30 26 Z M50 58 V70 M38 78 H62 M42 72 H58' stroke-width='3.2'/%3E%3Cpath d='M36 32 H64' stroke-width='1.5'/%3E%3Cpath d='M50 6 V14 M50 86 V94 M6 50 H14 M86 50 H94 M19 19 L25 25 M75 75 L81 81 M81 19 L75 25 M19 81 L25 75' stroke-width='2'/%3E%3C/svg%3E");
   --em-Z: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='46'/%3E%3Ccircle cx='50' cy='50' r='41' stroke-width='1.2'/%3E%3Cpolygon points='50,16 80,50 50,84 20,50' stroke-width='2.5'/%3E%3Cpolygon points='50,32 64,50 50,68 36,50' stroke-width='1.8'/%3E%3C/svg%3E");
   --em-B: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='50' cy='50' r='47' stroke-width='2'/%3E%3Ccircle cx='50' cy='50' r='42' stroke-width='4' stroke-dasharray='1.5 4.5'/%3E%3Ccircle cx='50' cy='50' r='37' stroke-width='1.2'/%3E%3Cpolygon points='50.0,14.0 55.4,37.1 75.5,24.5 62.9,44.6 86.0,50.0 62.9,55.4 75.5,75.5 55.4,62.9 50.0,86.0 44.6,62.9 24.5,75.5 37.1,55.4 14.0,50.0 37.1,44.6 24.5,24.5 44.6,37.1' stroke-width='1.6'/%3E%3Ccircle cx='50' cy='50' r='14' stroke-width='2'/%3E%3Cpath d='M50 38 C43 44 43 56 50 62 C57 56 57 44 50 38 Z M38 50 H62' stroke-width='2'/%3E%3C/svg%3E");
+  --back-art: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140'%3E%3Cdefs%3E%3CradialGradient id='bg' cx='50%25' cy='50%25' r='70%25'%3E%3Cstop offset='0' stop-color='%234a1830'/%3E%3Cstop offset='.5' stop-color='%231b1736'/%3E%3Cstop offset='1' stop-color='%230a0c1b'/%3E%3C/radialGradient%3E%3ClinearGradient id='au' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f6e3a0'/%3E%3Cstop offset='.5' stop-color='%23dcb75c'/%3E%3Cstop offset='1' stop-color='%23a07a2a'/%3E%3C/linearGradient%3E%3CradialGradient id='glow' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0' stop-color='%23f4d27a' stop-opacity='.55'/%3E%3Cstop offset='1' stop-color='%23f4d27a' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cpattern id='lat' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Cpath d='M0 0H8M0 0V8' stroke='%23dcb75c' stroke-opacity='.09' stroke-width='.5'/%3E%3C/pattern%3E%3Cpath id='seal' d='M35.22 51.09A24 24 0 0 1 61.27 48.81A3.1 3.1 0 0 1 58.36 54.28A17.8 17.8 0 0 0 45.69 52.73Z'/%3E%3C/defs%3E%3Crect width='100' height='140' fill='url(%23bg)'/%3E%3Crect width='100' height='140' fill='url(%23lat)'/%3E%3Crect x='3.5' y='3.5' width='93' height='133' rx='5' fill='none' stroke='url(%23au)' stroke-width='1.4'/%3E%3Crect x='7' y='7' width='86' height='126' rx='3' fill='none' stroke='%23dcb75c' stroke-opacity='.5' stroke-width='.6'/%3E%3Cg fill='none' stroke='url(%23au)' stroke-width='1.1' stroke-linecap='round'%3E%3Cpath d='M10 17V10H17M83 10H90V17M90 123V130H83M17 130H10V123'/%3E%3C/g%3E%3Cg fill='%23dcb75c'%3E%3Cpath d='M50 11.5L52.5 14L50 16.5L47.5 14Z M50 123.5L52.5 126L50 128.5L47.5 126Z'/%3E%3Ccircle cx='13' cy='13' r='1'/%3E%3Ccircle cx='87' cy='13' r='1'/%3E%3Ccircle cx='87' cy='127' r='1'/%3E%3Ccircle cx='13' cy='127' r='1'/%3E%3C/g%3E%3Cpath d='M22 14H44M56 14H78M22 126H44M56 126H78' stroke='%23dcb75c' stroke-opacity='.55' stroke-width='.6'/%3E%3Ccircle cx='50' cy='70' r='30' fill='url(%23glow)'/%3E%3Cg fill='none' stroke='url(%23au)'%3E%3Ccircle cx='50' cy='70' r='33' stroke-width='1.1'/%3E%3Ccircle cx='50' cy='70' r='29.6' stroke-width='2.6' stroke-dasharray='.7 2.4' stroke-opacity='.75'/%3E%3Ccircle cx='50' cy='70' r='26' stroke-width='.6' stroke-opacity='.8'/%3E%3Crect x='31.6' y='51.6' width='36.8' height='36.8' stroke-width='.7' stroke-opacity='.7'/%3E%3Crect x='31.6' y='51.6' width='36.8' height='36.8' stroke-width='.7' stroke-opacity='.7' transform='rotate(45 50 70)'/%3E%3Ccircle cx='50' cy='70' r='15' stroke-width='.8'/%3E%3C/g%3E%3Cg stroke='%23f4d27a' stroke-opacity='.35' stroke-width='.5'%3E%3Cpath d='M50 31V40M50 100V109M11 70H20M80 70H89M22.4 42.4L28.8 48.8M71.2 91.2L77.6 97.6M77.6 42.4L71.2 48.8M28.8 91.2L22.4 97.6'/%3E%3C/g%3E%3Cg fill='%23d43a48' fill-opacity='.9'%3E%3Cuse href='%23seal'/%3E%3Cuse href='%23seal' transform='rotate(120 50 70)'/%3E%3Cuse href='%23seal' transform='rotate(240 50 70)'/%3E%3C/g%3E%3Cg fill='url(%23au)' stroke='%232a1a08' stroke-width='.4'%3E%3Cpath d='M42.5 61H57.5Q57.5 70 50 72.5Q42.5 70 42.5 61Z'/%3E%3Cpath d='M49 72.3H51V77.5H49Z'/%3E%3Cpath d='M44.5 80Q50 76.6 55.5 80Z'/%3E%3C/g%3E%3Cpath d='M44.6 62.2Q45 67.5 48.5 70' stroke='%23fff6d8' stroke-opacity='.7' stroke-width='.7' fill='none' stroke-linecap='round'/%3E%3Cg fill='%23f6e3a0'%3E%3Cpath d='M50 22.5L50.8 24.2L52.5 25L50.8 25.8L50 27.5L49.2 25.8L47.5 25L49.2 24.2Z'/%3E%3Cpath d='M50 112.5L50.8 114.2L52.5 115L50.8 115.8L50 117.5L49.2 115.8L47.5 115L49.2 114.2Z'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -280,12 +282,17 @@ small, .dim { color: var(--dim); }
 .bc small { font-size: 8.5px; color: var(--t); margin-top: 1px; white-space: nowrap; }
 .bc.src-sv { border-top: 4px solid var(--grail); } .bc.src-ms { border-top: 4px solid var(--sp); }
 .bc.src-sv small { color: var(--grail); } .bc.src-ms small { color: var(--sp); }
-.bc.down, .bc.back { --t: var(--dim); --em: var(--em-B); border-color: color-mix(in srgb, var(--grail) 45%, #000); background: radial-gradient(60% 45% at 50% 50%, rgba(212, 58, 72, .2), transparent 75%), repeating-linear-gradient(45deg, rgba(220, 183, 92, .08) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, rgba(220, 183, 92, .08) 0 1px, transparent 1px 6px), linear-gradient(180deg, #1a1f3a, #0d1124); }
-.bc.down::before, .bc.back::before { background: var(--grail); opacity: .42; }
-.bc.back b, .bc.back { color: var(--dim); font: 700 15px/1 var(--ff-crest); }
+.bc.perm { border-style: dashed; }
+.bc.perm b.nm { font: 700 9px/1.1 var(--ff-body); letter-spacing: -.02em; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
+/* face down: the card back; your own keeps its label over a darkened back */
+.bc.down, .bc.back { --t: var(--dim); border-color: color-mix(in srgb, var(--grail) 60%, #000); background: var(--back-art) center / cover no-repeat, #141734; }
+.bc.down { background: linear-gradient(rgba(9, 11, 24, .6), rgba(9, 11, 24, .6)), var(--back-art) center / cover no-repeat, #141734; }
+.bc.down::before, .bc.back::before { content: none; }
+.bc.back { color: transparent; font-size: 0; }
 .bwait { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brow.c3 .bc { height: min(100%, 44px); } .brow.c3 .bc small { display: none; }
 .brow.c4 .bcards { gap: 2px; } .brow.c4 .bc { height: min(100%, 38px); } .brow.c4 .bc small { display: none; } .brow.c4 .bc b { font-size: 13px; }
+.brow.c4 .bc.perm b.nm { font-size: 8.5px; } /* a permanent card's short name still fits */
 .bpw { display: grid; justify-items: end; line-height: 1; }
 .bpw b { font: 700 22px/1 var(--ff-crest); }
 .bpw i { font: 600 10.5px/1.2 var(--ff-body); font-style: normal; color: var(--ok); }
@@ -397,7 +404,11 @@ small, .dim { color: var(--dim); }
   .slot.full i { position: absolute; top: -5px; right: -9px; font-size: 9px; padding: 0 2px; border-radius: 6px; background: var(--night); }
   .area.here .ah h3::after { content: none; }
   .area.packed .evs { display: none; }
+  .ptags { position: absolute; left: -5px; bottom: -5px; }
 }
+@container area (max-width: 230px) { .ptags .pchip { width: 10px; height: 10px; padding: 0; font-size: 0; border-radius: 50%; border: 1.5px solid var(--night); background: color-mix(in srgb, var(--t) 80%, #fff); } .ptags .pchip::before { content: none; } }
+.area.packed .ptags .pchip { width: 10px; height: 10px; padding: 0; font-size: 0; border-radius: 50%; border: 1.5px solid var(--night); background: color-mix(in srgb, var(--t) 80%, #fff); }
+.area.packed .ptags .pchip::before { content: none; }
 @container area (max-width: 150px) { .ah h3 { font-size: 13.5px; } .slot { min-width: 32px; padding: 2px 4px; } .area .rule { display: none; } }
 
 /* ranking strip (when the side column is not shown) */
@@ -430,6 +441,11 @@ small, .dim { color: var(--dim); }
   border-radius: 8px; border: 1px dashed var(--grail); background: color-mix(in srgb, var(--grail) 8%, var(--night)); cursor: pointer; text-align: center;
 }
 .deckbtn b { font: 600 13px/1.2 var(--ff-head); color: var(--grail); }
+.deckbtn .dk {
+  justify-self: center; width: 18px; aspect-ratio: 5 / 7; border-radius: 3px; margin-bottom: 1px;
+  background: var(--back-art) center / cover no-repeat; box-shadow: 2px -2px 0 -1px #2a2348, 2px -2px 0 0 color-mix(in srgb, var(--grail) 55%, #000), 0 1px 3px rgba(0, 0, 0, .6);
+}
+@container board (max-height: 520px) { .deckbtn .dk { display: none; } }
 .deckbtn small { font-size: 10.5px; color: var(--dim); white-space: nowrap; }
 .deckbtn:hover { background: color-mix(in srgb, var(--grail) 16%, var(--night)); }
 
@@ -454,6 +470,20 @@ small, .dim { color: var(--dim); }
 .chip.turn { animation: pulse 1.4s ease-in-out infinite; }
 .chip.out { opacity: .45; filter: grayscale(.8); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--grail) 45%, transparent); } }
+/* permanent cards still in play (paper 4.6 item 11): one tag per card in the lists and by the piece */
+.pchip {
+  --t: var(--ty-X); display: inline-flex; align-items: center; gap: 2px; flex: none; max-width: 100%; min-width: 0;
+  padding: 1px 6px 1px 4px; border-radius: 5px; border: 1px solid color-mix(in srgb, var(--t) 75%, transparent);
+  background: color-mix(in srgb, var(--t) 24%, var(--night)); color: var(--bone);
+  font: 600 10.5px/1.3 var(--ff-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pchip::before { content: '∞'; font-size: 11px; line-height: 1; color: color-mix(in srgb, var(--t) 55%, #fff); }
+.pchip.tS { --t: var(--ty-S); } .pchip.tA { --t: var(--ty-A); } .pchip.tM { --t: var(--ty-M); } .pchip.tN { --t: var(--ty-N); } .pchip.tZ { --t: var(--ty-Z); }
+button.pchip { cursor: pointer; }
+button.pchip:hover, button.pchip:focus-visible { outline: none; background: color-mix(in srgb, var(--t) 42%, var(--night)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t) 45%, transparent); }
+.perms, .ptags { display: inline-flex; flex-wrap: wrap; gap: 3px; min-width: 0; }
+.st .who { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.ptags .pchip { font-size: 9.5px; padding: 0 4px 0 3px; }
 
 /* ---------- the side (computer) ---------- */
 #side { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; overflow-y: auto; }
@@ -757,11 +787,13 @@ button.card { cursor: pointer; }
 button.card:hover { transform: translateY(-3px); }
 .card.sel { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--grail), 0 10px 18px rgba(0, 0, 0, .45); }
 .card.down, .card.back {
-  --t: color-mix(in srgb, var(--grail) 55%, var(--night)); --em: var(--em-B); border-color: color-mix(in srgb, var(--grail) 50%, #000);
-  background: radial-gradient(60% 40% at 50% 52%, rgba(212, 58, 72, .22), transparent 75%), repeating-linear-gradient(45deg, rgba(220, 183, 92, .07) 0 1px, transparent 1px 7px), repeating-linear-gradient(-45deg, rgba(220, 183, 92, .07) 0 1px, transparent 1px 7px), linear-gradient(180deg, #1a1f3a, #0d1124);
+  --t: color-mix(in srgb, var(--grail) 55%, var(--night)); border-color: color-mix(in srgb, var(--grail) 60%, #000);
+  background: linear-gradient(rgba(9, 11, 24, .62), rgba(9, 11, 24, .62)), var(--back-art) center / cover no-repeat, #141734;
 }
-.card.down::before, .card.back::before { background: var(--grail); opacity: .4; width: 74%; }
-.card.down::after, .card.back::after { box-shadow: none; }
+.card.back { background: var(--back-art) center / cover no-repeat, #141734; }
+.card.down::before, .card.back::before, .card.down::after, .card.back::after { content: none; }
+.card.back > * { visibility: hidden; } /* the picture says it all; the title still says "การ์ดคว่ำ" */
+.card.down:not(.has-src) .ty { background: rgba(9, 11, 24, .55); border-bottom-color: color-mix(in srgb, var(--grail) 30%, transparent); }
 .card.down .ty, .card.back .ty { color: var(--dim); }
 .card.down .pw, .card.back .pw { color: var(--dim); text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
 .card.lock { opacity: .5; }
@@ -936,6 +968,42 @@ button.card:hover { transform: translateY(-3px); }
 }
 .toast.death { border-color: var(--bad); }
 .toast.reveal, .toast.grail { border-color: var(--grail); }
+
+/* ---------- the tutorial (paper 4.6 item 12) ---------- */
+/* over the pop-ups and the results, under the start screen and the toasts */
+#tut { position: fixed; inset: 0; z-index: 22; pointer-events: none; }
+#tut[hidden] { display: none; }
+.tut-dim { position: absolute; inset: 0; background: rgba(4, 6, 14, .5); pointer-events: auto; }
+#tut.free .tut-dim, #tut.hint .tut-dim { display: none; }
+.tut-block { position: absolute; inset: 0; pointer-events: auto; display: none; }
+#tut.read .tut-block { display: block; } /* a step to read: only the box answers */
+.tut-ring {
+  position: absolute; border-radius: 12px; border: 2px solid var(--grail); pointer-events: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--grail) 28%, transparent), 0 0 22px color-mix(in srgb, var(--grail) 55%, transparent);
+  animation: tutglow 1.6s ease-in-out infinite;
+}
+@keyframes tutglow { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--grail) 14%, transparent), 0 0 34px color-mix(in srgb, var(--grail) 70%, transparent); } }
+.tut-box {
+  position: absolute; left: 10px; top: 10px; width: min(340px, calc(100vw - 20px)); pointer-events: auto; display: grid; gap: 7px;
+  padding: 11px 14px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--grail) 55%, var(--line));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--grail) 7%, var(--night-2)), var(--night)); box-shadow: 0 18px 50px rgba(0, 0, 0, .62);
+}
+.tut-box.in { animation: rise .25s ease-out both; }
+@media (max-width: 899px) { .tut-box { width: min(560px, calc(100vw - 20px)); padding: 9px 12px 10px; gap: 5px; } }
+.tut-top { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.tut-n { font: 600 11px/1.2 var(--ff-crest); letter-spacing: .06em; color: var(--grail); }
+.tut-kind { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--seal) 30%, var(--night-3)); color: #fff; }
+.tut-skip { margin-left: auto; background: none; border: 0; padding: 4px 2px; cursor: pointer; color: var(--dim); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+.tut-skip:hover { color: var(--bone); }
+.tut-box h3 { margin: 0; font-size: 16px; }
+.tut-box p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--bone); }
+@media (max-width: 899px) { .tut-box h3 { font-size: 15px; } .tut-box p { font-size: 13px; line-height: 1.45; } }
+.tut-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+/* the box docks at the top: an open pop-up or the results start below it */
+.tut-up #pop:not(.min), .tut-up #sheet { padding-top: var(--tutpad); }
+/* the button on the opening screen stands out until the tutorial has been finished once */
+.btn.tut-new { border-color: var(--grail); color: var(--grail); box-shadow: 0 0 0 1px var(--grail), 0 0 18px color-mix(in srgb, var(--grail) 35%, transparent); }
+.tut-lede { color: var(--grail); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

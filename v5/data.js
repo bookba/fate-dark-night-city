@@ -143,7 +143,7 @@ export const SERVANTS = [
   { key: 'medea', cls: 'Caster', name: 'Medea', note: 'เล่นยาก · ยิ่งเปิด Territory Creation เร็ว ยิ่งได้ใช้โรงฝึกเวทคุ้ม · Rule Breaker เป็นใบเดียวที่ยุ่งกับ Command Spell ของ Master อื่นได้',
     deck: [A(2), A(3), A(4), M(2), ...n(M(3), 2), ...n(M(4), 2), M(5), LUCK, SURVEIL, PREP],
     skills: [
-      { name: 'Rule Breaker', type: 'N', types: ['N', 'S'], power: 0, mana: 3, fx: { reveal: true, once: true, ruleBreaker: 10 }, text: 'เปิดชื่อจริง · ครั้งเดียวต่อเกม · ตอนใช้: เลือก Master 1 คนในสนามรบเรา เขาเสีย Command Spell 1 ดวง · ก่อนเสียมีไม่เกิน 1 ดวง เขา [แพ้] · ก่อนเสียไม่มีเลย เราพลังรวม +10 [FD] (มานาเป็นค่าแทน)' },
+      { name: 'Rule Breaker', type: 'N', types: ['N', 'S'], power: 0, mana: 3, fx: { reveal: true, once: true, ruleBreaker: 10 }, text: 'เปิดชื่อจริง · ครั้งเดียวต่อเกม · ตอนใช้: เลือก Master 1 คนในสนามรบเรา เขาเสีย Command Spell 1 ดวง · ถ้าเขาเหลือ 0 ดวง (เสียดวงสุดท้าย หรือไม่มีอยู่แล้ว) เขา [แพ้] และเราพลังรวม +10 [FD] (มานาเป็นค่าแทน)' },
       { name: 'Rain of Light', type: 'M', power: 3, mana: 2, fx: { reveal: true, rain: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าเราแพ้ Rule Breaker ที่ใช้ไปแล้วกลับช่องสกิล ใช้ได้อีกครั้ง [FD] (พลังและมานาเป็นค่าแทน)' },
       { name: 'Caster Class', type: 'M', power: 2, mana: 0, fx: { permanent: true, manaX: true, workshop: { mana: 1, vp: 2 } }, text: 'Territory Creation · ถาวร: ทุกครั้งที่วางหมากที่โรงฝึกเวท ได้มานา 1 และ 2 VP · มานา X = 16 − รอบ × 2 [FD] (พลังเป็นค่าแทน)' },
     ] },

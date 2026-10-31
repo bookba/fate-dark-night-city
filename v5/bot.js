@@ -224,7 +224,7 @@ function cards(g, p, ctx) {
         if (fx.zab && there.length) { if (g.alive().length === 2) extra += 14; else mul = 2; }
         if (fx.enuma && there.length) extra += known.some((q) => g.activeSpecial(q)) ? 12 : 1;
         if (fx.presence && there.length >= 2) extra += 3;
-        if (fx.ruleBreaker && there.length) { const q = g.rbAuto(there); extra += q.cs === 0 ? 24 : q.cs === 1 ? 14 : 1; }
+        if (fx.ruleBreaker && there.length) { const q = g.rbAuto(there); extra += q.cs <= 1 ? 24 : 1; } // left at 0: [แพ้] and +10
         if (fx.zeroOpp) extra += 2;
         if (fx.block) extra += unknown.length * 2;
         if (fx.playVP) vp += fx.playVP;

@@ -18,7 +18,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(v || 0)));
 const cardName = (c) => c.name || `${TYPES[c.type]} ${c.power}`;
 
 export class Game {
-  constructor({ decide, rng = Math.random, onEvent = () => {}, humanMaster = 'shirou', sample = false }) {
+  // servants and start: a fixed deal and first player (the tutorial, paper 4.6 item 12)
+  constructor({ decide, rng = Math.random, onEvent = () => {}, humanMaster = 'shirou', sample = false, servants = null, start = null }) {
     this.decide = decide;
     this.rng = rng;
     this.onEvent = onEvent;
@@ -31,7 +32,8 @@ export class Game {
     this.step = null; // the step of paper 8.0 the round is at, e.g. '3.2'
     this.win = null; // the card window being asked, if any
     this.sample = sample; // the example cards of paper section 9 are shuffled in
-    const svs = this.shuffle([...SERVANTS]); // each Master gets one of the 9 at random, 2 go unused [p.6]
+    let svs = this.shuffle([...SERVANTS]); // each Master gets one of the 9 at random, 2 go unused [p.6]
+    if (servants) { const fixed = MASTERS.map((m) => SERVANTS.find((sv) => sv.key === servants[m.key])); svs = [...fixed, ...svs.filter((sv) => !fixed.includes(sv))]; }
     this.unused = svs.slice(MASTERS.length); // nobody knows which; Shinji's book may call one [FD]
     let h = MASTERS.findIndex((m) => m.key === humanMaster);
     if (h < 0) h = Math.floor(rng() * MASTERS.length);
@@ -46,7 +48,7 @@ export class Game {
       return p;
     });
     this.human = this.players[h];
-    this.start = Math.floor(rng() * this.players.length);
+    this.start = start ?? Math.floor(rng() * this.players.length);
     // 10 regular situation cards, 2 removed unseen, 8 used [p.6]; climax cards by players left [p.11]
     this.sits = this.shuffle([...SITUATIONS]).slice(0, REGULAR);
     this.sit = null;
@@ -278,7 +280,7 @@ export class Game {
     const hidden = f ? this.efx(f, 'hiddenUp') : 0;
     if (hidden && !p.revealed) add('ชื่อจริงยังซ่อน', hidden, { note: named('hiddenUp') });
     if (ctx.underdog) add('VP น้อยสุด', ctx.underdog, { clash: true, note: named('underdog') });
-    if (play.rb) add('Rule Breaker', play.rb, { note: 'เป้าหมายไม่มี Command Spell' });
+    if (play.rb) add('Rule Breaker', play.rb, { note: 'เป้าหมายเหลือ Command Spell 0' });
     const total = parts.reduce((s, [, n]) => s + n, 0);
     return rows ? { total, parts, rows } : { total, parts };
   }
@@ -439,11 +441,11 @@ export class Game {
       const rb = up.find((c) => c.fx?.ruleBreaker);
       const q = rb && AREAS[p.at].field ? this.players[a.rbTarget] : null;
       if (rb && q && !q.out && q !== p && q.at === p.at) {
-        const before = q.cs;
-        if (q.cs > 0) q.cs--;
-        const what = [`${q.name} เสีย Command Spell 1 ดวง`];
-        if (before <= 1) { q.roundUse.defeated = `Rule Breaker ของ ${p.name}`; what.push(`${q.name} [แพ้]`); }
-        if (before === 0) { p.play.rb = rb.fx.ruleBreaker; what.push(`${p.name} พลังรวม +${rb.fx.ruleBreaker}`); }
+        const had = q.cs > 0;
+        if (had) q.cs--;
+        const what = [had ? `${q.name} เสีย Command Spell 1 ดวง` : `${q.name} ไม่มี Command Spell`];
+        // left with none (the last one, or none to lose): [แพ้] and our power +10 (paper 6, B's rule 30 Oct 2026)
+        if (q.cs <= 0) { q.roundUse.defeated = `Rule Breaker ของ ${p.name}`; p.play.rb = rb.fx.ruleBreaker; what.push(`${q.name} [แพ้]`, `${p.name} พลังรวม +${rb.fx.ruleBreaker}`); }
         this.log(`${p.name} ใช้ Rule Breaker: ${what.join(' · ')}`, 'reveal');
       }
     }
