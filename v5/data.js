@@ -35,8 +35,8 @@ export const COND = { engaged: 'ติดพัน', hidden: 'ชื่อจร
 // lines { when, where, cond }. Window cards list theirs in c.use; for the others it comes from fx.
 const FX_WHEN = {
   reveal: 'onUse', mana: 'onUse', move: 'onUse', bell: 'onUse', ubw: 'onUse', riding: 'onUse', riderDraw: 'onUse', hide: 'onUse', playVP: 'onUse',
-  terrainMul: 'onUse', pierce: 'onUse', ruleBreaker: 'onUse', block: 'onUse', gate: 'onUse', archer: 'onUse',
-  petrify: 'clash', duel: 'clash', zeroOpp: 'clash', godHand: 'clash', zab: 'clash', win: 'clash', strike: 'clash', excal: 'clash', npTop: 'clash',
+  terrainMul: 'onUse', ruleBreaker: 'onUse', block: 'onUse', gate: 'onUse', archer: 'onUse',
+  petrify: 'clash', duel: 'clash', zeroOpp: 'clash', godHand: 'clash', zab: 'clash', win: 'clash', strike: 'clash', excal: 'clash',
   rain: 'clash', strike1: 'clash', enuma: 'clash', presence: 'clash', luck: 'clash',
   permanent: 'permanent',
 };
