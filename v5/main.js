@@ -119,7 +119,7 @@ function tok(p, note = '') {
 const csDots = (n) => '◆'.repeat(Math.max(0, n)) || '–';
 // permanent cards still in play (paper 4.6 item 11): laid face up, so public; UBW goes when the hand runs out
 const lasting = (q) => (q.out ? [] : q.skills.filter((c) => c.resident));
-const PERM_SHORT = { 'Unlimited Blade Works': 'UBW', 'Saber Class': 'Saber', 'Caster Class': 'Caster', Metamorphosis: 'Meta' };
+const PERM_SHORT = { 'Unlimited Blade Works': 'UBW', 'Caster Class': 'Caster', Metamorphosis: 'Meta' };
 const permTitle = (c, q) => `${c.name} · ${q.name} · ถาวรตั้งแต่รอบ ${c.residentFrom}${c.fx?.ubw ? ` · การ์ดในมือเหลือ ${q.hand.length} ใบ หมดแล้ว UBW ปิด` : ''} · ${cardText(c)}`;
 // one tag per card: a button in the lists (opens the card), a plain tag by the piece on the map
 function permTags(q, { btn = false } = {}) {
@@ -140,10 +140,10 @@ const TAG = {
   ubw: 'ทั้งสำรับขึ้นมือ', riding: (n) => `ลงเพิ่มพลัง ≤${RIDE_MAX} ได้ ${n} ใบ`, riderDraw: 'จั่ว 1', move: (v) => (v === 'next' ? 'ย้ายช่องถัดไป' : 'ย้ายได้ทุกที่'),
   bell: 'ย้าย + ยึดพื้นที่', extra: 'ลงเพิ่มนอก 2 ใบ', strike3: 'ลงเพิ่มถ้ามีว่องไว 2', sword: (n) => `ดาบ ${n}/3`, needMana: `มานา ${SKILL_MANA}+`,
   no8: `ไม่ต้องมานา ${SKILL_MANA}`, strike1: 'ลงการ์ดกำลังแทน', block: 'ปิดผลคนอื่นที่นี่', playVP: (n) => `+${n} VP`, win: (n) => `ชนะ +${n} VP`,
-  strike: 'VP ตามคู่ต่อสู้', godHand: (n) => `แพ้ได้ ${n} VP`, terrainMul: (n) => `พื้นที่ ×${n}`, mana: (n) => `ได้มานา +${n}`,
-  zab: 'ชนะ VP ×2', hiddenOnly: 'ชื่อจริงซ่อนเท่านั้น', hide: 'ซ่อนชื่อจริงกลับ', excal: (n) => `ไคลแมกซ์ +${n}`, npTop: 'NP มานาสูงสุด +VP',
-  pierce: (n) => `ใช้แล้วมานา +${n}`, rain: 'แพ้ Rule Breaker กลับ', workshop: 'โรงฝึก +1 มานา +2 VP', manaX: 'มานา 16−รอบ×2', gate: 'เลือกชนิด',
-  enuma: 'สกิลพิเศษ [แพ้]', archer: (n) => `+${n} VP · แพ้ −5`, presence: 'ล้มคนพลังสูงสุด', luck: 'ไม่สน [แพ้]',
+  strike: 'ชนะ: VP ตามคู่ต่อสู้', godHand: (n) => `แพ้ได้ ${n} VP`, terrainMul: (n) => `พื้นที่ ×${n}`, mana: (n) => `ได้มานา +${n}`,
+  zab: 'ชนะ VP ×2', hiddenOnly: 'ชื่อจริงซ่อนเท่านั้น', hide: 'ซ่อนชื่อจริงกลับ', excal: (n) => `ไคลแมกซ์ +${n}`,
+  rain: 'แพ้ Rule Breaker กลับ', workshop: 'โรงฝึก +1 มานา +2 VP', manaX: 'มานา 16−รอบ×2', gate: 'เลือกชนิด',
+  enuma: 'NP พิเศษ [แพ้]', archer: (n) => `+${n} VP · แพ้ −5`, presence: 'ล้มคนพลังสูงสุด', luck: 'ไม่สน [แพ้]',
 };
 // what an effect line of a window card does, in short (paper section 9)
 const useFx = (fx) => [fx.mana && `มานา +${fx.mana}`, fx.vp && `${fx.vp} VP`, fx.peek && 'ดูอีเวนต์ชินโตะ', fx.freeMove && 'ย้ายแม้ติดพัน'].filter(Boolean).join(' · ');
@@ -891,7 +891,6 @@ function cardsPop() {
     if (fx.ubw) notes.push(`${esc(cardName(c))}: การ์ดที่ไม่ได้ลงขึ้นมือทั้งหมด · รอบต่อไปจั่วไม่ได้ ลงได้ 0–${UBW_PLAY} ใบ จนการ์ดในมือหมด`);
     if (fx.hide) notes.push(p.revealed || revealing ? `${esc(cardName(c))}: ชื่อจริงกลับไปซ่อน · ได้ ${fx.playVP} VP` : `${esc(cardName(c))}: ชื่อจริงยังซ่อนอยู่ · ได้ ${fx.playVP} VP`);
     if (fx.archer) notes.push(`${esc(cardName(c))}: ได้ ${fx.archer} VP ทันที · ถ้าแพ้การต่อสู้รอบนี้เสีย ${fx.archerLose} VP`);
-    if (fx.pierce) notes.push(`${esc(cardName(c))}: ใช้แล้วครั้งต่อไปมานา +${fx.pierce}`);
     if (fx.block && !off) notes.push(`${esc(cardName(c))}: คนอื่นที่${esc(AREAS[f].name)}ใช้ผล "ตอนใช้" "ตอนปะทะ" และ Command Spell ไม่ได้รอบนี้`);
     if (off && cardLines(c).some((l) => l.when === 'clash')) notes.push(`${esc(cardName(c))}: ผล "ตอนปะทะ" ไม่มีผลนอกสนามรบ`);
   }

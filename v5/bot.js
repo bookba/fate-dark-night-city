@@ -173,7 +173,6 @@ function offField(g, p) {
   if (!blocked) {
     take(skills.find((c) => c.fx.archer)); // Archer Class: 3 VP, no fight to lose here
     if (g.round <= 6) take(skills.find((c) => c.fx.workshop)); // Caster Class pays more the sooner it is down
-    if (g.round <= 5) take(skills.find((c) => c.fx.npTop)); // Saber Class stays for good
     if (p.revealed) take(skills.find((c) => c.fx.hide && p.skills.some((z) => z.fx.hiddenOnly && !z.gone)));
     for (const c of p.hand.filter((x) => x.fx?.mana)) take(c);
   }
@@ -217,7 +216,6 @@ function cards(g, p, ctx) {
       for (const { c } of cardsUp) {
         const fx = c.fx || {};
         if (fx.once) vp -= late(g) ? 0 : 3; // keep one-use cards for the climax
-        if (fx.pierce) vp -= 0.6;
         if (blocked) continue; // 2nd Strike: its effects do nothing here
         if (fx.petrify && there.length) extra += known.some((q) => q.play.cards.some((x) => !x.down && x.type === 'X')) ? 3 : 8;
         if (fx.duel && there.length === 1) extra += 14;
@@ -233,7 +231,6 @@ function cards(g, p, ctx) {
         if (fx.win) vp += fx.win * 0.6;
         if (fx.strike) vp += there.length;
         if (fx.godHand) vp += 1.5;
-        if (fx.npTop) vp += roundsLeft(g) * 0.4;
         if (fx.workshop) vp += Math.min(roundsLeft(g), 5);
         if (fx.ubw) vp += 2;
         if (fx.excal && g.climax() && g.sit.size === 2) extra += 15;

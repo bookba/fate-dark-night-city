@@ -109,69 +109,70 @@ const S = (p) => c('S', p); const A = (p) => c('A', p); const M = (p) => c('M', 
 // Heracles' Berserker Class cards: in the deck but not basic cards [FD]
 const BERSERKER = (type, power, mana) => ({ type, power, mana, fx: null, cls: true, name: 'Berserker Class', text: `การ์ดคลาสของ Heracles ในสำรับ · ไม่ใช่การ์ดพื้นฐาน · ${type === 'S' ? 'กำลัง' : 'ว่องไว'} พลัง ${power} มานา ${mana} [FD]${type === 'A' ? ' (มานาเท่ากำลัง 7 อนุมาน)' : ''}` });
 
-// note: what the manual says about the Servant [p.15–17]. NP/skill cards: names, types and effects
-// [FD]; numbers [FD] where the wiki text gives them, else ph (v5.1 values for the same card).
+// note: what the manual says about the Servant [p.15–17]. NP/skill cards: names, types, effects and
+// numbers from the Fate/Domination card database B sent on 1 Nov 2026 (paper section 6); Rule Breaker
+// has no numbers there, so its are still ph, and its effect is B's ruling of 30 Oct 2026.
 export const SERVANTS = [
   { key: 'artoria', cls: 'Saber', name: 'Artoria Pendragon', note: 'ใช้ได้ทั้งบุกและกันแบบง่าย · Excalibur พลังสูงอันดับ 1–2 ของ NP ทั้งหมด',
     deck: [S(2), S(3), ...n(S(4), 3), S(5), A(3), M(2), M(3), ...n(LUCK, 2), SURVEIL],
     skills: [
-      { name: 'Excalibur', type: 'N', types: ['N', 'S'], power: 12, mana: 8, fx: { reveal: true, excal: 4 }, text: 'เปิดชื่อจริง · ตอนปะทะ: ช่วงไคลแมกซ์พลังรวม +4 · ถ้าชนะในรอบไคลแมกซ์ "เหลือ 2 คน" ชนะเกมทันที [FD] · พลัง 12 มานา 8 [FD]' },
-      { name: 'Invisible Air', type: 'N', types: ['N', 'M'], power: 4, mana: 4, fx: { hiddenDisc: 2, zeroOpp: 'S' }, text: 'ชื่อจริงยังซ่อน: มานา −2 · ตอนปะทะ: การ์ดกำลังของคู่ต่อสู้ในสนามรบเราพลังพื้นฐานเป็น 0 [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Saber Class', type: 'X', power: 3, mana: 2, fx: { permanent: true, npTop: true, zeroOpp: 'M' }, text: 'ถาวร · ตอนปะทะ: ถ้าเราลง NP มานาสูงสุดในสนามรบ ได้ 1 VP (2 VP ถ้า NP นั้นมานา 4 ขึ้นไป) · Magic Resistance: การ์ดเวทของคู่ต่อสู้พลังพื้นฐานเป็น 0 [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: 'Excalibur', type: 'N', types: ['N', 'S'], power: 8, mana: 12, fx: { reveal: true, excal: 4 }, text: 'เปิดชื่อจริง · ตอนปะทะ: ช่วงไคลแมกซ์พลังรวม +4 · ถ้าชนะในรอบไคลแมกซ์ "เหลือ 2 คน" ชนะเกมทันที [FD]' },
+      { name: 'Invisible Air', type: 'N', types: ['N', 'M'], power: 4, mana: 4, fx: { hiddenDisc: 2, zeroOpp: 'S' }, text: 'ชื่อจริงยังซ่อน: มานา −2 · ตอนปะทะ: การ์ดกำลังของคู่ต่อสู้ในสนามรบเราพลังพื้นฐานเป็น 0 [FD]' },
+      { name: 'Saber Class', type: 'X', power: 3, mana: 3, fx: { zeroOpp: 'M' }, text: 'Magic Resistance · ตอนปะทะ: การ์ดเวทของคู่ต่อสู้ในสนามรบเราพลังพื้นฐานเป็น 0 [FD]' },
     ] },
   { key: 'emiya', cls: 'Archer', name: 'EMIYA', note: 'เก่งใช้พลังจากได้เปรียบพื้นที่ · UBW เอาสำรับทั้งหมดขึ้นมือ ลงการ์ดได้หลายใบ',
     deck: [S(2), S(3), ...n(A(2), 2), A(3), A(4), M(2), M(3), M(4), SURVEIL, ...n(PREP, 2)],
     skills: [
-      { name: 'Caladbolg II', type: 'N', types: ['N', 'A'], power: 5, mana: 4, fx: { reveal: true, once: true, terrainMul: 3, win: 4 }, text: 'เปิดชื่อจริง · ครั้งเดียวต่อเกม · ตอนใช้: ได้เปรียบพื้นที่ ×3 · ตอนปะทะ: ถ้าชนะ ได้ 4 VP [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Unlimited Blade Works', type: 'X', power: 4, mana: 6, fx: { reveal: true, ubw: UBW_PLAY, permanent: true }, text: 'เปิดชื่อจริง · ตอนใช้: การ์ดทั้งหมดในสำรับและกองทิ้งขึ้นมือ แล้วลงการ์ดได้ถึง 4 ใบ · ถาวร: จั่วการ์ดไม่ได้ ลงการ์ด 0–4 ใบแทน 2 ใบ · การ์ดในมือเหลือ 0 ใบ UBW ปิด [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Rho Aias', type: 'X', power: 3, mana: 2, fx: { zeroOpp: 'A' }, text: 'ตอนปะทะ: การ์ดว่องไวของคู่ต่อสู้พลังพื้นฐานเป็น 0 [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: 'Caladbolg II', type: 'N', power: 4, mana: 2, fx: { reveal: true, once: true, terrainMul: 3, win: 4 }, text: 'เปิดชื่อจริง · ครั้งเดียวต่อเกม · ตอนใช้: ได้เปรียบพื้นที่ ×3 · ตอนปะทะ: ถ้าชนะ ได้ 4 VP [FD]' },
+      { name: 'Unlimited Blade Works', type: 'X', power: 0, mana: 8, fx: { reveal: true, ubw: UBW_PLAY, permanent: true }, text: 'เปิดชื่อจริง · ตอนใช้: การ์ดทั้งหมดในสำรับและกองทิ้งขึ้นมือ แล้วลงการ์ดได้ถึง 4 ใบ · ถาวร: จั่วการ์ดไม่ได้ ลงการ์ด 0–4 ใบแทน 2 ใบ · การ์ดในมือเหลือ 0 ใบ UBW ปิด [FD]' },
+      { name: 'Rho Aias', type: 'X', power: 4, mana: 2, fx: { zeroOpp: 'A' }, text: 'ตอนปะทะ: การ์ดว่องไวของคู่ต่อสู้พลังพื้นฐานเป็น 0 [FD]' },
     ] },
   { key: 'cu', cls: 'Lancer', name: 'Cú Chulainn', note: 'แทง: สู้ 1 ต่อ 1 ชนะแน่นอน · ขว้าง: สู้กับหลายคนได้ VP มาก',
     deck: [S(2), S(3), A(2), ...n(A(4), 3), A(5), M(2), M(4), M(5), ...n(SURVEIL, 2)],
     skills: [
-      { name: 'Gáe Bolg (แทง)', type: 'N', types: ['N', 'A'], power: 4, mana: 6, fx: { reveal: true, pierce: 2, duel: true }, text: 'เปิดชื่อจริง · ตอนใช้: มานาของใบนี้ +2 ถาวร · ตอนปะทะ: ถ้ามีคู่ต่อสู้คนเดียว คนนั้น [แพ้] [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Gáe Bolg (ขว้าง)', type: 'N', types: ['N', 'A'], power: 10, mana: 7, fx: { reveal: true, strike: 1 }, text: 'เปิดชื่อจริง · ตอนปะทะ: หลังต่อสู้ได้ 1 VP ต่อคู่ต่อสู้ 1 คน · ถ้าชนะ คู่ต่อสู้แต่ละคนเสีย VP เท่ากัน [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Lancer Class', type: 'A', types: ['A', 'X'], power: 5, mana: 2, fx: { move: 'any' }, text: 'ตอนใช้: ย้ายไปพื้นที่ไหนก็ได้ยกเว้นโรงฝึกเวท การ์ดตามไปด้วย [FD] · พลัง 5 [FD] (มานาเป็นค่าแทน)' },
+      { name: 'Gáe Bolg (แทง)', type: 'N', types: ['N', 'A'], power: 6, mana: 6, fx: { reveal: true, duel: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้ามีคู่ต่อสู้คนเดียว คนนั้น [แพ้] [FD]' },
+      { name: 'Gáe Bolg (ขว้าง)', type: 'N', types: ['N', 'A'], power: 10, mana: 7, fx: { reveal: true, strike: 1 }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าชนะ ได้ 1 VP ต่อคู่ต่อสู้ 1 คน และคู่ต่อสู้แต่ละคนเสีย VP เท่ากัน [FD]' },
+      { name: 'Lancer Class', type: 'A', types: ['A', 'X'], power: 5, mana: 3, fx: { move: 'any' }, text: 'ตอนใช้: ย้ายไปพื้นที่ไหนก็ได้ยกเว้นโรงฝึกเวท การ์ดตามไปด้วย [FD]' },
     ] },
   { key: 'medusa', cls: 'Rider', name: 'Medusa', note: 'Bellerophon ย้าย สู้ และแย่งได้เปรียบพื้นที่ของคู่ต่อสู้ในทีเดียว · Riding ลงการ์ดหลายใบเพิ่มพลัง · ถ้าเงื่อนไขครบ ทำให้หลายคนแพ้ได้',
     deck: [S(2), S(3), S(5), ...n(A(3), 2), A(4), A(5), ...n(M(3), 2), SURVEIL, ...n(PREP, 2)],
     skills: [
-      { name: 'Bellerophon', type: 'N', power: 8, mana: 9, fx: { reveal: true, bell: true }, text: 'เปิดชื่อจริง · ตอนใช้: ย้ายไปพื้นที่หนึ่ง (หรืออยู่สนามรบเดิม) การ์ดตามไปด้วย · ที่สนามรบ ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่อง (+3 และ +1) คนอื่นเสียได้เปรียบพื้นที่ [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Petrification', type: 'M', power: 0, mana: 5, fx: { reveal: true, petrify: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: คู่ต่อสู้ในสนามรบที่ไม่ได้ลงการ์ดชนิดพิเศษรอบนี้ [แพ้] ทั้งหมด [FD] (มานาเป็นค่าแทน)' },
-      { name: 'Rider Class', type: 'X', power: 1, mana: 3, fx: { riding: RIDE_MAX, riderDraw: 1 }, text: 'ตอนใช้: ถ้าลงคู่กับการ์ดพื้นฐาน จั่ว 1 ใบ · ลงการ์ดจากมือที่พลังพื้นฐานไม่เกิน 3 เพิ่มได้ถึง 3 ใบ [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: 'Bellerophon', type: 'N', power: 8, mana: 9, fx: { reveal: true, bell: true }, text: 'เปิดชื่อจริง · ตอนใช้: ย้ายไปพื้นที่หนึ่ง (หรืออยู่สนามรบเดิม) การ์ดตามไปด้วย · ที่สนามรบ ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่อง (+3 และ +1) คนอื่นเสียได้เปรียบพื้นที่ [FD]' },
+      { name: 'Petrification', type: 'M', power: 1, mana: 4, fx: { reveal: true, petrify: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: คู่ต่อสู้ในสนามรบที่ไม่ได้ลงการ์ดชนิดพิเศษรอบนี้ [แพ้] ทั้งหมด [FD]' },
+      { name: 'Rider Class', type: 'X', power: 0, mana: 3, fx: { riding: RIDE_MAX, riderDraw: 1 }, text: 'ตอนใช้: ถ้าลงคู่กับการ์ดพื้นฐาน จั่ว 1 ใบ · ลงการ์ดจากมือที่พลังพื้นฐานไม่เกิน 3 เพิ่มได้ถึง 3 ใบ [FD]' },
     ] },
   { key: 'medea', cls: 'Caster', name: 'Medea', note: 'เล่นยาก · ยิ่งเปิด Territory Creation เร็ว ยิ่งได้ใช้โรงฝึกเวทคุ้ม · Rule Breaker เป็นใบเดียวที่ยุ่งกับ Command Spell ของ Master อื่นได้',
     deck: [A(2), A(3), A(4), M(2), ...n(M(3), 2), ...n(M(4), 2), M(5), LUCK, SURVEIL, PREP],
     skills: [
       { name: 'Rule Breaker', type: 'N', types: ['N', 'S'], power: 0, mana: 3, fx: { reveal: true, once: true, ruleBreaker: 10 }, text: 'เปิดชื่อจริง · ครั้งเดียวต่อเกม · ตอนใช้: เลือก Master 1 คนในสนามรบเรา เขาเสีย Command Spell 1 ดวง · ถ้าเขาเหลือ 0 ดวง (เสียดวงสุดท้าย หรือไม่มีอยู่แล้ว) เขา [แพ้] และเราพลังรวม +10 [FD] (มานาเป็นค่าแทน)' },
-      { name: 'Rain of Light', type: 'M', power: 3, mana: 2, fx: { reveal: true, rain: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าเราแพ้ Rule Breaker ที่ใช้ไปแล้วกลับช่องสกิล ใช้ได้อีกครั้ง [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Caster Class', type: 'M', power: 2, mana: 0, fx: { permanent: true, manaX: true, workshop: { mana: 1, vp: 2 } }, text: 'Territory Creation · ถาวร: ทุกครั้งที่วางหมากที่โรงฝึกเวท ได้มานา 1 และ 2 VP · มานา X = 16 − รอบ × 2 [FD] (พลังเป็นค่าแทน)' },
+      { name: 'Rain of Light', type: 'M', power: 8, mana: 5, fx: { reveal: true, rain: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าเราแพ้ Rule Breaker ที่ใช้ไปแล้วกลับช่องสกิล ใช้ได้อีกครั้ง [FD]' },
+      { name: 'Caster Class', type: 'M', power: 2, mana: 0, fx: { permanent: true, manaX: true, workshop: { mana: 1, vp: 2 } }, text: 'Territory Creation · ถาวร: ทุกครั้งที่วางหมากที่โรงฝึกเวท ได้มานา 1 และ 2 VP · มานา X = 16 − รอบ × 2 [FD]' },
     ] },
   { key: 'kojiro', cls: 'Assassin', name: 'Sasaki Kojirō', note: 'การ์ดเกือบทั้งหมดเป็นชนิดว่องไว · ดาบแต่ละใบมีผลต่างกัน เช่นขัดความสามารถของคู่ต่อสู้ หรือลงการ์ดเพิ่ม · ลงดาบทั้ง 3 ใบพร้อมกัน เกิด Tsubame Gaeshi',
     deck: [S(2), S(3), S(4), A(2), ...n(A(3), 2), A(4), ...n(A(5), 2), ...n(LUCK, 2), SURVEIL],
     skills: [
-      { name: '1st Strike', type: 'A', power: 2, mana: 1, fx: { sword: 1, no8: true, strike1: 2 }, text: 'ดาบที่หนึ่ง · ไม่ต้องมีมานา 8 · ตอนปะทะ: ปิดใบนี้ แล้วลงการ์ดกำลังพื้นฐานจากมือ 1 ใบ · ถ้าลงได้ ได้มานา 2 และปิดการ์ดพื้นฐานของคนอื่นในสนามรบเรา 1 ใบ [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: '2nd Strike', type: 'A', power: 4, mana: 2, fx: { sword: 2, block: true }, text: 'ดาบที่สอง · ตอนใช้: คู่ต่อสู้ใช้ผล "ตอนใช้" "ตอนปะทะ" และ Command Spell ในสนามรบเราไม่ได้ · ไม่ยกเลิกผลที่ใช้ไปแล้ว [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: '3rd Strike', type: 'A', power: 3, mana: 2, fx: { sword: 3, strike3: true }, text: 'ดาบที่สาม · ลงเพิ่มได้ถ้าลงการ์ดว่องไวอีก 2 ใบขึ้นไป · ลงพร้อม 1st Strike และ 2nd Strike: เปิดชื่อจริง พลังรวม +3 (Tsubame Gaeshi) [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: '1st Strike', type: 'A', power: 7, mana: 5, fx: { sword: 1, no8: true, strike1: 2 }, text: 'ดาบที่หนึ่ง · ไม่ต้องมีมานา 8 · ตอนปะทะ: ปิดใบนี้ แล้วลงการ์ดกำลังพื้นฐานจากมือ 1 ใบ · ถ้าลงได้ ได้มานา 2 และปิดการ์ดพื้นฐานของคนอื่นในสนามรบเรา 1 ใบ [FD]' },
+      { name: '2nd Strike', type: 'A', power: 5, mana: 3, fx: { sword: 2, block: true }, text: 'ดาบที่สอง · ตอนใช้: คู่ต่อสู้ใช้ผล "ตอนใช้" "ตอนปะทะ" และ Command Spell ในสนามรบเราไม่ได้ · ไม่ยกเลิกผลที่ใช้ไปแล้ว [FD]' },
+      { name: '3rd Strike', type: 'A', power: 3, mana: 2, fx: { sword: 3, strike3: true }, text: 'ดาบที่สาม · ลงเพิ่มได้ถ้าลงการ์ดว่องไวอีก 2 ใบขึ้นไป · ลงพร้อม 1st Strike และ 2nd Strike: เปิดชื่อจริง พลังรวม +3 (Tsubame Gaeshi) [FD]' },
     ] },
   { key: 'heracles', cls: 'Berserker', name: 'Heracles', note: 'พลังสูงโดยไม่ต้องใช้ NP · God Hand: แพ้แล้วยังได้ VP และลด VP ที่คู่ต่อสู้ได้',
     deck: [...n(S(2), 2), S(3), ...n(S(5), 2), BERSERKER('S', 7, 3), BERSERKER('S', 9, 5), A(2), A(4), BERSERKER('A', 7, 3), ...n(LUCK, 2)],
-    skills: [1, 2, 3].map((k) => ({ name: `God Hand ${k}`, type: 'N', power: 5, mana: 1, fx: { reveal: true, godHand: 3 }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าแพ้ ได้ 3 VP และผู้ชนะแต่ละคนเสีย 3 VP · แล้วใบนี้ออกจากเกม God Hand ใบที่เหลือพลัง +3 ถาวร [FD] (พลังและมานาเป็นค่าแทน)' })),
+    skills: [1, 2, 3].map((k) => ({ name: `God Hand ${k}`, type: 'N', power: 5, mana: 1, fx: { reveal: true, godHand: 3 }, text: 'เปิดชื่อจริง · ตอนปะทะ: ถ้าแพ้ ได้ 3 VP และผู้ชนะแต่ละคนเสีย 3 VP · แล้วใบนี้ออกจากเกม [FD]' })),
   },
   // paper section 6.1: the two Servants the manual adds beyond the 5th war [p.17]
   { key: 'gilgamesh', cls: 'Archer', name: 'Gilgamesh', extra: true, note: 'วีรวิญญาณสีทองที่ไม่มีใครรู้ตัวตน · เพิ่มพลังจากได้เปรียบพื้นที่ และเพิ่ม VP ที่ได้ · Enuma Elish พลังสูง ควรใช้บ่อย',
     deck: [S(2), S(3), S(4), A(2), A(3), A(4), M(2), M(3), M(4), ...n(LUCK, 2), PREP],
     skills: [
-      { name: 'Enuma Elish', type: 'N', power: 12, mana: 9, fx: { reveal: true, enuma: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: คู่ต่อสู้ที่มีการ์ด NP/สกิลชนิดพิเศษลงอยู่หรือถาวรอยู่ [แพ้] ทั้งหมด [FD] · มานา 9 [FD] (พลังเป็นค่าแทน)' },
-      { name: 'Gate of Babylon', type: 'N', power: 2, mana: 0, fx: { reveal: true, gate: true, terrainMul: 2 }, text: 'เปิดชื่อจริง · ตอนใช้: เลือกชนิดเพิ่มเองจากกำลัง ว่องไว เวท · มานา X = จำนวนชนิดที่เลือก (0–3 อนุมาน) · ได้เปรียบพื้นที่ ×2 [FD] (พลังเป็นค่าแทน)' },
-      { name: 'Archer Class', type: 'Z', power: 2, mana: 3, fx: { archer: 3, archerLose: 5 }, text: 'Independent Action · ไม่มีชนิด [FD] · ลงได้เฉพาะครึ่งแรกของลำดับเล่นรอบนี้ · ตอนใช้: ได้ 3 VP · ถ้าแพ้การต่อสู้รอบนี้ เสีย 5 VP [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: 'Enuma Elish', type: 'N', power: 15, mana: 9, fx: { reveal: true, enuma: true }, text: 'เปิดชื่อจริง · ตอนปะทะ: คู่ต่อสู้ที่มีการ์ด NP ชนิดพิเศษลงอยู่หรือถาวรอยู่ [แพ้] ทั้งหมด [FD]' },
+      { name: 'Gate of Babylon', type: 'N', power: 4, mana: 0, fx: { reveal: true, gate: true, terrainMul: 2 }, text: 'เปิดชื่อจริง · ตอนใช้: เลือกชนิดเพิ่มเองจากกำลัง ว่องไว เวท · มานา X = จำนวนชนิดที่เลือก (0–3 อนุมาน) · ได้เปรียบพื้นที่ ×2 [FD]' },
+      { name: 'Archer Class', type: 'X', power: 6, mana: 0, fx: { archer: 3, archerLose: 5 }, text: 'Independent Action · ลงได้เฉพาะครึ่งแรกของลำดับเล่นรอบนี้ · ตอนใช้: ได้ 3 VP · ถ้าแพ้การต่อสู้รอบนี้ เสีย 5 VP [FD]' },
     ] },
   { key: 'hassan', cls: 'Assassin', name: 'Hassan of the Cursed Arm', extra: true, note: 'วีรวิญญาณนักฆ่าตัวจริง · สำหรับคนเล่นเก่ง · การ์ดโจมตีส่วนใหญ่อ่อน สู้ตรงๆ ยาก · ทำเงื่อนไขให้ครบแล้วใช้ Zabaniya พลิกเกมได้',
     deck: [S(2), S(3), S(4), A(3), A(4), A(5), M(2), ...n(M(3), 2), ...n(SURVEIL, 2), PREP],
     skills: [
-      { name: 'Zabaniya', type: 'N', types: ['N', 'A'], power: 5, mana: 6, fx: { reveal: true, hiddenOnly: true, zab: true }, text: 'เปิดชื่อจริง · ลงได้เฉพาะตอนชื่อจริงยังซ่อน · ตอนปะทะ: ถ้าชนะคู่ต่อสู้ VP ที่ได้จากการต่อสู้นี้ ×2 · ถ้าเหลือคู่แข่งในเกมคนเดียว คนนั้น [แพ้] แทน [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Metamorphosis', type: 'A', power: 3, mana: 3, fx: { permanent: true, hide: true, playVP: 2 }, text: 'Self-Modification · ถาวร · ตอนใช้: ซ่อนชื่อจริงกลับ และได้ 2 VP [FD] (พลังและมานาเป็นค่าแทน)' },
-      { name: 'Assassin Class', type: 'A', power: 2, mana: 2, fx: { presence: true }, text: 'Presence Concealment · ตอนปะทะ: หลังคิดพลัง คู่ต่อสู้พลังสูงสุด [แพ้] ถ้าเราพลังน้อยกว่าเขา ไม่มีคนอื่นพลังมากกว่าเรา และในสนามรบมี 3 คนขึ้นไป [FD] (พลังและมานาเป็นค่าแทน)' },
+      { name: 'Zabaniya', type: 'N', types: ['N', 'A'], power: 6, mana: 7, fx: { reveal: true, hiddenOnly: true, zab: true }, text: 'เปิดชื่อจริง · ลงได้เฉพาะตอนชื่อจริงยังซ่อน · ตอนปะทะ: ถ้าชนะคู่ต่อสู้ VP ที่ได้จากการต่อสู้นี้ ×2 · ถ้าเหลือคู่แข่งในเกมคนเดียว คนนั้น [แพ้] แทน [FD]' },
+      { name: 'Metamorphosis', type: 'A', power: 2, mana: 1, fx: { permanent: true, hide: true, playVP: 2 }, text: 'Self-Modification · ถาวร · ตอนใช้: ซ่อนชื่อจริงกลับ และได้ 2 VP [FD]' },
+      { name: 'Assassin Class', type: 'A', power: 4, mana: 3, fx: { presence: true }, text: 'Presence Concealment · ตอนปะทะ: หลังคิดพลัง คู่ต่อสู้พลังสูงสุด [แพ้] ถ้าเราพลังน้อยกว่าเขา ไม่มีคนอื่นพลังมากกว่าเรา และในสนามรบมี 3 คนขึ้นไป [FD]' },
     ] },
 ];
 export const TSUBAME = 3; // [FD]

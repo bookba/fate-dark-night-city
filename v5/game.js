@@ -192,7 +192,8 @@ export class Game {
   rbAuto(qs) { return [...qs].sort((a, b) => a.cs - b.cs || b.vp - a.vp)[0] || null; }
   gemLimit() { return this.climax() ? GEM_REPEAT : 1; }
   // a special-type NP/skill card face up or permanent: Enuma Elish defeats its Master [FD]
-  activeSpecial(p) { return [...(p.play?.cards || []).filter((c) => this.isUp(c)), ...this.perm(p)].some((c) => c.skill && hasType(c, 'X')); }
+  // Enuma Elish's target: an NP of the Special type laid face up or in play for good [FD]
+  activeSpecial(p) { return [...(p.play?.cards || []).filter((c) => this.isUp(c)), ...this.perm(p)].some((c) => c.skill && hasType(c, 'N') && hasType(c, 'X')); }
 
   // ctx: { f, zero (the types that count 0: a Set, or a Map of type → { name, owner } of the card) }.
   // why: an array that gets one entry for each change of the printed power, for the power table
@@ -215,8 +216,8 @@ export class Game {
   }
   // one card line of the power table: the printed power, then what changed it
   cardRow(p, c, val, mods) {
-    const bump = c.bump || 0; // God Hand: +3 for every God Hand that left the game [FD]
-    if (bump && this.isUp(c)) mods.unshift({ t: 'God Hand ใบก่อนออกจากเกม', s: 'God Hand', n: bump });
+    const bump = c.bump || 0; // printed power raised for good by another card (none in the demo now)
+    if (bump && this.isUp(c)) mods.unshift({ t: c.bumpBy || 'พลังเพิ่มถาวร', s: c.bumpBy || 'ถาวร', n: bump });
     if (c.off) mods.push({ t: c.offBy || 'ถูกปิด', s: '1st Strike', n: -c.power, zero: true, clash: true });
     return { k: 'card', uid: c.uid, name: c.name || '', type: c.type, types: c.types || null, base: c.power - bump, mods, val, down: !!c.down, clashIn: !!c.clashIn };
   }
@@ -391,7 +392,6 @@ export class Game {
         p.uses[c.name] = (p.uses[c.name] || 0) + 1;
         if (c.fx.once) c.gone = true;
         if (c.fx.permanent) { c.resident = true; c.residentFrom = this.round; } // permanent: works from this round [FD]
-        if (c.fx.pierce) c.mana += c.fx.pierce; // Gáe Bolg (แทง) costs more each time [FD]
         if (c.limit === 'round') p.roundUse[`lim${c.uid}`] = true;
         continue;
       }
@@ -794,7 +794,7 @@ export class Game {
       if (card(a, 'petrify')) for (const b of foes) if (!up(b).some((c) => hasType(c, 'X') && !this.efx(f, 'noSpecial'))) defeat(b, `ถูก Petrification ของ ${a.p.name}`);
       if (card(a, 'duel') && foes.length === 1) defeat(foes[0], `โดน Gáe Bolg (แทง) ของ ${a.p.name}`);
       if (card(a, 'zab') && this.alive().length === 2) for (const b of foes) defeat(b, `โดน Zabaniya ของ ${a.p.name} (คู่แข่งคนสุดท้าย)`);
-      if (card(a, 'enuma')) for (const b of foes) if (this.activeSpecial(b.p)) defeat(b, `โดน Enuma Elish ของ ${a.p.name} (มีการ์ดสกิลชนิดพิเศษ)`);
+      if (card(a, 'enuma')) for (const b of foes) if (this.activeSpecial(b.p)) defeat(b, `โดน Enuma Elish ของ ${a.p.name} (มีการ์ด NP ชนิดพิเศษ)`);
       const s1 = card(a, 'strike1');
       if (s1) await this.firstStrike(a, s1, foes, f, up);
     }
@@ -826,31 +826,23 @@ export class Game {
       if (card(e, 'excal') && this.climax() && this.sit.size === 2 && !this.special) this.special = { p, how: `Excalibur: ${p.name} ชนะในรอบไคลแมกซ์ "เหลือ 2 คน"` };
     }
     for (const e of ents) {
-      // Gáe Bolg (ขว้าง): 1 VP per foe; when it wins, each foe loses as much [FD]
+      // Gáe Bolg (ขว้าง): a win gives 1 VP per foe, and each foe loses as much [FD]
       const st = card(e, 'strike');
-      if (st) {
+      if (st && winners.includes(e)) {
         const k = st.fx.strike * (ents.length - 1);
         e.gain += k; e.notes.push(`${st.name}: ${k} VP ตามจำนวนคู่ต่อสู้`);
-        if (winners.includes(e)) for (const b of ents) if (b !== e) b.loss += k;
-      }
-      // Saber Class: the highest-mana NP in the battlefield gives 1 VP, 2 if it cost 4+ [FD]
-      if (card(e, 'npTop')) {
-        const np = (b) => Math.max(-1, ...up(b).filter((c) => hasType(c, 'N')).map((c) => c.paid ?? c.mana));
-        const mine = np(e);
-        if (mine >= 0 && ents.every((b) => b === e || np(b) <= mine)) { const k = mine >= 4 ? 2 : 1; e.gain += k; e.notes.push(`Saber Class: NP มานาสูงสุด +${k} VP`); }
+        for (const b of ents) if (b !== e) b.loss += k;
       }
       if (winners.includes(e)) continue;
       const p = e.p;
       const lv = this.efx(f, 'loserVP'); if (lv) e.gain += lv;
-      // God Hand: losing gives 3 VP and each winner loses 3; that card leaves the game and the
-      // other God Hands get +3 power for good [FD]
+      // God Hand: losing gives 3 VP and each winner loses 3; that card leaves the game [FD]
       for (const gh of ok(e) ? up(e).filter((c) => c.fx?.godHand) : []) {
         e.gain += gh.fx.godHand;
         for (const w of winners) { w.loss += gh.fx.godHand; w.notes.push(`${gh.name} −${gh.fx.godHand} VP`); }
         const own = p.skills.find((s) => s.uid === gh.uid);
         if (own) own.gone = true;
-        for (const s of p.skills) if (s.fx?.godHand && !s.gone) { s.power += 3; s.bump = (s.bump || 0) + 3; }
-        e.notes.push(`${gh.name}: แพ้แต่ได้ ${gh.fx.godHand} VP แล้วออกจากเกม · God Hand ที่เหลือพลัง +3`);
+        e.notes.push(`${gh.name}: แพ้แต่ได้ ${gh.fx.godHand} VP แล้วออกจากเกม`);
       }
       // Rain of Light: a loss brings Rule Breaker back [FD]
       if (card(e, 'rain')) { const rb = p.skills.find((s) => s.fx?.ruleBreaker && s.gone); if (rb) { rb.gone = false; e.notes.push('Rain of Light: Rule Breaker กลับช่องสกิล'); } }
