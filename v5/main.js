@@ -10,7 +10,7 @@ import {
   STEPS, WINDOWS, WHEN_NAME, WHERE, COND, cardLines,
 } from './game.js';
 import { botDecide, destValue, gateTypes } from './bot.js';
-import { SV_ART, MAP_ART, CARD_ART } from './art.js';
+import { CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
 
 const $ = (s) => document.querySelector(s);
@@ -26,9 +26,7 @@ let popBack = null; // the action pop-up to return to after looking at something
 const swapSel = new Set(); // hand cards Rin marked for a gem swap (1–3)
 const openDrops = new Set(); // power-table dropdowns left open (data-dk), so a redraw keeps them open
 let choice = null; // the skill-choice pop-up over the card step (paper 4.6 item 8): { k, uid, sel, re }
-const setup = { master: 'shirou', sample: false };
-
-document.documentElement.style.setProperty('--map', `url("${MAP_ART.night}")`);
+const setup = { master: 'shirou', servant: 'random', sample: false }; // servant: a key, or 'random' as in the real game
 
 // ---------- game flow ----------
 // tutorial: the guided game of paper 4.6 item 12 (the same deal every time)
@@ -38,7 +36,7 @@ function startGame(tutorial = false) {
   letGo();
   tut = tutorial ? { i: 0 } : null;
   hints = null;
-  const opts = tutorial ? { humanMaster: 'shirou', sample: false, rng: seeded(TUT.seed), servants: TUT.servants, start: 0 } : { humanMaster: setup.master, sample: setup.sample };
+  const opts = tutorial ? { humanMaster: 'shirou', sample: false, rng: seeded(TUT.seed), servants: TUT.servants, start: 0 } : { humanMaster: setup.master, sample: setup.sample, servants: setup.servant === 'random' ? null : { [setup.master]: setup.servant } };
   const game = new Game({ decide, onEvent, ...opts });
   g = game;
   $('#log').innerHTML = '';
@@ -106,9 +104,13 @@ const myTurn = () => !!wait && wait.kind !== 'combatEnd';
 const seen = (p) => p.isHuman || p.revealed || g.over;
 // Supervisor: while Kirei's true name is hidden, he alone sees every Servant's class [FD]
 const kireiSees = () => started && me().m.key === 'kirei' && !me().revealed && !me().out && !g.over;
+// a Servant's picture: its class crest, drawn (the FGO wiki art was taken out 2 Nov 2026, paper 4.6 item 17)
+const CLS_AB = { Saber: 'SA', Archer: 'AR', Lancer: 'LA', Rider: 'RI', Caster: 'CA', Assassin: 'AS', Berserker: 'BE' };
+const clsAb = (sv) => CLS_AB[sv.cls] || esc(sv.cls.slice(0, 2).toUpperCase());
+const svArt = (sv, size = '') => `<span class="svart${size ? ` ${size}` : ''}" role="img" aria-label="${esc(`${sv.cls} · ${sv.name}`)}"><b>${clsAb(sv)}</b><small>${esc(sv.cls.toUpperCase())}</small></span>`;
 const svLabel = (p) => (seen(p) ? `${p.sv.cls} · ${p.sv.name}` : kireiSees() ? `คลาส ${p.sv.cls} · คุณเห็น (Supervisor)` : 'ชื่อจริงซ่อน');
 function chip(p, extra = '') {
-  const face = seen(p) ? `<img src="${SV_ART[p.sv.key]}" alt="">` : `<i>${esc(p.m.tok)}</i>`;
+  const face = seen(p) ? `<i class="sv">${clsAb(p.sv)}</i>` : `<i>${esc(p.m.tok)}</i>`;
   const cls = `chip${p.isHuman ? ' me' : ''}${g.turn === p ? ' turn' : ''}${p.out ? ' out' : ''}`;
   return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name} · ${svLabel(p)}`)}">${face}<b>${esc(p.name)}${p.isHuman ? ' (คุณ)' : ''}</b>${extra}</span>`;
 }
@@ -137,7 +139,7 @@ const stepIc = (code) => `<span class="ic c-grail stc" data-ic="step" data-t="${
 // permanent cards still in play (paper 4.6 item 11): laid face up, so public; UBW goes when the hand runs out
 const lasting = (q) => (q.out ? [] : q.skills.filter((c) => c.resident));
 const PERM_SHORT = { 'Unlimited Blade Works': 'UBW', 'Caster Class': 'Caster', Metamorphosis: 'Meta' };
-const permTitle = (c, q) => `${c.name} · ${q.name} · ถาวรตั้งแต่รอบ ${c.residentFrom} · พลัง ${c.power} ทุกรอบ${c.fx?.ubw ? ` · การ์ดในมือเหลือ ${q.hand.length} ใบ หมดแล้ว UBW ปิด` : ''} · ${cardText(c)}`;
+const permTitle = (c, q) => `${c.name} · ${q.name} · ถาวรตั้งแต่รอบ ${c.residentFrom} · พลัง ${c.power} ทุกรอบ${c.fx?.ubw ? ` · การ์ดในมือเหลือ ${q.hand.length} ใบ หมดแล้ว UBW ปิด` : ''}${c.fx?.offOnReveal ? ' · เปิดชื่อจริงเมื่อไร ปิด กลับช่องสกิล' : ''} · ${cardText(c)}`;
 // one tag per card: a button in the lists (opens the card), a plain tag by the piece on the map
 function permTags(q, { btn = false } = {}) {
   const cs = lasting(q);
@@ -154,7 +156,7 @@ function permTags(q, { btn = false } = {}) {
 const TAG = {
   reveal: 'เปิดชื่อจริง', once: 'ครั้งเดียวต่อเกม', permanent: 'ถาวร', petrify: 'ไม่มีชนิดพิเศษ [แพ้]', duel: '1 ต่อ 1 [แพ้]',
   ruleBreaker: 'Command Spell −1', zeroOpp: (t) => `${TYPES[t]}คู่ต่อสู้ = 0`, hiddenDisc: (n) => `ชื่อซ่อน มานา −${n}`,
-  ubw: 'ทั้งสำรับขึ้นมือ', riding: (n) => `ลงเพิ่มพลัง ≤${RIDE_MAX} ได้ ${n} ใบ`, riderDraw: 'จั่ว 1', move: (v) => (v === 'next' ? 'ย้ายช่องถัดไป' : 'ย้ายได้ทุกที่'),
+  ubw: 'ทั้งสำรับขึ้นมือ', offOnReveal: 'เปิดชื่อแล้วปิด', riding: (n) => `ลงเพิ่มพลัง ≤${RIDE_MAX} ได้ ${n} ใบ`, riderDraw: 'จั่ว 1', move: (v) => (v === 'next' ? 'ย้ายช่องถัดไป' : 'ย้ายได้ทุกที่'),
   bell: 'ย้าย + ยึดพื้นที่', extra: 'ลงเพิ่มนอก 2 ใบ', strike3: 'ลงเพิ่มถ้ามีว่องไว 2', sword: (n) => `ดาบ ${n}/3`, needMana: `มานา ${SKILL_MANA}+`,
   no8: `ไม่ต้องมานา ${SKILL_MANA}`, strike1: 'ลงการ์ดกำลังแทน', block: 'ปิดผลคนอื่นที่นี่', playVP: (n) => `+${n} VP`, win: (n) => `ชนะ +${n} VP`,
   strike: 'ชนะ: VP ตามคู่ต่อสู้', godHand: (n) => `แพ้ได้ ${n} VP`, terrainMul: (n) => `พื้นที่ ×${n}`, mana: (n) => `ได้มานา +${n}`,
@@ -592,7 +594,7 @@ function drawNav() {
 
 // ---------- the side (computer): you, every Master, the log ----------
 function meHead(p) {
-  return `<div class="me-head"><img src="${SV_ART[p.sv.key]}" alt=""><div class="nm"><b>${esc(p.m.name)} <small>(คุณ) · ระดับ${esc(p.m.level)}</small></b>
+  return `<div class="me-head">${svArt(p.sv, 'sm')}<div class="nm"><b>${esc(p.m.name)} <small>(คุณ) · ระดับ${esc(p.m.level)}</small></b>
     <small>${esc(p.sv.cls)} · ${esc(p.sv.name)} ${p.revealed ? `<span class="open">${ic('open', '', { w: 'เปิดชื่อ', v: 'ทุกคนรู้ว่า Servant ของคุณคือใคร' })}</span>` : ic('hidden', '', { w: 'ซ่อนชื่อ', v: 'คู่แข่งยังไม่รู้ว่า Servant ของคุณคือใคร' })}</small></div>${p.out ? `<span class="bad">${ic('out', '', { w: 'ตกรอบ' })}</span>` : ''}</div>`;
 }
 function meStats(p) {
@@ -1432,7 +1434,7 @@ function mePop() {
     html: `${meHead(p)}${meStats(p)}
       <div class="me-row"><span class="p-text">สำรับ ${p.deck.length} ใบ · กองทิ้ง ${p.trash.length} ใบ</span><button class="btn sm" data-act="pop" data-k="deck">ดูเดค · รายละเอียดการ์ดทุกใบ</button></div>
       <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ ${p.hand.length}${p.specials.length ? ' + สกิล Master' : ''}</p><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div></div>
-        <div class="cg"><p class="row-lab">การ์ด NP/สกิล · คว่ำจนกว่าจะใช้ · ถาวรอยู่ในสนามจนจบเกม</p><div class="cards">${skills}</div></div></div>
+        <div class="cg"><p class="row-lab">การ์ด NP/สกิล · คว่ำจนกว่าจะใช้ · ถาวรอยู่ในสนามจนกว่าจะปิด</p><div class="cards">${skills}</div></div></div>
       <div class="pop-sec"><p class="row-lab">ความสามารถ Master</p><ul class="abil">${p.m.abil.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`).join('')}</ul></div>
       <div class="pop-sec"><p class="row-lab">กองทิ้ง ${p.trash.length} ใบ · 5 ใบล่าสุด · วางตามด้านที่ลง คนอื่นเห็นแค่ใบหงาย · สำรับเหลือ ${p.deck.length} ใบ</p><div class="cards">${trash}</div></div>
       <p class="p-text">${p.revealed ? 'ไพ่ทาโรต์หงายแล้ว ทุกคนเห็นว่าคุณเป็นใคร' : 'ไพ่ทาโรต์คว่ำ คู่แข่งไม่รู้ว่าคุณเป็นใคร'}</p>`,
@@ -1563,7 +1565,7 @@ function playerPop(id) {
   const cardTile = (x, o = {}) => tile({ ...x.c, down: false }, { sm: true, btn: true, act: 'pcard', key: x.key, note: o.note ?? '' });
   const back = (label, sk = false) => `<div class="card back${sk ? ' sk' : ''} sm" title="${esc(label)}"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`; // sk: the Skill back
   const svHead = open
-    ? `<div class="pl-sv"><img src="${SV_ART[q.sv.key]}" alt=""><div class="nm"><b>${esc(q.sv.cls)} · ${esc(q.sv.name)}</b><small>${q.revealed ? 'ไพ่ทาโรต์หงายแล้ว' : 'จบเกมแล้ว เปิดทุกอย่าง'}</small><p class="p-text">${esc(q.sv.note || '')}</p></div></div>`
+    ? `<div class="pl-sv">${svArt(q.sv)}<div class="nm"><b>${esc(q.sv.cls)} · ${esc(q.sv.name)}</b><small>${q.revealed ? 'ไพ่ทาโรต์หงายแล้ว' : 'จบเกมแล้ว เปิดทุกอย่าง'}</small><p class="p-text">${esc(q.sv.note || '')}</p></div></div>`
     : kireiSees() ? `<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>คลาส ${esc(q.sv.cls)} · ยังไม่เปิดชื่อจริง</b><small>คุณเห็นคลาสเพราะ Supervisor · ไม่รู้ชื่อ รูป หรือการ์ด</small></div></div>`
     : '<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>ยังไม่เปิดชื่อจริง</b><small>ไพ่ทาโรต์คว่ำอยู่ ไม่รู้คลาส ชื่อ หรือรูป</small></div></div>';
   // NP/skill cards: used ones lie face up by the tarot card; all three show once the name is open
@@ -1613,6 +1615,10 @@ function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
 function closeSheet() { $('#sheet').hidden = true; $('#sheet').innerHTML = ''; }
 
 function showStart() {
+  // the Servant for playtesting (B, 2 Nov 2026 · paper 4.6 item 18): one of the 9, or at random as in the real game
+  const sOpt = (key, inner, label) => `<button class="scard${setup.servant === key ? ' sel' : ''}${key === 'random' ? ' rnd' : ''}" data-act="servant" data-s="${key}" aria-pressed="${setup.servant === key}" aria-label="${esc(label)}">${inner}</button>`;
+  const ss = sOpt('random', '<span class="svart sm dice" aria-hidden="true"><b>🎲</b></span><span class="nm"><b>สุ่ม</b><span class="en">RANDOM</span></span>', 'สุ่ม Servant แบบเกมจริง')
+    + SERVANTS.map((sv) => sOpt(sv.key, `${svArt(sv, 'sm')}<span class="nm"><b>${esc(sv.name)}</b><span class="en">${esc(sv.cls.toUpperCase())}</span></span>`, `${sv.cls} · ${sv.name}`)).join('');
   const ms = MASTERS.map((m) => `<button class="mcard${setup.master === m.key ? ' sel' : ''}" style="--c:${m.color}" data-act="master" data-m="${m.key}" aria-pressed="${setup.master === m.key}">
       <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b><span class="st2">มานาเริ่ม ${m.mana} · Command Spell ${m.cs}${m.gems ? ` · อัญมณี ${m.gems}` : ''}</span>
       <ul>${m.abil.map(([t, d]) => `<li>${esc(t)}${d ? `: ${esc(d)}` : ''}</li>`).join('')}</ul></button>`).join('');
@@ -1620,7 +1626,8 @@ function showStart() {
     <p class="lede">สงครามจอกศักดิ์สิทธิ์ 7 Master ของ Fate/stay night · Servant ${SERVANTS.length} ตน สุ่มให้คนละตน อีก ${SERVANTS.length - MASTERS.length} ตนไม่ได้ใช้ · เก็บ VP 8 รอบ แล้วเข้าไคลแมกซ์ คนที่ VP น้อยถูกคัดออก 4 → 2 → 1 · คนสุดท้ายที่เหลือชนะ</p>
     <ol class="how"><li>ตั้งมั่น: วางหมากที่โรงฝึกเวทเพื่อเก็บมานา หรือที่สนามรบเพื่อรับได้เปรียบพื้นที่</li><li>ปฏิบัติการ: ย้ายตามลูกศร แล้วลงการ์ด 2 ใบ หงายเพื่อสู้ คว่ำเพื่อหลอก · ผล "ตอนใช้" ทำงานทุกที่</li><li>มีมานา ${SKILL_MANA} ขึ้นไปใช้การ์ด NP/สกิลได้ · มานาสูงสุด ${MANA_MAX}</li><li>Command Spell 3 ดวง ใช้ในตาของตัวเอง: มานา +${CS_MANA} · พลัง +${CS_POWER} · ย้ายไม่สนติดพัน</li><li>การ์ด "ถาวร" อยู่ในสนามต่อ มีผลและให้พลังทุกรอบ · การ์ด "ปิด" พลัง 0 ไม่มีผล</li><li>ไอคอนบนหน้าจอแตะดูความหมายได้ · รวมทุกตัวอยู่ใน "ไอคอนทั้งหมด" ของกติกา</li></ol>
     <h2>เลือก Master ของคุณ</h2><div class="masters">${ms}</div>
-    <p class="lede">Servant สุ่มให้ และเป็นความลับจนกว่าจะเปิดชื่อจริง · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p>
+    <h2>เลือก Servant <small class="dim">เลือกเองเพื่อทดลองเล่น หรือ 🎲 สุ่มแบบเกมจริง</small></h2><div class="servants">${ss}</div>
+    <p class="lede">Servant เป็นความลับจนกว่าจะเปิดชื่อจริง · คนอื่นสุ่มจาก Servant ที่เหลือ · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p>
     <label class="check opt-sample"><input type="checkbox" id="opt-sample"${setup.sample ? ' checked' : ''}> ใส่การ์ดตัวอย่าง ${SAMPLE.length + 1} ใบให้ทุกคน (ทดลองช่วงใช้การ์ดของกระดาษข้อ 9 · ไม่ใช่การ์ดจริง)</label>
     <div class="acts">${started && !g.over ? '<button class="btn ghost" data-act="close">กลับไปเล่นต่อ</button>' : ''}<button class="btn" data-act="rules">อ่านกติกา</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น">สอนเล่น</button><button class="btn primary" data-act="start">${started ? 'เริ่มเกมใหม่' : 'เริ่มสงคราม'}</button></div></div>`);
 }
@@ -1634,7 +1641,7 @@ function showSummon(go) {
     + (p.m.key === 'rin' ? `<li class="sp"><b>Gem ×${p.gems} · สกิล Master</b>${esc(cardText(GANDR))}</li>` : '');
   const deck = p.deck; // the whole attack deck before the first draw, Snake and example cards included
   const byType = Object.keys(TYPES).map((t) => [t, deck.filter((c) => c.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${TYPES[t]} ${n}`).join(' · ');
-  openModal(`<div class="dlg"><span class="eyebrow">${tut ? 'สอนเล่น · ' : ''}การอัญเชิญสำเร็จ</span><div class="summon"><img src="${SV_ART[p.sv.key]}" alt="${esc(p.sv.name)}">
+  openModal(`<div class="dlg"><span class="eyebrow">${tut ? 'สอนเล่น · ' : ''}การอัญเชิญสำเร็จ</span><div class="summon">${svArt(p.sv, 'big')}
     <div style="display:grid;gap:12px;min-width:0"><span class="cls">${esc(p.sv.cls.toUpperCase())}</span><h2>${esc(p.sv.name)}</h2>
     <p class="lede">Master ${esc(p.m.name)} · ไพ่ทาโรต์คว่ำไว้ คู่แข่งไม่รู้ว่าคุณเป็นใครจนกว่าจะเปิดชื่อจริง</p>
     ${tut ? '<p class="lede tut-lede">สอนเล่นจัดเหมือนกันทุกครั้ง: คุณเป็นชิโร่กับ Saber · ผู้สอนจะพาเล่นรอบที่ 1 ทีละขั้น · กด "ข้ามการสอน" ได้ตลอด</p>' : ''}
@@ -2056,7 +2063,7 @@ document.addEventListener('click', (ev) => {
     case 'icons': pop = null; popBack = null; drawPop(); showRules('icons'); break;
     case 'bigart': showBig(t.dataset.src, t.querySelector('img')?.alt); break;
     case 'new': case 'pickmaster': pop = null; popBack = null; drawPop(); showStart(); break;
-    case 'master': setup.master = t.dataset.m; showStart(); break;
+    case 'master': case 'servant': { const y = $('#modal').scrollTop; if (act === 'master') setup.master = t.dataset.m; else setup.servant = t.dataset.s; showStart(); $('#modal').scrollTop = y; break; }
     case 'start': case 'again': closeModal(); startGame(); break;
     case 'tutorial': closeModal(); startGame(true); break;
     case 'tutnext': tutNext(); break;

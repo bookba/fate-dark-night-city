@@ -36,7 +36,8 @@ export class Game {
     this.win = null; // the card window being asked, if any
     this.sample = sample; // the example cards of paper section 9 are shuffled in
     let svs = this.shuffle([...SERVANTS]); // each Master gets one of the 9 at random, 2 go unused [p.6]
-    if (servants) { const fixed = MASTERS.map((m) => SERVANTS.find((sv) => sv.key === servants[m.key])); svs = [...fixed, ...svs.filter((sv) => !fixed.includes(sv))]; }
+    // servants: Master key → Servant key for some or all Masters (the tutorial, a picked Servant to playtest); the rest at random
+    if (servants) { const pool = svs.filter((sv) => !Object.values(servants).includes(sv.key)); const dealt = MASTERS.map((m) => SERVANTS.find((sv) => sv.key === servants[m.key]) || pool.shift()); svs = [...dealt, ...pool]; }
     this.unused = svs.slice(MASTERS.length); // nobody knows which; Shinji's book may call one [FD]
     let h = MASTERS.findIndex((m) => m.key === humanMaster);
     if (h < 0) h = Math.floor(rng() * MASTERS.length);
@@ -415,7 +416,13 @@ export class Game {
     for (let k = 0; k < a.gandr; k++) cards.push(inst(GANDR, { keep: true }));
     if (a.gandr) this.log(`${p.name} ใช้อัญมณี ${a.gandr} ใบ ลง Gandr Shot ${a.gandr} ใบ`, p.isHuman ? 'me' : '');
     let revealing = false;
-    const reveal = (why) => { if (p.revealed) return; p.revealed = true; revealing = true; this.log(`✸ ${p.name} ใช้ ${why} เปิดชื่อจริง: ${p.sv.name} (${p.sv.cls})`, 'reveal'); };
+    const reveal = (why) => {
+      if (p.revealed) return;
+      p.revealed = true; revealing = true; this.log(`✸ ${p.name} ใช้ ${why} เปิดชื่อจริง: ${p.sv.name} (${p.sv.cls})`, 'reveal');
+      // Metamorphosis turns off when the true name is revealed and goes back to the skill slot (B, 2 Nov 2026);
+      // one laid this round stays, as its hiding comes after the reveal
+      for (const c of p.skills) if (c.resident && c.fx?.offOnReveal && !cards.some((x) => x.uid === c.uid)) { c.resident = false; this.log(`${p.name}: ชื่อจริงเปิด ${c.name} ปิด กลับช่องสกิล`, p.isHuman ? 'me' : ''); }
+    };
     const up = cards.filter((c) => this.isUp(c));
     for (const c of up) if (c.fx?.reveal) reveal(c.name);
     const tsubame = this.tsubame(cards);

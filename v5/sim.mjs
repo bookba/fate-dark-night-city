@@ -25,6 +25,7 @@ for (let i = 0; i < N; i++) {
       const want = deckSize[p.sv.key] + (p.m.key === 'kuzuki' ? 2 : 0);
       if (n !== want) throw new Error(`lost cards r${g.round} ${g.phase} ${p.name} ${p.hand.length}+${p.deck.length}+${p.trash.length} != ${want}`);
       if (p.deck.some((c) => c.down)) throw new Error(`face-down card left in the deck r${g.round} ${p.name}`);
+      if (p.revealed && p.skills.some((c) => c.resident && c.fx?.offOnReveal)) throw new Error(`Metamorphosis still on with the true name open r${g.round} ${p.name}`);
     }
   };
   g.onEvent = (e) => { if (e.type === 'update' || e.type === 'combat') check(); };

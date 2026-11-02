@@ -172,7 +172,7 @@ export const SERVANTS = [
     deck: [S(2), S(3), S(4), A(3), A(4), A(5), M(2), ...n(M(3), 2), ...n(SURVEIL, 2), PREP],
     skills: [
       { name: 'Zabaniya', type: 'N', types: ['N', 'A'], power: 6, mana: 7, fx: { reveal: true, hiddenOnly: true, zab: true }, text: 'เปิดชื่อจริง · ลงได้เฉพาะตอนชื่อจริงยังซ่อน · ตอนปะทะ: ถ้าชนะคู่ต่อสู้ VP ที่ได้จากการต่อสู้นี้ ×2 · ถ้าเหลือคู่แข่งในเกมคนเดียว คนนั้น [แพ้] แทน [FD]' },
-      { name: 'Metamorphosis', type: 'A', power: 2, mana: 1, fx: { permanent: true, hide: true, playVP: 2 }, text: 'Self-Modification · ถาวร · ตอนใช้: ซ่อนชื่อจริงกลับ และได้ 2 VP [FD]' },
+      { name: 'Metamorphosis', type: 'A', power: 2, mana: 1, fx: { permanent: true, offOnReveal: true, hide: true, playVP: 2 }, text: 'Self-Modification · ถาวร: เปิดชื่อจริงเมื่อไร การ์ดนี้ปิด กลับช่องสกิล · ตอนใช้: ซ่อนชื่อจริงกลับ และได้ 2 VP [FD]' },
       { name: 'Assassin Class', type: 'A', power: 4, mana: 3, fx: { presence: true }, text: 'Presence Concealment · ตอนปะทะ: หลังคิดพลัง คู่ต่อสู้พลังสูงสุด [แพ้] ถ้าเราพลังน้อยกว่าเขา ไม่มีคนอื่นพลังมากกว่าเรา และในสนามรบมี 3 คนขึ้นไป [FD]' },
     ] },
 ];

@@ -208,7 +208,6 @@ small, .dim { color: var(--dim); }
   .map.big-miyama { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, .6fr) 28px minmax(0, 2.3fr) 28px minmax(0, .9fr) 28px minmax(0, .55fr); }
   .map.big-shinto { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, .6fr) 28px minmax(0, .9fr) 28px minmax(0, 2.3fr) 28px minmax(0, .55fr); }
 }
-.map::before { content: ''; position: absolute; inset: 0; z-index: 0; background: var(--map) center / cover no-repeat; opacity: .26; filter: saturate(.6); }
 .map::after { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(12, 17, 32, .35), rgba(12, 17, 32, .8)); }
 .map > * { position: relative; z-index: 1; }
 .ws { grid-area: ws; } .a1 { grid-area: a1; } .f-miyama { grid-area: mi; } .a2 { grid-area: a2; } .f-shinto { grid-area: sh; } .a3 { grid-area: a3; } .rc { grid-area: rc; }
@@ -1144,3 +1143,34 @@ button.card:hover { transform: translateY(-3px); }
 .iconlist li span .ic .i { width: 12px; height: 12px; }
 /* icons inside the power column keep their own small size (the column's big number is its own b) */
 .bpw :is(.bsum, .bshort, .tr) b { font: inherit !important; animation: none !important; }
+
+/* a Servant's picture: its class crest, drawn (paper 4.6 item 17 · the FGO wiki art was taken out) */
+.svart {
+  flex: none; display: grid; place-content: center; justify-items: center; gap: 5px; width: 72px; height: 102px; border-radius: 8px;
+  border: 2px solid var(--grail); color: var(--grail);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--grail) 20%, transparent), transparent 64%), linear-gradient(160deg, #2a1e44, #10142a);
+}
+.svart > b { font: 700 28px/1 var(--ff-crest); letter-spacing: .04em; color: inherit; }
+.svart > small { font: 600 8.5px/1 var(--ff-crest); letter-spacing: .14em; color: color-mix(in srgb, var(--grail) 70%, var(--dim)); }
+.svart.big { width: 180px; max-width: 100%; height: auto; aspect-ratio: 240 / 339; border-radius: 12px; border-width: 1px; gap: 10px;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--grail) 25%, transparent); animation: rise .7s ease-out both; }
+.svart.big > b { font-size: 68px; } .svart.big > small { font-size: 13px; }
+.svart.sm { width: 40px; height: 40px; border-radius: 50%; gap: 0; }
+.svart.sm > b { font-size: 14px; } .svart.sm > small { display: none; }
+.svart.dice > b { font-size: 20px; }
+@media (max-width: 560px) { .svart.big { width: 140px; } }
+.chip > i.sv { background: linear-gradient(160deg, #2a1e44, #10142a); color: var(--grail); font: 700 9px/1 var(--ff-crest); box-shadow: inset 0 0 0 1px var(--grail); }
+/* the Servant to playtest with on the start screen (paper 4.6 item 18) */
+.dlg h2 small { font: 400 13px var(--ff-body); margin-left: 6px; display: inline-block; }
+.servants { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+.scard { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: var(--r); cursor: pointer; background: var(--night-3); border: 1px solid var(--line); color: inherit; min-width: 0; }
+.scard .nm { display: grid; gap: 2px; min-width: 0; }
+.scard .nm b { font: 600 14px/1.25 var(--ff-head); overflow-wrap: anywhere; }
+.scard .en { font: 600 10px/1.3 var(--ff-crest); letter-spacing: .08em; color: var(--dim); }
+.scard.sel { border-color: var(--grail); box-shadow: 0 0 0 1px var(--grail); }
+.scard.rnd .nm b { color: var(--grail); }
+@media (max-width: 560px) {
+  .servants { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .scard { gap: 7px; padding: 6px 7px; } .scard .svart.sm { width: 30px; height: 30px; } .scard .svart.sm > b { font-size: 11px; }
+  .scard .nm b { font-size: 12.5px; } .scard .en { font-size: 9px; }
+}
