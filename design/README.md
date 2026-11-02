@@ -25,6 +25,7 @@
 - [fd-card-database.md](reference/fd-card-database.md): ฐานข้อมูลการ์ด Fate/Domination [DB] ของ 9 Servant ในเดโม
 - [v5-card-placeholders.md](reference/v5-card-placeholders.md): ตัวเลขการ์ดที่ยังเป็นค่าแทนใน v5.2
 - [manual-notes.md](reference/manual-notes.md): บันทึกเกี่ยวกับคู่มือ Dominate Grail War (ตัวไฟล์ PDF ไม่ได้ใส่ใน repo เพราะเป็นงานมีลิขสิทธิ์)
+- [images/](reference/images/): รูปการ์ดจริงจาก Fate/Domination ที่คุณส่งมา (มีลิขสิทธิ์ ใช้ในต้นแบบส่วนตัวเท่านั้น ต้องเปลี่ยนก่อนเปิดสาธารณะ)
 - [board-v5/](reference/board-v5/): รูปแบบกระดาน (จอคอม กระดาน Master มือถือ หน้าการ์ด) ทั้ง .svg และ .png
 
 ## ฉบับเก่า (`archive/`)
