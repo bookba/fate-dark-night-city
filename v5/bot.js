@@ -29,7 +29,7 @@ function handPower(g, p, f, mana = p.mana) {
 
 function foePower(g, q) {
   if (q.play) return q.play.pre;
-  return 7 + q.terrain + (q.mana >= SKILL_MANA ? 4 : 0);
+  return 7 + q.terrain + (q.mana >= SKILL_MANA ? 4 : 0) + g.perm(q).reduce((n, c) => n + c.power, 0); // permanent cards keep their power
 }
 
 function place(g, p, opts) {
@@ -216,7 +216,14 @@ function cards(g, p, ctx) {
       for (const { c } of cardsUp) {
         const fx = c.fx || {};
         if (fx.once) vp -= late(g) ? 0 : 3; // keep one-use cards for the climax
-        if (blocked) continue; // 2nd Strike: its effects do nothing here
+        // On Play and untagged effects still work under 2nd Strike [FD Keywords]
+        if (fx.playVP) vp += fx.playVP;
+        if (fx.hide) vp += p.revealed && p.skills.some((z) => z.fx.hiddenOnly && !z.gone) ? 3 : 0;
+        if (fx.godHand) vp += 1.5;
+        if (fx.ubw) vp += 2;
+        if (fx.riderDraw) vp += 0.5;
+        if (fx.permanent && c.power) vp += Math.min(roundsLeft(g), 5) * c.power * 0.15; // its power stays for the rounds to come
+        if (blocked) continue; // 2nd Strike: the Action and Combat abilities do nothing here
         if (fx.petrify && there.length) extra += known.some((q) => q.play.cards.some((x) => !x.down && x.type === 'X')) ? 3 : 8;
         if (fx.duel && there.length === 1) extra += 14;
         if (fx.zab && there.length) { if (g.alive().length === 2) extra += 14; else mul = 2; }
@@ -225,17 +232,12 @@ function cards(g, p, ctx) {
         if (fx.ruleBreaker && there.length) { const q = g.rbAuto(there); extra += q.cs <= 1 ? 24 : 1; } // left at 0: [แพ้] and +10
         if (fx.zeroOpp) extra += 2;
         if (fx.block) extra += unknown.length * 2;
-        if (fx.playVP) vp += fx.playVP;
-        if (fx.hide) vp += p.revealed && p.skills.some((z) => z.fx.hiddenOnly && !z.gone) ? 3 : 0;
         if (fx.archer) { vp += fx.archer; risk += fx.archerLose; }
         if (fx.win) vp += fx.win * 0.6;
         if (fx.strike) vp += there.length;
-        if (fx.godHand) vp += 1.5;
         if (fx.workshop) vp += Math.min(roundsLeft(g), 5);
-        if (fx.ubw) vp += 2;
         if (fx.excal && g.climax() && g.sit.size === 2) extra += 15;
         if (fx.strike1) { vp += 0.8; extra += 2; }
-        if (fx.riderDraw) vp += 0.5;
         if (fx.luck && there.length) vp += 0.5;
       }
       const chance = alone ? 0.95 : winChance(pw + extra, foe + 0.5);

@@ -121,7 +121,6 @@ small, .dim { color: var(--dim); }
 .track .ph { display: none; }
 .steps { display: flex; gap: 2px 12px; list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--dim); white-space: nowrap; }
 .steps li.now { color: var(--bone); font-weight: 600; }
-.steps li.now::before { content: '◆ '; color: var(--seal); }
 /* the numbered step of paper 8.0, e.g. "3.2 ย้าย" */
 .steps .stp { margin-left: 6px; font-weight: 400; color: var(--grail); }
 .steps .stp b { font: 600 11px/1 var(--ff-crest); }
@@ -171,7 +170,7 @@ small, .dim { color: var(--dim); }
   padding: 6px 10px; border-radius: 8px; border: 1px solid var(--c-sit); background: color-mix(in srgb, var(--c-sit) 14%, var(--night));
 }
 .sit .lab { font-size: 11px; color: var(--dim); flex: none; }
-.sit b { font-family: var(--ff-head); font-size: 14px; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sit > b { font-family: var(--ff-head); font-size: 14px; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sit .mana { color: var(--ok); font-weight: 600; font-size: 12px; flex: none; }
 .sit .rule { font-size: 12px; color: var(--dim); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sit .more { flex: none; margin-left: auto; font-size: 11px; color: var(--grail); }
@@ -231,7 +230,6 @@ small, .dim { color: var(--dim); }
 .area::after { content: 'ⓘ'; position: absolute; right: 7px; bottom: 4px; font-size: 13px; color: color-mix(in srgb, var(--ac) 70%, var(--dim)); }
 .area:hover { background: color-mix(in srgb, var(--ac) 20%, rgba(12, 17, 32, .9)); }
 .area.can { box-shadow: 0 0 0 2px var(--grail), 0 0 22px color-mix(in srgb, var(--grail) 32%, transparent); }
-.area.here .ah h3::after { content: ' · คุณอยู่นี่'; font: 500 11px var(--ff-body); color: var(--grail); }
 .ws { --ac: var(--c-ws); } .rc { --ac: var(--c-rc); } .f-miyama { --ac: var(--c-mi); } .f-shinto { --ac: var(--c-sh); }
 .ah { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; flex: none; min-width: 0; }
 .ah h3 { font-size: 15px; color: var(--ac); line-height: 1.25; }
@@ -252,7 +250,7 @@ small, .dim { color: var(--dim); }
 .occ { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 2px 8px 2px 3px; border-radius: 999px; border: 1px solid var(--ac); background: color-mix(in srgb, var(--ac) 22%, var(--night)); }
 .occ .tr { font: 600 10.5px/1 var(--ff-body); font-style: normal; color: var(--ok); }
 .occ .pw { font: 700 15px/1 var(--ff-crest); color: var(--bone); }
-.occ .pw::before { content: '⚔ '; font: 400 11px var(--ff-body); color: var(--dim); }
+.occ .pw::before { content: none; }
 
 /* the fight inside your battlefield */
 .area.fighting { gap: 4px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--seal) 70%, transparent), 0 0 26px color-mix(in srgb, var(--seal) 28%, transparent); }
@@ -343,8 +341,8 @@ small, .dim { color: var(--dim); }
 @container area (max-width: 300px) { .bwho b { display: none; } .bprize { display: none; } .brow { gap: 0 5px; padding-right: 6px; } }
 @container area (max-width: 230px) {
   .brow.res .bout, .brow.res .bpw i { display: none; }
-  .brow.res .bpw::after { content: attr(data-res); font: 600 9.5px/1.2 var(--ff-body); color: var(--dim); white-space: nowrap; animation: bin .35s ease-out both; animation-delay: var(--d, 0ms); }
-  .brow.res .bpw.won::after { color: var(--grail); }
+  .brow.res .bpw .bshort { display: block; font: 600 9.5px/1.2 var(--ff-body); color: var(--dim); white-space: nowrap; animation: bin .35s ease-out both; animation-delay: var(--d, 0ms); }
+  .brow.res .bpw.won .bshort { color: var(--grail); }
 }
 @container area (max-width: 230px) { .bc small { display: none; } .bpw b { font-size: 17px; } .bout { font-size: 10.5px; } .bres small { display: none; } .bwait { font-size: 10px; } }
 @container area (max-height: 200px) { .bpw i { display: none; } }
@@ -403,7 +401,6 @@ small, .dim { color: var(--dim); }
   .slot { min-width: 30px; padding: 2px 5px; }
   .slot.full { position: relative; min-width: 0; padding: 0; border: 0; background: none; }
   .slot.full i { position: absolute; top: -5px; right: -9px; font-size: 9px; padding: 0 2px; border-radius: 6px; background: var(--night); }
-  .area.here .ah h3::after { content: none; }
   .area.packed .evs { display: none; }
   .ptags { position: absolute; left: -5px; bottom: -5px; }
 }
@@ -434,7 +431,9 @@ small, .dim { color: var(--dim); }
 @media (max-width: 699px) { .hand { --hh: clamp(74px, 16cqh, 108px); gap: 6px; } }
 /* a very low board (small phones): the ranking strip goes behind the อันดับ button, the cards get a little smaller */
 @container board (max-height: 480px) { .strip { display: none !important; } .hand { --hh: 68px; } }
-.hand .lab { font-size: 11px; color: var(--dim); writing-mode: vertical-rl; transform: rotate(180deg); flex: none; }
+.hand .lab { font-size: 11px; color: var(--dim); flex: none; }
+.hand .lab .ic { flex-direction: column; gap: 2px; font: 600 12px/1 var(--ff-crest); }
+.hand .lab .ic svg { width: 17px; height: 17px; }
 .hand .cards { flex-wrap: nowrap; gap: 6px; align-items: center; }
 .hand .sep { flex: none; width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
 .deckbtn {
@@ -1010,3 +1009,138 @@ button.card:hover { transform: translateY(-3px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- icons and their bubble (paper 4.6 item 14) ---------- */
+.i { width: 1.05em; height: 1.05em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.15em; overflow: visible; }
+.ic { display: inline-flex; align-items: center; gap: 1px; white-space: nowrap; vertical-align: -.1em; line-height: 1; }
+.ic.r { flex-direction: row-reverse; }
+.ic b { font: inherit; font-weight: 700; }
+.ic em { font-style: normal; font-weight: 600; margin-left: 2px; font-size: .95em; }
+.ic.r b { margin-right: 1px; }
+[data-ic] { cursor: pointer; }
+:is(.card, .bc, .btn, .opt, .copt, .deckbtn, .mcard) [data-ic] { cursor: inherit; }
+.c-mana { color: var(--mana); } .c-seal { color: var(--seal); } .c-gold, .c-grail { color: var(--grail); } .c-pow { color: #ffd36b; }
+.c-bone { color: var(--bone); } .c-dim { color: var(--dim); } .c-gem { color: #f08a9a; } .c-ok { color: var(--ok); } .c-red { color: #ff8a92; } .c-sp { color: var(--sp); }
+.ic.cs { letter-spacing: 1px; font-size: 1em; }
+.ic.stc b { font: 600 .92em/1 var(--ff-crest); padding: 1px 4px; border-radius: 4px; border: 1px solid color-mix(in srgb, var(--grail) 50%, transparent); }
+#bub {
+  position: fixed; z-index: 60; display: grid; gap: 3px; max-width: min(280px, calc(100vw - 16px)); padding: 8px 11px 9px;
+  border-radius: 9px; border: 1px solid color-mix(in srgb, var(--grail) 60%, var(--line)); background: var(--night-3); color: var(--bone);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .55); font-size: 12.5px; line-height: 1.4; animation: bubin .14s ease-out;
+}
+#bub[hidden] { display: none; }
+#bub > b { display: flex; align-items: center; gap: 6px; font: 600 13.5px/1.25 var(--ff-head); }
+#bub > b .i { width: 17px; height: 17px; }
+#bub .bv { font-weight: 600; }
+#bub .bm { color: var(--dim); }
+@keyframes bubin { from { opacity: 0; transform: translateY(3px); } }
+/* the phases on the top bar as numbers in small circles; the one now has its name */
+.pn { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); font: 600 10.5px/1 var(--ff-crest); color: var(--dim); }
+.pn b { font: inherit; }
+.steps li.now .pn { background: var(--seal); border-color: var(--seal); color: #fff; }
+.steps { align-items: center; gap: 2px 8px; }
+.mystat { align-items: center; }
+.mystat .ic { gap: 3px; }
+.mystat .ic .i { width: 15px; height: 15px; }
+.mystat .ic.c-seal b { color: var(--seal); } .mystat .ic.c-mana b { color: var(--mana); } .mystat .ic.c-gold b { color: var(--grail); }
+.btn.icb { padding: 2px 9px; } .btn.icb .i { width: 18px; height: 18px; }
+.track .rl .ic .i { width: 14px; height: 14px; }
+.sit .lab .i { width: 16px; height: 16px; } .sit .mana .ic { color: var(--ok); }
+.sit .rule .ic, .sit .rule .ti { vertical-align: -.2em; }
+.sit .more .i { width: 15px; height: 15px; }
+.arrow .cost .ic { gap: 1px; } .arrow .cost .i { width: 10px; height: 10px; }
+.strip .lab .i { width: 15px; height: 15px; color: var(--grail); }
+.deckbtn small { display: inline-flex; align-items: center; justify-content: center; gap: 2px; }
+.deckbtn small .i { width: 12px; height: 12px; }
+.slot i .ic { gap: 1px; } .slot i .i { width: 10px; height: 10px; }
+.ah .kind .ic { gap: 2px; } .ah .kind .i { width: 12px; height: 12px; }
+.ah h3 .ic { margin-left: 5px; font-size: 13px; vertical-align: -.05em; }
+@container area (max-width: 150px) { .ah h3 .ic { margin-left: 3px; font-size: 11.5px; } }
+.tag-engaged { display: inline-flex; align-items: center; } .tag-engaged .ic { color: #ff8a92; }
+.area .prize { display: inline-flex; align-items: center; gap: 6px; }
+.area .prize .ic { font-size: 12.5px; } .area .prize .ic b { color: var(--grail); }
+.bprize .ic b { color: var(--grail); }
+.bwait .ic { font-size: 14px; } .bwait .ic em { font-size: 11px; }
+.bpw i.tr { display: inline-flex; align-items: center; gap: 1px; } .bpw i.tr .i { width: 10px; height: 10px; }
+.bpw .bshort { display: none; }
+.bout .ic .i { width: 13px; height: 13px; }
+.bsum .ic { margin-right: 3px; } .bsum .i { width: 10px; height: 10px; }
+.pwd-s .ic { margin-right: 4px; } .pwd-s .i { width: 11px; height: 11px; }
+.bwho .ic.c-dim { font-size: 11px; }
+.bc small { display: flex; align-items: center; gap: 1px; max-width: 100%; overflow: hidden; }
+.bc small .i { width: 9px; height: 9px; }
+.bc small .ti { width: 11px; height: 11px; }
+.bc.perm small { color: var(--grail); font-size: 8px; }
+.me-stats { align-items: center; gap: 4px 12px; }
+.me-stats .ic { gap: 3px; } .me-stats .ic .i { width: 16px; height: 16px; }
+.me-stats .ic b { font: 700 18px/1 var(--ff-crest); } .me-stats .ic b small { font: 400 11px var(--ff-body); color: var(--dim); }
+.me-stats .seals { gap: 2px; }
+.me-piles { display: flex; gap: 10px; align-items: center; } .me-piles .ic b { font-weight: 600; }
+.me-head .ic { font-size: 12px; } .me-head .ic .i { width: 13px; height: 13px; }
+.st .rk .ic .i { width: 13px; height: 13px; }
+.st .mini { display: inline-flex; align-items: center; gap: 4px; } .st .mini .ic b { color: var(--mana); }
+.st .pub .ic { margin-right: 2px; } .st .pub .ic .i { width: 11px; height: 11px; }
+.st li.cutline .ic { color: var(--seal); font-size: 10.5px; }
+.st-head h2 .i { width: 14px; height: 14px; color: var(--grail); }
+.st-head .btn.icb { padding: 0 8px; } .st-head .btn.icb .i { width: 14px; height: 14px; }
+.st-head small .ic { color: var(--seal); }
+.chip .ic.t .i { width: 11px; height: 11px; }
+:is(#log, .loglist) .ic .i { width: 12px; height: 12px; }
+.when .ic { vertical-align: -.15em; } .when .ic .i { width: 11px; height: 11px; }
+.pop-title .mini .ic, .pop-title .sub .ic { margin-right: 4px; }
+.notes .ic .i, .bnote .ic .i { width: 11px; height: 11px; }
+.tut-box p .ic { font-size: 1.05em; }
+/* the type crests on a card face (the same crests as item 7, in the type's colour) */
+.ti { display: inline-block; width: 1.35em; height: 1.35em; vertical-align: -.35em; background: currentColor; -webkit-mask: var(--em) center / contain no-repeat; mask: var(--em) center / contain no-repeat; }
+.ti-S { --em: var(--em-S); color: color-mix(in srgb, var(--ty-S) 85%, #fff); } .ti-A { --em: var(--em-A); color: color-mix(in srgb, var(--ty-A) 85%, #fff); }
+.ti-M { --em: var(--em-M); color: color-mix(in srgb, var(--ty-M) 80%, #fff); } .ti-X { --em: var(--em-X); color: color-mix(in srgb, var(--ty-X) 85%, #fff); }
+.ti-Z { --em: var(--em-Z); color: var(--ty-Z); }
+.card .ty { display: flex; align-items: center; gap: 3px; min-height: 18px; }
+.card .ty .ti { width: 15px; height: 15px; }
+.card .ty b.tw { font-weight: 700; }
+.card.down .ty .ti { color: var(--dim); }
+.cardview .card .ty .ti { width: 20px; height: 20px; }
+.card .fx .ic { vertical-align: -.15em; } .card .fx .i { width: 10px; height: 10px; }
+.card .fx .ic em { font-size: 1em; font-weight: 500; }
+/* rank 1 (paper 4.6 item 15): a small crown on top of the piece, a gold top edge on its area */
+.tok { position: relative; }
+.tok .crn { position: absolute; left: 50%; top: -9px; translate: -50% 0; color: var(--grail); pointer-events: auto; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .85)); }
+.tok .crn .i { width: 12px; height: 12px; }
+.order .tok .crn, .strip .tok .crn { top: -7px; } .strip .tok .crn .i { width: 10px; height: 10px; }
+.strip { padding-top: 8px; }
+.area.lead::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--grail); pointer-events: none; z-index: 1; }
+.area.lead { background-image: linear-gradient(180deg, color-mix(in srgb, var(--grail) 16%, transparent), transparent 30px); }
+.ah h3 .ic.c-gold[data-ic="crown"] .i { width: 14px; height: 14px; }
+.bwho b .ic { margin-right: 3px; } .bwho b .ic .i { width: 11px; height: 11px; }
+/* real card pictures (paper 4.6 item 16): darkened a little so the numbers stay easy to read */
+.card.art { background: linear-gradient(180deg, rgba(9, 11, 24, .2), rgba(9, 11, 24, .45) 45%, rgba(9, 11, 24, .82)), var(--art) center top / cover no-repeat, #0f1528; }
+.card.art::before { content: none; }
+.card.art:not(.has-src) .ty { background: linear-gradient(180deg, rgba(9, 11, 24, .78), rgba(9, 11, 24, .4)); }
+.card.art .nm, .card.art .fx { text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, .9); }
+.card.art .fx { color: #d2d5e2; }
+.bc.art { background: linear-gradient(rgba(9, 11, 24, .35), rgba(9, 11, 24, .6)), var(--art) center top / cover no-repeat, #0f1528; }
+.bc.art::before { content: none; }
+.cardview.has-art { grid-template-columns: auto auto minmax(0, 1fr); }
+.cv-art { padding: 0; border: 0; background: none; cursor: zoom-in; display: grid; gap: 4px; justify-items: center; color: var(--dim); font-size: 11px; }
+.cv-art img { width: 150px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); }
+@container popb (max-width: 560px) { .cardview.has-art { grid-template-columns: auto auto; } .cardview.has-art .cv-tx { grid-column: 1 / -1; } }
+@container popb (max-width: 380px) { .cardview.has-art { grid-template-columns: auto auto; justify-items: center; } .cv-art img, .cardview .card { width: 128px; } }
+#big { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(4, 6, 14, .88); cursor: zoom-out; padding: 16px; }
+#big[hidden] { display: none; }
+#big img { max-width: min(92vw, 520px); max-height: 90vh; border-radius: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .7); }
+#big .x { position: absolute; top: 14px; right: 14px; color: var(--bone); }
+/* what the icons on a card mean, on its details page */
+.cv-legend { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--dim); }
+.cv-legend > span { display: inline-flex; align-items: center; gap: 3px; }
+.cv-legend .ti { width: 15px; height: 15px; }
+.pwt .permr { font-style: normal; color: var(--grail); font-size: 11px; display: inline-flex; align-items: center; gap: 2px; }
+/* the icon page in the rules */
+#icons { display: grid; gap: 6px; }
+.iconlist { list-style: none; margin: 0 !important; padding: 0 !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 4px 14px !important; }
+.iconlist li { display: grid; grid-template-columns: 30px auto minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--dim); }
+.iconlist li > .ic { justify-content: center; font-size: 17px; }
+.iconlist li > b { color: var(--bone); font-weight: 600; white-space: nowrap; }
+.iconlist .ic .i { width: 17px; height: 17px; }
+.iconlist li span .ic .i { width: 12px; height: 12px; }
+/* icons inside the power column keep their own small size (the column's big number is its own b) */
+.bpw :is(.bsum, .bshort, .tr) b { font: inherit !important; animation: none !important; }

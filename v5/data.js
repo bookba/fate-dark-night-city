@@ -27,7 +27,8 @@ export const WINDOWS = {
   clash: { code: '4.1', name: 'ตอนปะทะ' }, // effects of the cards laid, battlefields only
   end: { code: '5.1', name: 'จบรอบ' },
 };
-// permanent [FD]: the card stays in play after the round and works from the round it was laid
+// permanent [FD Keywords]: the card is not turned off at the end of the round; it stays in play,
+// works from the round it was laid and keeps giving its power every round
 export const WHEN_NAME = { ...Object.fromEntries(Object.entries(WINDOWS).map(([k, w]) => [k, w.name])), always: 'ตลอด', permanent: 'ถาวร' };
 export const WHERE = { any: 'ทุกที่', field: 'สนามรบ', miyama: 'มิยามะ', shinto: 'ชินโตะ', workshop: 'โรงฝึกเวท', recon: 'ลาดตระเวน' };
 export const COND = { engaged: 'ติดพัน', hidden: 'ชื่อจริงยังซ่อน', duel: 'สู้ 1 ต่อ 1' };
@@ -49,8 +50,8 @@ export function cardLines(c) {
 // paper section 4 and 8
 export const AREAS = {
   workshop: { name: 'โรงฝึกเวท', en: 'Magic Workshop', field: false },
-  miyama: { name: 'ย่านมิยามะ', en: 'Miyama', field: true, bonus: 2 }, // bonus [p.11]
-  shinto: { name: 'ย่านชินโตะ', en: 'Shinto', field: true, bonus: 3 }, // bonus [p.11]
+  miyama: { name: 'มิยามะ', en: 'Miyama', field: true, bonus: 2 }, // bonus [p.11]
+  shinto: { name: 'ชินโตะ', en: 'Shinto', field: true, bonus: 3 }, // bonus [p.11]
   recon: { name: 'ลาดตระเวน', en: 'Recon', field: false },
 };
 export const PATH = ['workshop', 'miyama', 'shinto', 'recon'];
@@ -84,7 +85,7 @@ export const MASTERS = [
   { key: 'illya', tok: 'อิ', name: 'อิลิยาสฟีล ฟอน ไอน์ซเบิร์น', short: 'อิลิยา', en: 'Illyasviel', color: '#9aa0b8', mana: 6, cs: 3, level: 'ง่าย',
     abil: [['Holy Grail', 'มานาเริ่ม 6 · จบรอบได้มานา 1'], ['Dress of Heaven', 'ตั้งแต่รอบ 8 ต้นรอบได้ 2 VP ถ้ารอบก่อนอยู่สนามรบเดียวกับคนที่ตกรอบ']] },
   { key: 'shinji', tok: 'ชน', name: 'มาโต้ ชินจิ', short: 'ชินจิ', en: 'Matou Shinji', color: '#5f8a3c', mana: 4, cs: 3, level: 'สูง',
-    abil: [['Immoral', 'เข้าย่านมิยามะได้มานา 1'], ['Poor Leadership', 'แพ้การต่อสู้เสีย Command Spell 1 ดวง'], ['Unworthy', 'Book of the False Attendant: Command Spell หมดครั้งแรก เปลี่ยนเป็น Servant ที่ไม่มีใครได้แบบสุ่ม ชื่อจริงกลับไปซ่อน ได้ Command Spell 3 ดวง']] },
+    abil: [['Immoral', 'เข้ามิยามะได้มานา 1'], ['Poor Leadership', 'แพ้การต่อสู้เสีย Command Spell 1 ดวง'], ['Unworthy', 'Book of the False Attendant: Command Spell หมดครั้งแรก เปลี่ยนเป็น Servant ที่ไม่มีใครได้แบบสุ่ม ชื่อจริงกลับไปซ่อน ได้ Command Spell 3 ดวง']] },
   { key: 'kuzuki', tok: 'คุ', name: 'คุซุกิ โซอิจิโร่', short: 'คุซุกิ', en: 'Kuzuki Souichirou', color: '#56627a', mana: 4, cs: 3, level: 'สูง',
     abil: [['Snake', 'การ์ด Snake 2 ใบอยู่ในสำรับ (กำลัง 5/0 · ว่องไว 5/0)'], ['ไม่ใช้เวทมนตร์', 'ไม่ได้มานาจากโรงฝึกเวท · ย้ายออกจากโรงฝึกเวทจ่ายน้อยลง 1'], ['หลังต่อสู้', 'ถ้ารอบนี้ไม่ได้ VP เลย ได้ 1 VP (2 VP ถ้าอยู่โรงฝึกเวทคนเดียว)']] },
   { key: 'kirei', tok: 'คิ', name: 'โคโตมิเนะ คิเรย์', short: 'คิเรย์', en: 'Kotomine Kirei', color: '#3a3430', mana: 4, cs: 3, level: 'ง่าย',
@@ -152,7 +153,7 @@ export const SERVANTS = [
     deck: [S(2), S(3), S(4), A(2), ...n(A(3), 2), A(4), ...n(A(5), 2), ...n(LUCK, 2), SURVEIL],
     skills: [
       { name: '1st Strike', type: 'A', power: 7, mana: 5, fx: { sword: 1, no8: true, strike1: 2 }, text: 'ดาบที่หนึ่ง · ไม่ต้องมีมานา 8 · ตอนปะทะ: ปิดใบนี้ แล้วลงการ์ดกำลังพื้นฐานจากมือ 1 ใบ · ถ้าลงได้ ได้มานา 2 และปิดการ์ดพื้นฐานของคนอื่นในสนามรบเรา 1 ใบ [FD]' },
-      { name: '2nd Strike', type: 'A', power: 5, mana: 3, fx: { sword: 2, block: true }, text: 'ดาบที่สอง · ตอนใช้: คู่ต่อสู้ใช้ผล "ตอนใช้" "ตอนปะทะ" และ Command Spell ในสนามรบเราไม่ได้ · ไม่ยกเลิกผลที่ใช้ไปแล้ว [FD]' },
+      { name: '2nd Strike', type: 'A', power: 5, mana: 3, fx: { sword: 2, block: true }, text: 'ดาบที่สอง · ตอนใช้: คู่ต่อสู้ใช้ความสามารถ Action และ Combat (ตอนใช้ ตอนปะทะ) และ Command Spell ในสนามรบเราไม่ได้ · ผลตอนลง (On Play) และข้อความที่ไม่มีป้ายยังทำงาน · ไม่ยกเลิกผลที่ใช้ไปแล้ว [FD]' },
       { name: '3rd Strike', type: 'A', power: 3, mana: 2, fx: { sword: 3, strike3: true }, text: 'ดาบที่สาม · ลงเพิ่มได้ถ้าลงการ์ดว่องไวอีก 2 ใบขึ้นไป · ลงพร้อม 1st Strike และ 2nd Strike: เปิดชื่อจริง พลังรวม +3 (Tsubame Gaeshi) [FD]' },
     ] },
   { key: 'heracles', cls: 'Berserker', name: 'Heracles', note: 'พลังสูงโดยไม่ต้องใช้ NP · God Hand: แพ้แล้วยังได้ VP และลด VP ที่คู่ต่อสู้ได้',
@@ -198,8 +199,8 @@ export const SITUATIONS = [
   sit('การไหลอันสมบูรณ์', 3, { up: 'M', n: 2 }, 'การ์ดเวทพลัง +2'),
   sit('คำสาปแห่งความชั่วร้ายทั้งปวง', 0, { noNP: true }, 'ห้ามใช้การ์ด NP'),
   sit('เงาแห่งความชั่วร้ายทั้งปวง', 0, { noNP: true }, 'ห้ามใช้การ์ด NP'),
-  sit('ฆาตกรต่อเนื่องแห่งมิยามะ', 3, { extraEvent: 'miyama' }, 'เพิ่มอีเวนต์ที่ย่านมิยามะ 1 ใบ'),
-  sit('ความวุ่นวายที่ชินโตะ', 3, { extraEvent: 'shinto' }, 'เพิ่มอีเวนต์ที่ย่านชินโตะ 1 ใบ'),
+  sit('ฆาตกรต่อเนื่องแห่งมิยามะ', 3, { extraEvent: 'miyama' }, 'เพิ่มอีเวนต์ที่มิยามะ 1 ใบ'),
+  sit('ความวุ่นวายที่ชินโตะ', 3, { extraEvent: 'shinto' }, 'เพิ่มอีเวนต์ที่ชินโตะ 1 ใบ'),
   sit('จุดเปลี่ยน', 4, { bonusUp: 2 }, 'VP ที่ผู้ชนะได้เพิ่ม +2'),
   sit('ทิวทัศน์อนาคตอันไกล', 0, { unify: 3 }, 'หงายการ์ดชนิดเดียวกัน 2 ใบพลัง +3'),
   sit('คืนที่เงียบสงบ', 2, {}, 'ไม่มีกฎเพิ่ม'),

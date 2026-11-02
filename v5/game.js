@@ -16,6 +16,9 @@ const inst = (spec, extra = {}) => ({ ...spec, uid: ++uid, ...extra });
 export const FIELDS = ['miyama', 'shinto'];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(v || 0)));
 const cardName = (c) => c.name || `${TYPES[c.type]} ${c.power}`;
+// effects of the cards laid that are Action abilities on the Fate/Domination cards: 2nd Strike stops
+// these, not the On Play ones (Metamorphosis, Rider Class's draw, Gate of Babylon's types) [FD Keywords]
+const ACTION_FX = ['mana', 'archer', 'block', 'ruleBreaker', 'terrainMul', 'move', 'bell', 'riding'];
 
 export class Game {
   // servants and start: a fixed deal and first player (the tutorial, paper 4.6 item 12)
@@ -94,7 +97,8 @@ export class Game {
   maxCards(p) { return (this.ubwOn(p) ? UBW_PLAY : PLAY) + (p.grail ? 1 : 0); }
   seat(p) { return this.order().indexOf(p) + 1; }
   half() { return Math.max(1, Math.floor(this.alive().length / 2)); } // the first half of the seat order [FD]
-  // 2nd Strike: in that battlefield the others' on-use and clash effects and Command Spells do not work [FD]
+  // 2nd Strike: in that battlefield the others' Action and Combat abilities and Command Spells do not
+  // work; On Play and untagged text still does [FD Keywords]
   blocked(p, f) { const k = f && this.block[f]; return !!k && k !== p; }
   // permanent NP/skill cards still in play from an earlier round [FD]
   perm(p) { return p.skills.filter((c) => c.resident && !(p.play?.cards || []).some((x) => x.uid === c.uid)); }
@@ -150,7 +154,7 @@ export class Game {
     p.at = to;
     if (how === 'cs') this.log(`${p.name} ใช้ Command Spell ย้ายไป${AREAS[to].name}`, 'cs');
     if (to === 'recon') { this.addVP(p, RECON_VP); this.log(`${p.name} เข้าลาดตระเวน ได้ ${RECON_VP} VP`, p.isHuman ? 'good' : ''); }
-    if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้าย่านมิยามะ ได้มานา +1 (Immoral)`, ''); }
+    if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้ามิยามะ ได้มานา +1 (Immoral)`, ''); }
   }
 
   // ---------- cards (paper section 8.3 ②, 9) ----------
@@ -263,6 +267,13 @@ export class Game {
       sum += n;
       rows?.push(this.cardRow(p, c, n, mods));
     }
+    // permanent cards from earlier rounds are still in play and keep giving their power [FD Keywords]
+    for (const c of this.perm(p)) {
+      const mods = rows && [];
+      const n = this.cardPower(p, c, cx, mods);
+      sum += n;
+      rows?.push({ ...this.cardRow(p, c, n, mods), perm: true });
+    }
     const parts = [['การ์ด', sum]];
     const tm = rows && [];
     const t = this.terrainOf(p, cards, cx, tm);
@@ -326,8 +337,8 @@ export class Game {
     const down = new Set((ans.down || []).filter((id) => picked.some((c) => c.uid === id && this.canFlip(c))));
     let { core, extra } = sort(picked, down);
     picked = [...core, ...extra];
-    const gateCard = picked.find((c) => c.fx?.gate);
-    const gate = gateCard && !blockHere ? [...new Set((ans.gate || []).filter((t) => ['S', 'A', 'M'].includes(t)))] : [];
+    const gateCard = picked.find((c) => c.fx?.gate); // its types are On Play: 2nd Strike does not stop them [FD Keywords]
+    const gate = gateCard ? [...new Set((ans.gate || []).filter((t) => ['S', 'A', 'M'].includes(t)))] : [];
     const cost1 = (c) => (down.has(c.uid) ? 0 : this.costOf(p, c, gate.length));
     const total = () => picked.reduce((s, c) => s + cost1(c), 0);
     let cost = total();
@@ -422,21 +433,23 @@ export class Game {
         this.log(`${p.name} ใช้ ${mover.name} ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่องที่${AREAS[a.moveTo].name} (+${p.terrain})`, 'reveal');
       }
     }
+    // On Play effects work even where 2nd Strike holds the battlefield [FD Keywords]
+    for (const c of up) if (c.fx?.playVP) { this.addVP(p, c.fx.playVP); this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.playVP} VP`, p.isHuman ? 'good' : ''); }
+    // Metamorphosis: the tarot card goes face down again [FD]
+    const hide = up.find((c) => c.fx?.hide);
+    if (hide && p.revealed) { p.revealed = false; revealing = false; p.play.revealing = false; this.log(`✸ ${p.name} ใช้ ${hide.name} ซ่อนชื่อจริงกลับ`, 'reveal'); }
+    // Rider Class: draw 1 when laid with a basic card [FD]
+    if (up.some((c) => c.fx?.riderDraw) && cards.some((c) => c.basic)) { const n = p.hand.length; this.drawTo(p, n + 1); if (p.hand.length > n) this.log(`${p.name} ใช้ Rider Class จั่ว 1 ใบ`, p.isHuman ? 'me' : ''); }
     if (a.blocked) {
-      if (up.some((c) => cardLines(c).some((l) => l.when === 'onUse'))) this.log(`${p.name}: ผล "ตอนใช้" ไม่ทำงาน เพราะ 2nd Strike ของ ${this.block[was].name}`, '');
+      const off = up.filter((c) => ACTION_FX.some((k) => c.fx?.[k])).map((c) => cardName(c));
+      if (off.length) this.log(`${p.name}: ความสามารถ Action ของ ${off.join(', ')} ไม่ทำงาน เพราะ 2nd Strike ของ ${this.block[was].name}`, '');
     } else {
       for (const c of up) {
         if (c.fx?.mana) this.gain(p, c.fx.mana);
-        if (c.fx?.playVP) { this.addVP(p, c.fx.playVP); this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.playVP} VP`, p.isHuman ? 'good' : ''); }
         if (c.fx?.archer) { this.addVP(p, c.fx.archer); this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.archer} VP · ถ้าแพ้การต่อสู้รอบนี้เสีย ${c.fx.archerLose} VP`, p.isHuman ? 'good' : ''); }
       }
-      // Metamorphosis: the tarot card goes face down again [FD]
-      const hide = up.find((c) => c.fx?.hide);
-      if (hide && p.revealed) { p.revealed = false; revealing = false; p.play.revealing = false; this.log(`✸ ${p.name} ใช้ ${hide.name} ซ่อนชื่อจริงกลับ`, 'reveal'); }
-      // Rider Class: draw 1 when laid with a basic card [FD]
-      if (up.some((c) => c.fx?.riderDraw) && cards.some((c) => c.basic)) { const n = p.hand.length; this.drawTo(p, n + 1); if (p.hand.length > n) this.log(`${p.name} ใช้ Rider Class จั่ว 1 ใบ`, p.isHuman ? 'me' : ''); }
       // 2nd Strike holds this battlefield for the round [FD]
-      if (up.some((c) => c.fx?.block) && AREAS[p.at].field) { this.block[p.at] = p; this.log(`${p.name} ใช้ 2nd Strike: คนอื่นที่${AREAS[p.at].name}ใช้ผล "ตอนใช้" "ตอนปะทะ" และ Command Spell ไม่ได้รอบนี้`, 'reveal'); }
+      if (up.some((c) => c.fx?.block) && AREAS[p.at].field) { this.block[p.at] = p; this.log(`${p.name} ใช้ 2nd Strike: คนอื่นที่${AREAS[p.at].name}ใช้ความสามารถ Action และ Combat และ Command Spell ไม่ได้รอบนี้`, 'reveal'); }
       // Rule Breaker [FD]
       const rb = up.find((c) => c.fx?.ruleBreaker);
       const q = rb && AREAS[p.at].field ? this.players[a.rbTarget] : null;
@@ -662,7 +675,7 @@ export class Game {
       } else {
         if (k < TERRAIN.length) p.terrain = TERRAIN[k];
         this.log(`${p.name} วางที่${AREAS[to].name}${p.terrain ? ` ได้เปรียบพื้นที่ +${p.terrain}` : ''}`, p.isHuman ? 'me' : '');
-        if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้าย่านมิยามะ ได้มานา +1 (Immoral)`, ''); }
+        if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้ามิยามะ ได้มานา +1 (Immoral)`, ''); }
       }
       this.emit('update');
       this.step = '2.3';
@@ -837,7 +850,7 @@ export class Game {
       const p = e.p;
       const lv = this.efx(f, 'loserVP'); if (lv) e.gain += lv;
       // God Hand: losing gives 3 VP and each winner loses 3; that card leaves the game [FD]
-      for (const gh of ok(e) ? up(e).filter((c) => c.fx?.godHand) : []) {
+      for (const gh of up(e).filter((c) => c.fx?.godHand)) { // untagged text: 2nd Strike does not stop it [FD Keywords]
         e.gain += gh.fx.godHand;
         for (const w of winners) { w.loss += gh.fx.godHand; w.notes.push(`${gh.name} −${gh.fx.godHand} VP`); }
         const own = p.skills.find((s) => s.uid === gh.uid);
