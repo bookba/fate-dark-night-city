@@ -77,4 +77,5 @@
 | Cursed Arm | 6 | 7 | Agility NP | [Reveal Servant Name] / Only play this card, if your Servant's name is hidden. / Combat: If you win against a non-NPC double all VP you gain until the end of the round. If only one opponent remains in the game, [defeat] them instead. | Zabaniya |
 
 - Heracles มี God Hand 3 แถวเหมือนกันทุกแถว (การ์ด 3 ใบ)
+- Hassan of the Cursed Arm: ตรวจกับรูปการ์ดจริงที่คุณส่งมา 2 พ.ย. 2026 แล้ว ตรงทุกใบ · Assassin Class บนรูปเขียน "3 or more participants" (ในตารางพิมพ์ตก "or") · รูปอยู่ที่ `uploads/hearth/dea52ab2-803a-4653-a6d9-2707e4766fad` (Cursed Arm) · `74f66c3d-d715-40de-b89a-1831136f0549` (Metamorphosis) · `aef1c033-54e2-47e7-801d-153157eba1cb` (Assassin Class)
 - Rule Breaker ช่อง Power Mana Types ว่าง และไม่มี [Reveal Servant Name] · เดโมจึงใช้ค่าแทนเดิม (พลัง 0 มานา 3 NP · กำลัง) และผลตามที่คุณสั่ง 30 ต.ค. 2026
