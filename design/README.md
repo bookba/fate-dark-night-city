@@ -23,6 +23,7 @@
 
 - [fandom-servants.md](reference/fandom-servants.md): ข้อมูล Master/Servant/อีเวนต์/เป้าหมายจาก Fate/Domination wiki [FD]
 - [fd-card-database.md](reference/fd-card-database.md): ฐานข้อมูลการ์ด Fate/Domination [DB] ของ 9 Servant ในเดโม
+- [fd-keywords.md](reference/fd-keywords.md): หน้า Keywords ของ Fate/Domination [FD] Keywords
 - [v5-card-placeholders.md](reference/v5-card-placeholders.md): ตัวเลขการ์ดที่ยังเป็นค่าแทนใน v5.2
 - [manual-notes.md](reference/manual-notes.md): บันทึกเกี่ยวกับคู่มือ Dominate Grail War (ตัวไฟล์ PDF ไม่ได้ใส่ใน repo เพราะเป็นงานมีลิขสิทธิ์)
 - [images/](reference/images/): รูปการ์ดจริงจาก Fate/Domination ที่คุณส่งมา (มีลิขสิทธิ์ ใช้ในต้นแบบส่วนตัวเท่านั้น ต้องเปลี่ยนก่อนเปิดสาธารณะ)

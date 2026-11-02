@@ -22,7 +22,7 @@
 |---|---|---|
 | [p.N] | คู่มือที่คุณแนบ หน้า N | กฎหลัก ใช้ก่อนแหล่งอื่นเสมอ |
 | [4G] [ฟามิซือ] [GZ] | รายงานเล่นจริงของ Dominate Grail War (4Gamer, Famitsu, GIGAZINE) ที่ใช้ใน v3.0 | เฉพาะเรื่องที่คู่มือไม่ได้พิมพ์เป็นข้อความ เช่นรายละเอียดความสามารถ Master และตัวเลขการ์ด |
-| [FD] | Fate/Domination wiki (fatedomination.fandom.com อ่าน 29 ต.ค. 2026 · สรุปไว้ที่ `design/reference/fandom-servants.md`) | **ความสามารถและค่าพลังของ Master และ Servant** ตามที่คุณสั่ง 29 ต.ค. 2026 ใช้ก่อนคู่มือเฉพาะเรื่องนี้ · กฎส่วนอื่นยังใช้คู่มือ |
+| [FD] | Fate/Domination wiki (fatedomination.fandom.com อ่าน 29 ต.ค. 2026 · สรุปไว้ที่ `design/reference/fandom-servants.md` · หน้า Keywords ที่คุณส่งมา 2 พ.ย. 2026 เก็บไว้ที่ `design/reference/fd-keywords.md` ป้าย **[FD] Keywords**) | **ความสามารถและค่าพลังของ Master และ Servant** ตามที่คุณสั่ง 29 ต.ค. 2026 ใช้ก่อนคู่มือเฉพาะเรื่องนี้ · กฎส่วนอื่นยังใช้คู่มือ |
 | [DB] | ฐานข้อมูลการ์ดของ Fate/Domination ที่คุณส่งมา 1 พ.ย. 2026 (ตาราง Google Sheets ทุกคลาส · คัดเฉพาะ 9 ตนในเดโมไว้ที่ `design/reference/fd-card-database.md`) | **พลัง มานา ชนิด และผลของการ์ด NP/สกิลของ Servant** ใช้ก่อน [FD] · ไม่มี Master การ์ดพื้นฐาน และการ์ดคลาสของ Heracles ในสำรับ |
 | [NW] | NamuWiki ของ Fate/Domination ที่ใช้ใน v4.x | เป็นเกมดัดแปลง จึงใช้เป็น **ค่าแทน** เท่านั้น เมื่อไม่มีแหล่งอื่น |
 
