@@ -10,13 +10,21 @@ import {
   STEPS, WINDOWS, WHEN_NAME, WHERE, COND, cardLines,
 } from './game.js';
 import { botDecide, destValue, gateTypes } from './bot.js';
+import { sfx, setSound, unlockSound } from './sound.js';
 import { SV_ART, CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const PHASES = [['prep', 'เตรียมการ'], ['outpost', 'ตั้งมั่น'], ['action', 'ปฏิบัติการ'], ['combat', 'ต่อสู้'], ['end', 'จบรอบ']];
-const BOT_DELAY = 260; // a short pause on each bot choice so the board can be followed
+// the settings menu (paper 4.6 item 24), kept in this browser; the page works the same without storage
+const settings = { sound: 2, turnAlert: true, vibrate: true, sysNote: false, botSpeed: 'normal', strip: 'auto' };
+try { Object.assign(settings, JSON.parse(localStorage.getItem('dgw-settings') || '{}')); } catch { /* no storage: the defaults */ }
+const saveSettings = () => { try { localStorage.setItem('dgw-settings', JSON.stringify(settings)); } catch { /* not kept */ } };
+setSound(settings.sound);
+// a short pause on each bot choice so the board can be followed (settings: bot speed, solo play)
+const BOT_PAUSE = { slow: 650, normal: 260, fast: 80 };
+const botDelay = () => BOT_PAUSE[settings.botSpeed] ?? 260;
 const SUN = '★';
 const wide = () => window.matchMedia('(min-width: 1100px)').matches; // the side column fits
 
@@ -53,7 +61,7 @@ function decide(game, pl, kind, ctx) {
     if (held) return held.then(() => decide(game, pl, kind, ctx));
     const a = botDecide(game, pl, kind, ctx);
     if (skip || kind === 'combatEnd') return a;
-    return new Promise((res) => setTimeout(() => res(a), BOT_DELAY));
+    return new Promise((res) => setTimeout(() => res(a), botDelay()));
   }
   if (kind === 'combatEnd' && skip) return null;
   return new Promise((res) => {
@@ -65,10 +73,13 @@ function decide(game, pl, kind, ctx) {
     if (kind === 'strike1') choice = { k: 'strike1', sel: strikeStart(ctx) }; // 1st Strike's cards, in the fight (paper 4.6 item 8)
     render();
     if (kind === 'combatEnd' && !myBattle()) showResults(ctx.results); // your own fight plays out on the board first
+    if (kind === 'combatEnd') fightSound(); else turnNotice(kind);
   });
 }
 function answer(v) {
   const w = wait; wait = null; draft = null; info = null; choice = null; swapSel.clear();
+  lastAnswer = Date.now();
+  if (!skip) sfx(w.kind === 'place' ? 'place' : w.kind === 'move' ? 'move' : w.kind === 'combatEnd' || (w.kind === 'window' && !v) ? '' : 'card');
   if (pop && ['act', 'opts', 'area', 'win'].includes(pop.k)) pop = null;
   popBack = null;
   closeSheet(); w.res(v); render();
@@ -87,6 +98,7 @@ function firstDraft(kind, ctx) {
 
 let queued = false;
 function onEvent(e) {
+  if (!skip) eventSound(e);
   if (e.type === 'log' && ['death', 'reveal', 'grail'].includes(e.entry.cls) && !skip) toast(e.entry.text, e.entry.cls);
   if (e.type === 'book' && e.p.isHuman && !skip) toast(`Servant ใหม่ของคุณ: ${e.p.sv.cls} · ${e.p.sv.name}`, 'reveal');
   later();
@@ -280,6 +292,7 @@ function render() {
   drawNav();
   drawPop();
   drawChoice();
+  fitPhone();
   if (me().out && !outShown && !g.over) { outShown = true; showOut(); }
   if (g.over && !overShown && !wait) { overShown = true; showOver(); }
   tutKick();
@@ -299,7 +312,7 @@ function drawHud() {
   $('#hud').innerHTML = `<span class="crest">DOMINATE GRAIL WAR</span>
     <div class="track"><b class="rl">${roundHtml()}${ph ? `<span class="ph"> · ${ph}${st ? `<span class="stc"> ${st}</span>` : ''}</span>` : ''}</b><ol class="steps" aria-label="ขั้นของรอบ">${steps}</ol></div>
     ${stats}
-    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="rules" title="กติกา" aria-label="กติกา">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">เกมใหม่</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">เมนู</button></div>`;
+    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="rules" title="กติกา" aria-label="กติกา">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">เกมใหม่</button><button class="btn sm ghost w-only icb" data-act="settings" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">เมนู</button></div>`;
 }
 
 // one status line: whose turn it is and what to do; pop-ups open from here too
@@ -311,6 +324,9 @@ function orderToks() {
 function drawBar() {
   const el = $('#bar');
   const p = me();
+  // the bar's colour follows the phase (paper 4.6 item 22): placing yellow, moving brown, fighting purple
+  const phc = !started || g.over ? '' : ['prep', 'outpost'].includes(g.phase) ? 'place' : g.phase === 'action' ? 'move' : g.phase === 'combat' ? 'fight' : '';
+  for (const k of ['place', 'move', 'fight']) el.classList.toggle(`ph-${k}`, phc === k);
   let html;
   if (!started) html = '<span class="dim">เลือก Master เพื่อเริ่มสงคราม</span>';
   else if (g.over) {
@@ -588,7 +604,7 @@ function evCards(f, onBoard) {
 
 function drawNav() {
   $('#nav').innerHTML = started
-    ? `<button class="btn" data-act="pop" data-k="me">การ์ดของคุณ</button><button class="btn" data-act="pop" data-k="rank">อันดับ</button><button class="btn" data-act="pop" data-k="log">บันทึก</button>`
+    ? `<button class="btn" data-act="pop" data-k="me">การ์ด<span class="lg">ของคุณ</span></button><button class="btn" data-act="pop" data-k="rank">อันดับ</button><button class="btn" data-act="pop" data-k="log">บันทึก</button>`
     : '';
 }
 
@@ -661,8 +677,110 @@ function toast(text, cls) {
   el.className = `toast ${cls}`;
   el.textContent = text;
   $('#toasts').append(el);
-  setTimeout(() => el.remove(), 4200);
-  while ($('#toasts').childElementCount > 3) $('#toasts').firstElementChild.remove();
+  setTimeout(() => el.remove(), wide() ? 4200 : 3000);
+  while ($('#toasts').childElementCount > (wide() ? 3 : 2)) $('#toasts').firstElementChild.remove();
+}
+
+// ---------- sounds (paper 4.6 item 23) ----------
+let lastAnswer = 0;
+function eventSound(e) {
+  if (!started) return;
+  if (e.type === 'phase') { if (g.phase === 'combat') sfx('fight'); else if (['outpost', 'action'].includes(g.phase)) sfx('phase'); }
+  if (e.type === 'log') { const k = { reveal: 'reveal', death: 'out', cs: 'cs' }[e.entry.cls]; if (k) sfx(k); }
+  if (e.type === 'over') sfx(g.winner?.isHuman ? 'grail' : 'lose');
+}
+function fightSound() { // your fight's result: won or lost
+  if (skip) return;
+  const r = myBattle()?.res;
+  const mine = r?.ents.find((x) => x.id === me().id);
+  if (mine) sfx(mine.won && !mine.defeated ? 'win' : 'lose');
+}
+
+// ---------- your turn (paper 4.6 item 26): a banner, a sound, a buzz, and the tab title ----------
+const TURN_WHAT = { place: 'ตั้งมั่น · วางหมาก', move: 'ปฏิบัติการ · ย้าย', cards: 'ลงการ์ด', window: 'ใช้การ์ดได้', strike1: '1st Strike · เลือกการ์ด' };
+let turnTimer = null;
+const baseTitle = document.title;
+function turnNotice(kind) {
+  const quick = Date.now() - lastAnswer < 1500; // questions one after another (the card windows of a fight) get one notice
+  if (tut || skip || quick || !settings.turnAlert) return;
+  const what = TURN_WHAT[kind] || '';
+  sfx('turn');
+  if (settings.vibrate) try { navigator.vibrate?.([70, 60, 70]); } catch { /* no vibration */ }
+  let el = $('#turnban');
+  if (!el) { document.body.insertAdjacentHTML('beforeend', '<div id="turnban" role="status" hidden></div>'); el = $('#turnban'); }
+  el.className = $('#bar').className.split(' ').filter((c) => c.startsWith('ph-')).join(' ');
+  el.innerHTML = `<b>ถึงตาคุณแล้ว</b>${what ? `<span>${esc(what)}</span>` : ''}`;
+  el.hidden = false;
+  el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; // play it again
+  clearTimeout(turnTimer);
+  turnTimer = setTimeout(() => { el.hidden = true; }, 1900);
+  if (document.hidden) {
+    document.title = `● ถึงตาคุณ · ${baseTitle}`;
+    if (settings.sysNote && 'Notification' in window && Notification.permission === 'granted') {
+      try { new Notification('ถึงตาคุณแล้ว', { body: what, tag: 'dgw-turn' }); } catch { /* not allowed here */ }
+    }
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = baseTitle; });
+document.addEventListener('pointerdown', () => { unlockSound(); const b = $('#turnban'); if (b) b.hidden = true; }, { capture: true });
+
+// ---------- settings (paper 4.6 item 24) ----------
+let settingsBack = null; // the start screen to go back to
+function showSettings(back = null) {
+  settingsBack = back;
+  const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button class="btn sm${settings[k] === v ? ' on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${settings[k] === v}">${t}</button>`).join('')}</div>`;
+  const onOff = (k) => seg(k, [[true, 'เปิด'], [false, 'ปิด']]);
+  const canNote = 'Notification' in window;
+  const noteState = !canNote ? 'เบราว์เซอร์นี้ไม่รองรับ' : Notification.permission === 'denied' ? 'เบราว์เซอร์ไม่อนุญาต · เปิดได้ในตั้งค่าของเบราว์เซอร์' : '';
+  openModal(`<div class="dlg settings"><span class="eyebrow">เมนู</span><h2>ตั้งค่า</h2>
+    <div class="setrow"><div><b>เสียงเอฟเฟกต์</b><small>วางหมาก ย้าย ลงการ์ด ต่อสู้ เปิดชื่อจริง ถึงตาคุณ</small></div>${seg('sound', [[0, 'ปิด'], [1, 'เบา'], [2, 'กลาง'], [3, 'ดัง']])}<button class="btn sm ghost" data-act="sndtest">▶ ลองฟัง</button></div>
+    <div class="setrow"><div><b>แจ้งเตือนเมื่อถึงตาคุณ</b><small>ป้ายบนจอและเสียง</small></div>${onOff('turnAlert')}</div>
+    <div class="setrow"><div><b>สั่นเมื่อถึงตาคุณ</b><small>มือถือที่สั่นได้</small></div>${onOff('vibrate')}</div>
+    <div class="setrow"><div><b>แจ้งเตือนเมื่อสลับไปแอปอื่น</b><small>${noteState || 'ขึ้นเป็นการแจ้งเตือนของเครื่อง · ชื่อแท็บขึ้น ● เสมอ'}</small></div>${canNote && Notification.permission !== 'denied' ? onOff('sysNote') : ''}</div>
+    <div class="setrow"><div><b>ความเร็วบอท</b><small>เล่นคนเดียว · ออนไลน์ไม่มีผล</small></div>${seg('botSpeed', [['slow', 'ช้า'], ['normal', 'ปกติ'], ['fast', 'เร็ว']])}</div>
+    <div class="setrow"><div><b>แถบอันดับบนกระดาน (มือถือ)</b><small>ถ้าไม่พอดีจอจะซ่อนเอง · ดูได้ที่ปุ่ม "อันดับ"</small></div>${seg('strip', [['auto', 'แสดงเมื่อพอดี'], ['off', 'ซ่อน']])}</div>
+    <div class="acts"><button class="btn primary" data-act="setdone">${back ? 'กลับ' : 'ปิด'}</button></div></div>`);
+}
+function setSetting(k, raw) {
+  const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
+  if (!(k in settings)) return;
+  settings[k] = v;
+  if (k === 'sound') { setSound(v); if (v) { unlockSound(); sfx('test'); } }
+  if (k === 'sysNote' && v && 'Notification' in window && Notification.permission === 'default') {
+    try { Notification.requestPermission().then(() => { if (Notification.permission !== 'granted') settings.sysNote = false; saveSettings(); if (!$('#modal').hidden && $('#modal .settings')) showSettings(settingsBack); }); } catch { settings.sysNote = false; }
+  }
+  saveSettings();
+  const y = $('#modal').scrollTop; showSettings(settingsBack); $('#modal').scrollTop = y;
+  render();
+}
+
+// ---------- phones (paper 4.6 item 25): the main screen never scrolls sideways or spills over ----------
+function fitPhone() {
+  const hand = document.querySelector('.hand');
+  if (hand) {
+    hand.style.removeProperty('--ov');
+    hand.style.removeProperty('--hh');
+    hand.classList.remove('tight');
+    const lapped = hand.querySelectorAll('.cards > .card + .card').length;
+    const first = hand.querySelector('.cards > .card');
+    let over = hand.scrollWidth - hand.clientWidth;
+    if (over > 1 && lapped && first) {
+      // more than half of each card hidden: make the cards a little smaller first (not below 60 px high)
+      if (over / lapped > first.offsetWidth * 0.5 && first.offsetHeight > 62) {
+        hand.style.setProperty('--hh', `${Math.max(60, Math.floor(first.offsetHeight * 0.82))}px`);
+        over = hand.scrollWidth - hand.clientWidth;
+      }
+      if (over > 1) { hand.classList.add('tight'); hand.style.setProperty('--ov', `${Math.min(Math.ceil(over / lapped) + 2, Math.round(first.offsetWidth * 0.76))}px`); }
+    }
+  }
+  // phones: toasts sit just under the status bar
+  if (!wide()) document.documentElement.style.setProperty('--toast-top', `${Math.round($('#bar').getBoundingClientRect().bottom + 6)}px`);
+  const st = document.querySelector('.strip');
+  if (st) {
+    st.classList.remove('nofit');
+    const off = settings.strip === 'off' || [...st.querySelectorAll('.sp')].some((s) => s.scrollWidth > s.clientWidth + 1);
+    st.classList.toggle('nofit', off);
+  }
 }
 
 // ---------- pop-ups ----------
@@ -749,7 +867,7 @@ function popBody() {
   if (k === 'rank') { const s = standingsHtml(); return { title: 'อันดับ VP ของทุกคน', sub: s.sub, html: s.html }; }
   if (k === 'log') return { title: 'บันทึกสงคราม', html: `<div class="loglist">${logHtml()}</div>` };
   if (k === 'sit') return sitPop();
-  if (k === 'menu') return { title: 'เมนู', html: '<div class="menu"><button class="btn" data-act="rules">กติกา</button><button class="btn" data-act="icons">ไอคอนทั้งหมด</button><button class="btn" data-act="new">เกมใหม่ · เปลี่ยน Master</button></div>' };
+  if (k === 'menu') return { title: 'เมนู', html: '<div class="menu"><button class="btn" data-act="rules">กติกา</button><button class="btn" data-act="icons">ไอคอนทั้งหมด</button><button class="btn" data-act="new">เกมใหม่ · เปลี่ยน Master</button><button class="btn" data-act="settings">⚙ ตั้งค่า</button></div>' };
   return null;
 }
 
@@ -1622,7 +1740,7 @@ function showStart() {
   const ms = MASTERS.map((m) => `<button class="mcard${setup.master === m.key ? ' sel' : ''}" style="--c:${m.color}" data-act="master" data-m="${m.key}" aria-pressed="${setup.master === m.key}">
       <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b><span class="st2">มานาเริ่ม ${m.mana} · Command Spell ${m.cs}${m.gems ? ` · อัญมณี ${m.gems}` : ''}</span>
       <ul>${m.abil.map(([t, d]) => `<li>${esc(t)}${d ? `: ${esc(d)}` : ''}</li>`).join('')}</ul></button>`).join('');
-  openModal(`<div class="dlg"><span class="eyebrow">เดโม 1 ด่าน · เมืองฟุยุกิ · กติกาตามคู่มือ · Master และ Servant ตาม Fate/Domination</span><div class="title-crest">DOMINATE GRAIL WAR</div>
+  openModal(`<div class="dlg"><button class="btn sm ghost dlg-set" data-act="settings" data-back="start">⚙ ตั้งค่า</button><span class="eyebrow">เดโม 1 ด่าน · เมืองฟุยุกิ · กติกาตามคู่มือ · Master และ Servant ตาม Fate/Domination</span><div class="title-crest">DOMINATE GRAIL WAR</div>
     <p class="lede">สงครามจอกศักดิ์สิทธิ์ 7 Master ของ Fate/stay night · Servant ${SERVANTS.length} ตน สุ่มให้คนละตน อีก ${SERVANTS.length - MASTERS.length} ตนไม่ได้ใช้ · เก็บ VP 8 รอบ แล้วเข้าไคลแมกซ์ คนที่ VP น้อยถูกคัดออก 4 → 2 → 1 · คนสุดท้ายที่เหลือชนะ</p>
     <ol class="how"><li>ตั้งมั่น: วางหมากที่โรงฝึกเวทเพื่อเก็บมานา หรือที่สนามรบเพื่อรับได้เปรียบพื้นที่</li><li>ปฏิบัติการ: ย้ายตามลูกศร แล้วลงการ์ด 2 ใบ หงายเพื่อสู้ คว่ำเพื่อหลอก · ผล "ตอนใช้" ทำงานทุกที่</li><li>มีมานา ${SKILL_MANA} ขึ้นไปใช้การ์ด NP/สกิลได้ · มานาสูงสุด ${MANA_MAX}</li><li>Command Spell 3 ดวง ใช้ในตาของตัวเอง: มานา +${CS_MANA} · พลัง +${CS_POWER} · ย้ายไม่สนติดพัน</li><li>การ์ด "ถาวร" อยู่ในสนามต่อ มีผลและให้พลังทุกรอบ · การ์ด "ปิด" พลัง 0 ไม่มีผล</li><li>ไอคอนบนหน้าจอแตะดูความหมายได้ · รวมทุกตัวอยู่ใน "ไอคอนทั้งหมด" ของกติกา</li></ol>
     <h2>เลือก Master ของคุณ</h2><div class="masters">${ms}</div>
@@ -2058,6 +2176,7 @@ document.addEventListener('click', (ev) => {
   if (!t) return;
   const act = t.dataset.act;
   const d = draft;
+  if (['pick', 'flip', 'swappick', 'copt'].includes(act)) sfx('pick');
   switch (act) {
     case 'rules': pop = null; popBack = null; drawPop(); showRules(); break;
     case 'icons': pop = null; popBack = null; drawPop(); showRules('icons'); break;
@@ -2082,6 +2201,10 @@ document.addEventListener('click', (ev) => {
     case 'cont': if (wait?.kind === 'combatEnd') answer(null); break;
     case 'allres': if (wait?.kind === 'combatEnd') showResults(wait.ctx.results); break;
     case 'pop': openPop({ k: t.dataset.k }); break;
+    case 'settings': pop = null; popBack = null; drawPop(); showSettings(t.dataset.back || null); break;
+    case 'set': setSetting(t.dataset.k, t.dataset.v); break;
+    case 'sndtest': unlockSound(); sfx('test'); break;
+    case 'setdone': if (settingsBack === 'start') showStart(); else closeModal(); break;
     case 'popclose': closePop(); break;
     case 'cardinfo': if (pop?.k === 'card') { pop.f = +t.dataset.uid; render(); } else openPop({ k: 'card', f: +t.dataset.uid }); break;
     case 'pwrow': { // a row of the battle window: where that Master's power comes from (paper 4.6 item 9)
