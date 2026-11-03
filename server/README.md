@@ -22,7 +22,7 @@ node server/index.mjs
 ## เอาขึ้นเว็บ (Render แบบฟรี)
 
 1. สมัคร https://render.com ด้วยบัญชี GitHub
-2. กด **New +** → **Blueprint** → เลือก repo `fate-battle-royale` และ branch ที่มีไฟล์ `render.yaml`
+2. กด **New +** → **Blueprint** → เลือก repo `bookba/fate-dark-night-city` และ branch ที่มีไฟล์ `render.yaml` (ตอนนี้คือ `claude/project-thread-4hfhf2` ถ้ารวมเข้า main แล้วเลือก `main`)
 3. กด **Apply** รอสร้างเสร็จ (ไม่กี่นาที) จะได้ลิงก์แบบ `https://dominate-grail-war.onrender.com`
 4. เปิดลิงก์นั้น กด "🌐 เล่นออนไลน์"
 
