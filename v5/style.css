@@ -169,11 +169,11 @@ small, .dim { color: var(--dim); }
 @media (max-width: 699px) {
   #bar { gap: 4px 8px; padding: 4px 6px 4px 10px; min-height: 40px; max-height: 80px; overflow: hidden; font-size: 12.5px; }
   #bar .hint { display: none; }
-  #bar > b { flex: 1 1 7em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+  #bar > b { flex: 1 1 5em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
   #bar .acts { gap: 4px; flex-wrap: nowrap; }
   #bar .acts .btn.sm { min-height: 30px; padding: 2px 10px; font-size: 12.5px; white-space: nowrap; }
   #bar .yourturn { padding: 3px 8px; font-size: 11.5px; }
-  #bar .order .tok { width: 20px; height: 20px; }
+  #bar .order { gap: 2px; } #bar .order .tok { width: 19px; height: 19px; font-size: 8px; }
   #bar .onbar { font-size: 11px; gap: 6px; }
   #bar .onbar > span:not(.low) { display: none; }
 }
@@ -401,6 +401,12 @@ small, .dim { color: var(--dim); }
   .ws .slots { gap: 4px 6px; } .ws .slot { min-width: 26px; padding: 1px 3px; }
 }
 @container area (max-height: 110px) { .ah h3 { font-size: 13px; } .evs { display: none; } }
+/* a narrow, low workshop (small phones, paper 4.6 item 25): the title on one line, the four places a little smaller */
+@container area (max-width: 150px) and (max-height: 200px) {
+  .ah .kind { display: none; }
+  .ah h3 { font-size: 14px; }
+  .ws .slots { gap: 2px 4px; } .ws .slot { min-height: 24px; min-width: 30px; padding: 1px 3px; } .ws .slot .tok { width: 20px; height: 20px; font-size: 8px; }
+}
 /* roomy areas: bigger pieces and text */
 @container area (min-height: 300px) {
   .ah h3 { font-size: 18px; }

@@ -765,12 +765,14 @@ function fitPhone() {
     const first = hand.querySelector('.cards > .card');
     let over = hand.scrollWidth - hand.clientWidth;
     if (over > 1 && lapped && first) {
-      // more than half of each card hidden: make the cards a little smaller first (not below 60 px high)
-      if (over / lapped > first.offsetWidth * 0.5 && first.offsetHeight > 62) {
-        hand.style.setProperty('--hh', `${Math.max(60, Math.floor(first.offsetHeight * 0.82))}px`);
-        over = hand.scrollWidth - hand.clientWidth;
+      // more than half of each card hidden: make the cards a little smaller first (60 px high, 50 for a very big hand)
+      for (const [part, min] of [[0.5, 60], [0.76, 50]]) {
+        if (over / lapped > first.offsetWidth * part && first.offsetHeight > min + 2) {
+          hand.style.setProperty('--hh', `${Math.max(min, Math.floor(first.offsetHeight * 0.82))}px`);
+          over = hand.scrollWidth - hand.clientWidth;
+        }
       }
-      if (over > 1) { hand.classList.add('tight'); hand.style.setProperty('--ov', `${Math.min(Math.ceil(over / lapped) + 2, Math.round(first.offsetWidth * 0.76))}px`); }
+      if (over > 1) { hand.classList.add('tight'); hand.style.setProperty('--ov', `${Math.min(Math.ceil(over / lapped) + 2, Math.round(first.offsetWidth * 0.86))}px`); }
     }
   }
   // phones: toasts sit just under the status bar
