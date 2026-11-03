@@ -1256,3 +1256,11 @@ button.card:hover { transform: translateY(-3px); }
 #bar .onbar button { font: inherit; color: var(--grail); background: none; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; padding: 2px 8px; letter-spacing: .08em; }
 #bar .onbar b { font: 600 14px var(--ff-body); font-variant-numeric: tabular-nums; color: var(--text, inherit); }
 #bar .onbar .low { color: var(--seal); }
+/* phones: the room pill sits before the buttons (they share the 2nd line) and shows 🌐 without the code */
+@media (max-width: 699px) {
+  #bar .onbar { order: 1; margin-left: 0; font-size: 11px; gap: 6px; }
+  #bar .acts { order: 2; }
+  #bar .onbar b { font-size: 13px; }
+  #bar .onbar button { padding: 1px 6px; }
+  #bar .onbar .code { display: none; }
+}

@@ -197,7 +197,7 @@ function badgeInner() {
   const sec = left != null ? Math.ceil(left / 1000) : 0;
   const clock = left != null ? `<b class="onclock${sec <= 10 ? ' low' : ''}">⏱ ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</b>` : '';
   const off = online.ws?.readyState !== 1;
-  return `<button data-act="on-lobby" title="ห้องออนไลน์ · คนในห้อง">🌐 ${esc(online.code || '')}</button>${who ? `<span>${who}</span>` : ''}${clock}${off ? '<span class="low">หลุด · กำลังต่อใหม่</span>' : ''}`;
+  return `<button data-act="on-lobby" title="ห้องออนไลน์ · คนในห้อง">🌐<span class="code"> ${esc(online.code || '')}</span></button>${who ? `<span>${who}</span>` : ''}${clock}${off ? '<span class="low">หลุด · กำลังต่อใหม่</span>' : ''}`;
 }
 export const barHtml = () => (online.on ? `<span class="onbar">${badgeInner()}</span>` : '');
 function badge() {
