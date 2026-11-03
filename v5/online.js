@@ -121,7 +121,7 @@ function lobby(wait = '') {
   if (!online.on || !r) {
     const code = new URLSearchParams(location.search).get('room') || '';
     body = `<h2>เล่นออนไลน์</h2>
-      <p class="lede">ห้องละไม่เกิน 7 คน คนละ 1 Master · ที่นั่งที่ไม่มีคนเป็นบอท · เวลาคิด 1 นาทีทุกคำถาม (หมดเวลาเกมเลือกแบบปลอดภัยให้ตามกระดาษข้อ 21)</p>
+      <p class="lede">ห้องละไม่เกิน 7 คน คนละ 1 Master · ที่นั่งที่ไม่มีคนเป็นบอท · เวลาคิด 30 วินาทีทุกคำถาม (หมดเวลาเกมเลือกแบบปลอดภัยให้ตามกระดาษข้อ 21) · ดูผลการต่อสู้ 15 วินาที</p>
       <label class="onf">ชื่อของคุณ <input id="on-name" maxlength="16" value="${esc(s.name || '')}" placeholder="เช่น B"></label>
       <div class="onrow"><button class="btn primary" data-act="on-create">สร้างห้องใหม่</button></div>
       <div class="onrow"><label class="onf">รหัสห้อง <input id="on-code" maxlength="4" value="${esc(code.toUpperCase())}" placeholder="ABCD" style="text-transform:uppercase"></label><button class="btn" data-act="on-join">เข้าห้อง</button></div>`;
@@ -142,7 +142,7 @@ function lobby(wait = '') {
       <h2>คนในห้อง ${r.seats.length}/7</h2><ul class="onppl">${ppl}</ul>
       <h2>เลือก Master <small class="dim">ไม่เลือกก็ได้ เริ่มเกมแล้วสุ่มให้ · Servant สุ่มแบบเกมจริง</small></h2><div class="masters">${ms}</div>
       ${mine?.master ? '<div class="onrow"><button class="btn sm ghost" data-act="on-pick" data-m="">ไม่เลือก (สุ่ม)</button></div>' : ''}
-      <label class="check"><input type="checkbox" id="on-timer"${r.timer ? ' checked' : ''}${host && !r.playing ? '' : ' disabled'}> จำกัดเวลาคิด 1 นาที${host ? '' : ' (หัวห้องตั้ง)'}</label>
+      <label class="check"><input type="checkbox" id="on-timer"${r.timer ? ' checked' : ''}${host && !r.playing ? '' : ' disabled'}> จำกัดเวลาคิด 30 วินาที${host ? '' : ' (หัวห้องตั้ง)'}</label>
       ${r.playing ? '<p class="lede">เกมกำลังเล่นอยู่</p>' : host ? '' : '<p class="lede">รอหัวห้องเริ่มเกม…</p>'}`;
   }
   const acts = online.on && r

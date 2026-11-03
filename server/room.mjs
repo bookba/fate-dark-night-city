@@ -1,7 +1,7 @@
 // A room: up to 7 people (one per Master), the rest of the seats played by bots, and the one real
 // Game. The rules are game.js as it is; this file only decides who answers each question.
 //
-// Thinking time (paper 4.6 item 21): 60 seconds for every question the game asks a person, the
+// Thinking time (paper 4.6 item 21): 30 seconds for every question the game asks a person, the
 // same for everyone; when it runs out the game takes the safe answer of item 21 and the war log
 // says "หมดเวลา". A person who drops out is played by a bot until they come back.
 import crypto from 'node:crypto';
@@ -9,9 +9,9 @@ import { Game, MASTERS } from '../v5/game.js';
 import { botDecide } from '../v5/bot.js';
 import { Encoder, viewSwap, delta } from '../v5/net.js';
 
-export const THINK_MS = +process.env.THINK_MS || 60_000; // THINK_MS only to test quickly
+export const THINK_MS = +process.env.THINK_MS || 30_000; // B 3 Nov 2026: 30 s (was 60) · env THINK_MS only to test quickly
 const BOT_DELAY = 260; // the same short pause as against bots on one page, so the board can be followed
-const RESULTS_MS = 60_000; // the fight results wait for everyone's "จบรอบ" at most this long
+const RESULTS_MS = 15_000; // B 3 Nov 2026: the fight results wait for everyone's "จบรอบ" at most 15 s
 const FLUSH_MS = 60; // state messages are sent at most this often
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
