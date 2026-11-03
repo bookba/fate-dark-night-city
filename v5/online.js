@@ -134,7 +134,7 @@ function lobby(wait = '') {
       const q = taken.get(m.key);
       const dis = q && !q.you;
       return `<button class="mcard${q?.you ? ' sel' : ''}" style="--c:${m.color}" data-act="on-pick" data-m="${m.key}"${dis || r.playing ? ' disabled' : ''} aria-pressed="${!!q?.you}">
-        <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b><span class="st2">${q ? `${esc(q.name)}${q.you ? ' (คุณ)' : ''}` : 'บอท'}</span></button>`;
+        <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b>${q ? `<span class="st2">${esc(q.name)}${q.you ? ' (คุณ)' : ''}</span>` : ''}</button>`;
     }).join('');
     const ppl = r.seats.map((q) => `<li>${q.host ? '👑 ' : ''}${esc(q.name)}${q.you ? ' (คุณ)' : ''} · ${q.master ? esc(MASTERS.find((m) => m.key === q.master).short) : 'สุ่ม Master'}${q.on ? '' : ' · หลุด'}</li>`).join('');
     body = `<h2>ห้อง <span class="oncode">${esc(r.code)}</span></h2>
