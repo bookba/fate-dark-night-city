@@ -1174,3 +1174,18 @@ button.card:hover { transform: translateY(-3px); }
   .scard { gap: 7px; padding: 6px 7px; } .scard .svart.sm { width: 30px; height: 30px; } .scard .svart.sm > b { font-size: 11px; }
   .scard .nm b { font-size: 12.5px; } .scard .en { font-size: 9px; }
 }
+
+/* ---------- online play (online.js) ---------- */
+.online .onf { display: grid; gap: 4px; font-size: 13px; color: var(--dim); }
+.online input:not([type]) , .online input[maxlength] { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--night-2); color: inherit; min-width: 0; }
+.online .onrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.online .oncode { font-family: var(--ff-crest); letter-spacing: .2em; color: var(--grail); }
+.online .onppl { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
+.online .onnote { color: var(--seal); }
+.online a { color: var(--grail); word-break: break-all; }
+.online .mcard[disabled] { opacity: .45; cursor: not-allowed; }
+#bar .onbar { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; color: var(--dim); white-space: nowrap; margin-left: auto; }
+#bar .acts ~ .onbar { margin-left: 0; }
+#bar .onbar button { font: inherit; color: var(--grail); background: none; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; padding: 2px 8px; letter-spacing: .08em; }
+#bar .onbar b { font: 600 14px var(--ff-body); font-variant-numeric: tabular-nums; color: var(--text, inherit); }
+#bar .onbar .low { color: var(--seal); }

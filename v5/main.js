@@ -12,6 +12,7 @@ import {
 import { botDecide, destValue, gateTypes } from './bot.js';
 import { CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
+import { online, openOnline, onlineAgain, onlineAuto, barHtml } from './online.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -343,7 +344,7 @@ function drawBar() {
       ${p.out && !skip ? '<span class="acts"><button class="btn sm" data-act="skip">ข้ามไปผลสุดท้าย</button></span>' : ''}`;
   }
   el.classList.toggle('act', myTurn());
-  el.innerHTML = html;
+  el.innerHTML = html + barHtml(); // online: room, who is thinking, the clock
 }
 
 // which board areas the human can choose right now
@@ -1629,7 +1630,7 @@ function showStart() {
     <h2>เลือก Servant <small class="dim">เลือกเองเพื่อทดลองเล่น หรือ 🎲 สุ่มแบบเกมจริง</small></h2><div class="servants">${ss}</div>
     <p class="lede">Servant เป็นความลับจนกว่าจะเปิดชื่อจริง · คนอื่นสุ่มจาก Servant ที่เหลือ · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p>
     <label class="check opt-sample"><input type="checkbox" id="opt-sample"${setup.sample ? ' checked' : ''}> ใส่การ์ดตัวอย่าง ${SAMPLE.length + 1} ใบให้ทุกคน (ทดลองช่วงใช้การ์ดของกระดาษข้อ 9 · ไม่ใช่การ์ดจริง)</label>
-    <div class="acts">${started && !g.over ? '<button class="btn ghost" data-act="close">กลับไปเล่นต่อ</button>' : ''}<button class="btn" data-act="rules">อ่านกติกา</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น">สอนเล่น</button><button class="btn primary" data-act="start">${started ? 'เริ่มเกมใหม่' : 'เริ่มสงคราม'}</button></div></div>`);
+    <div class="acts">${started && !g.over ? '<button class="btn ghost" data-act="close">กลับไปเล่นต่อ</button>' : ''}<button class="btn" data-act="online">🌐 เล่นออนไลน์</button><button class="btn" data-act="rules">อ่านกติกา</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น">สอนเล่น</button><button class="btn primary" data-act="start">${started ? 'เริ่มเกมใหม่' : 'เริ่มสงคราม'}</button></div></div>`);
 }
 
 let summonGo = null;
@@ -2062,9 +2063,10 @@ document.addEventListener('click', (ev) => {
     case 'rules': pop = null; popBack = null; drawPop(); showRules(); break;
     case 'icons': pop = null; popBack = null; drawPop(); showRules('icons'); break;
     case 'bigart': showBig(t.dataset.src, t.querySelector('img')?.alt); break;
-    case 'new': case 'pickmaster': pop = null; popBack = null; drawPop(); showStart(); break;
+    case 'new': case 'pickmaster': pop = null; popBack = null; drawPop(); if (online.on) onlineAgain(); else showStart(); break;
+    case 'online': openOnline(); break;
     case 'master': case 'servant': { const y = $('#modal').scrollTop; if (act === 'master') setup.master = t.dataset.m; else setup.servant = t.dataset.s; showStart(); $('#modal').scrollTop = y; break; }
-    case 'start': case 'again': closeModal(); startGame(); break;
+    case 'start': case 'again': if (online.on) { onlineAgain(); break; } closeModal(); startGame(); break;
     case 'tutorial': closeModal(); startGame(true); break;
     case 'tutnext': tutNext(); break;
     case 'tutskip': tutStop(); break;
@@ -2205,7 +2207,32 @@ document.addEventListener('keydown', (ev) => {
 });
 
 // first screen: an empty board behind the Master picker
+// ---------- online play (online.js): the server runs the game, this page draws its copy ----------
+online.hooks = {
+  esc, openModal, closeModal, toast, render: later, game: () => g, draft: () => draft, event: onEvent,
+  begin(copy) { // a new online game: the same fresh start as startGame(), without running anything here
+    skip = false; overShown = false; outShown = false; wait = null; draft = null; info = null; started = true; logCount = 0; pop = null; popBack = null; choice = null;
+    closeSheet(); letGo(); tut = null; hints = null;
+    g = copy;
+    $('#log').innerHTML = '';
+    render();
+    showSummon(() => {});
+  },
+  ask: (kind, ctx) => decide(g, g.human, kind, ctx), // the game asks you, as against bots
+  drop() { // the server closed the question (thinking time ran out): it goes away without an answer
+    if (!wait) return;
+    wait = null; draft = null; info = null; choice = null; swapSel.clear();
+    if (pop && ['act', 'opts', 'area', 'win'].includes(pop.k)) pop = null;
+    popBack = null; closeSheet(); render();
+  },
+  offline() { // left the room: back to the start page against bots
+    started = false;
+    g = new Game({ decide: () => new Promise(() => {}), onEvent: () => {}, humanMaster: setup.master });
+    render(); showStart();
+  },
+};
+
 document.body.insertAdjacentHTML('afterbegin', sprite()); // the icon drawings, once
 g = new Game({ decide: () => new Promise(() => {}), onEvent: () => {}, humanMaster: setup.master });
 render();
-showStart();
+if (!onlineAuto()) showStart();
