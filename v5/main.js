@@ -10,7 +10,7 @@ import {
   STEPS, WINDOWS, WHEN_NAME, WHERE, COND, cardLines,
 } from './game.js';
 import { botDecide, destValue, gateTypes } from './bot.js';
-import { CARD_ART } from './art.js';
+import { SV_ART, CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
 import { online, openOnline, onlineAgain, onlineAuto, barHtml } from './online.js';
 
@@ -105,13 +105,13 @@ const myTurn = () => !!wait && wait.kind !== 'combatEnd';
 const seen = (p) => p.isHuman || p.revealed || g.over;
 // Supervisor: while Kirei's true name is hidden, he alone sees every Servant's class [FD]
 const kireiSees = () => started && me().m.key === 'kirei' && !me().revealed && !me().out && !g.over;
-// a Servant's picture: its class crest, drawn (the FGO wiki art was taken out 2 Nov 2026, paper 4.6 item 17)
+// a Servant's picture: its art (put back 3 Nov 2026, paper 4.6 item 17), or its class crest, drawn, if it has none
 const CLS_AB = { Saber: 'SA', Archer: 'AR', Lancer: 'LA', Rider: 'RI', Caster: 'CA', Assassin: 'AS', Berserker: 'BE' };
 const clsAb = (sv) => CLS_AB[sv.cls] || esc(sv.cls.slice(0, 2).toUpperCase());
-const svArt = (sv, size = '') => `<span class="svart${size ? ` ${size}` : ''}" role="img" aria-label="${esc(`${sv.cls} · ${sv.name}`)}"><b>${clsAb(sv)}</b><small>${esc(sv.cls.toUpperCase())}</small></span>`;
+const svArt = (sv, size = '') => SV_ART[sv.key] ? `<img class="svimg${size ? ` ${size}` : ''}" src="${SV_ART[sv.key]}" alt="${esc(`${sv.cls} · ${sv.name}`)}">` : `<span class="svart${size ? ` ${size}` : ''}" role="img" aria-label="${esc(`${sv.cls} · ${sv.name}`)}"><b>${clsAb(sv)}</b><small>${esc(sv.cls.toUpperCase())}</small></span>`;
 const svLabel = (p) => (seen(p) ? `${p.sv.cls} · ${p.sv.name}` : kireiSees() ? `คลาส ${p.sv.cls} · คุณเห็น (Supervisor)` : 'ชื่อจริงซ่อน');
 function chip(p, extra = '') {
-  const face = seen(p) ? `<i class="sv">${clsAb(p.sv)}</i>` : `<i>${esc(p.m.tok)}</i>`;
+  const face = !seen(p) ? `<i>${esc(p.m.tok)}</i>` : SV_ART[p.sv.key] ? `<img src="${SV_ART[p.sv.key]}" alt="">` : `<i class="sv">${clsAb(p.sv)}</i>`;
   const cls = `chip${p.isHuman ? ' me' : ''}${g.turn === p ? ' turn' : ''}${p.out ? ' out' : ''}`;
   return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name} · ${svLabel(p)}`)}">${face}<b>${esc(p.name)}${p.isHuman ? ' (คุณ)' : ''}</b>${extra}</span>`;
 }
