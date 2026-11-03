@@ -1144,7 +1144,7 @@ button.card:hover { transform: translateY(-3px); }
 /* icons inside the power column keep their own small size (the column's big number is its own b) */
 .bpw :is(.bsum, .bshort, .tr) b { font: inherit !important; animation: none !important; }
 
-/* a Servant's picture: its class crest, drawn (paper 4.6 item 17 · the FGO wiki art was taken out) */
+/* a Servant's picture when it has no art: its class crest, drawn (paper 4.6 item 17 · the art came back 3 Nov) */
 .svart {
   flex: none; display: grid; place-content: center; justify-items: center; gap: 5px; width: 72px; height: 102px; border-radius: 8px;
   border: 2px solid var(--grail); color: var(--grail);
@@ -1169,8 +1169,9 @@ button.card:hover { transform: translateY(-3px); }
 .scard .en { font: 600 10px/1.3 var(--ff-crest); letter-spacing: .08em; color: var(--dim); }
 .scard.sel { border-color: var(--grail); box-shadow: 0 0 0 1px var(--grail); }
 .scard.rnd .nm b { color: var(--grail); }
+.scard > img.svimg { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 15%; border: 2px solid var(--grail); flex: none; }
 @media (max-width: 560px) {
   .servants { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-  .scard { gap: 7px; padding: 6px 7px; } .scard .svart.sm { width: 30px; height: 30px; } .scard .svart.sm > b { font-size: 11px; }
+  .scard { gap: 7px; padding: 6px 7px; } .scard .svart.sm, .scard > img.svimg { width: 30px; height: 30px; } .scard .svart.sm > b { font-size: 11px; }
   .scard .nm b { font-size: 12.5px; } .scard .en { font-size: 9px; }
 }
