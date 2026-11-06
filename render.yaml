@@ -1,7 +1,7 @@
 # Render (render.com) blueprint for the online game server: server/README.md has the steps.
 services:
   - type: web
-    name: dominate-grail-war
+    name: fate-dark-night-city # the web address: https://fate-dark-night-city.onrender.com (if the name is free on Render)
     runtime: node
     plan: free
     buildCommand: echo "no build step"

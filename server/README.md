@@ -24,8 +24,12 @@ node server/index.mjs
 
 1. สมัคร https://render.com ด้วยบัญชี GitHub
 2. กด **New +** → **Blueprint** → เลือก repo `bookba/fate-dark-night-city` และ branch ที่มีไฟล์ `render.yaml` (ตอนนี้คือ `claude/project-thread-4hfhf2` ถ้ารวมเข้า main แล้วเลือก `main`)
-3. กด **Apply** รอสร้างเสร็จ (ไม่กี่นาที) จะได้ลิงก์แบบ `https://dominate-grail-war.onrender.com`
+3. กด **Apply** รอสร้างเสร็จ (ไม่กี่นาที) จะได้ลิงก์แบบ `https://fate-dark-night-city.onrender.com` (ชื่อมาจาก `name:` ใน `render.yaml` ถ้ามีคนใช้ชื่อนี้แล้ว Render จะต่อท้ายด้วยตัวอักษรสุ่ม)
 4. เปิดลิงก์นั้น กด "🌐 เล่นออนไลน์"
+
+### เปลี่ยนชื่อลิงก์ .onrender.com
+
+Render เปลี่ยนชื่อลิงก์ของบริการที่สร้างแล้วไม่ได้ ให้แก้ `name:` ใน `render.yaml` แล้วลบบริการเดิม (Settings → Delete Web Service) และทำขั้นที่ 2–3 ใหม่ ลิงก์เดิมจะใช้ไม่ได้อีก ห้องที่ค้างอยู่จะหาย
 
 แบบฟรีของ Render หลับเมื่อไม่มีคนเข้า 15 นาที คนแรกที่เปิดจะรอให้ตื่นราวหนึ่งนาที และห้องที่เล่นค้างอยู่จะหายเมื่อเซิร์ฟเวอร์หลับหรือรีสตาร์ต
 
