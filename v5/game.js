@@ -3,6 +3,7 @@
 // then 1), and the Masters' abilities and the Servants' cards follow Fate/Domination [FD].
 // A round runs the numbered steps 1.1–5.2 of paper section 8.0, with 9 windows where cards can be
 // used. Numbers not in the sources are placeholders (data.js). No DOM code, so it runs headless (v5/sim.mjs).
+import { T } from './i18n.js';
 import {
   AREAS, PATH, STEP_COST, WORKSHOP, TERRAIN, RECON_VP, HAND, PLAY, SKILL_MANA, MANA_MAX, REGULAR, MAX_ROUNDS,
   CS_MANA, CS_POWER, CS_VP, MASTERS, SERVANTS, KANSHOU, GANDR, BLACK_SHADOW, SNAKE, TSUBAME, UBW_PLAY, RIDE_MAX, MANA_X, GEM_REPEAT,
@@ -109,7 +110,7 @@ export class Game {
   csMana(p, why = '') {
     this.useCS(p); this.gain(p, CS_MANA);
     if (p.m.key === 'rin' && this.round === 1) p.roundUse.temper = true; // Short Temper: 4 mana back after the fight [FD]
-    this.log(`${p.name} ใช้ Command Spell ได้มานา +${CS_MANA}${why}`, 'cs');
+    this.log(T("{0} ใช้ Command Spell ได้มานา +{1}{2}", p.name, CS_MANA, why), 'cs');
   }
 
   drawTo(p, n) {
@@ -153,24 +154,24 @@ export class Game {
     if (p.at === to) return;
     p.terrain = 0; p.slot = null; p.lostTerrain = null; p.seized = null; // advantage stays on the battlefield it was won on
     p.at = to;
-    if (how === 'cs') this.log(`${p.name} ใช้ Command Spell ย้ายไป${AREAS[to].name}`, 'cs');
-    if (to === 'recon') { this.addVP(p, RECON_VP); this.log(`${p.name} เข้าลาดตระเวน ได้ ${RECON_VP} VP`, p.isHuman ? 'good' : ''); }
-    if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้ามิยามะ ได้มานา +1 (Immoral)`, ''); }
+    if (how === 'cs') this.log(T("{0} ใช้ Command Spell ย้ายไป{1}", p.name, AREAS[to].name), 'cs');
+    if (to === 'recon') { this.addVP(p, RECON_VP); this.log(T("{0} เข้าลาดตระเวน ได้ {1} VP", p.name, RECON_VP), p.isHuman ? 'good' : ''); }
+    if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(T("{0} เข้ามิยามะ ได้มานา +1 (Immoral)", p.name), ''); }
   }
 
   // ---------- cards (paper section 8.3 ②, 9) ----------
   skillState(p, c, mana = p.mana) {
-    if (c.gone) return c.fx?.godHand ? 'ออกจากเกมแล้ว' : 'ใช้แล้ว (ครั้งเดียวต่อเกม)';
-    if (c.resident) return 'ถาวรอยู่ในสนาม';
-    if (hasType(c, 'N') && this.sfx('noNP')) return 'การ์ดสถานการณ์ห้ามใช้ NP';
-    if (c.fx?.hiddenOnly && p.revealed) return 'ใช้ได้เฉพาะตอนชื่อจริงยังซ่อน';
-    if (c.fx?.archer && this.round && this.seat(p) > this.half()) return `ลงได้เฉพาะลำดับ 1–${this.half()}`;
-    if (c.limit === 'round' && p.roundUse[`lim${c.uid}`]) return 'ใช้แล้วรอบนี้ (รอบละครั้ง)';
-    if (!this.infinite(p) && !c.fx?.no8 && mana < SKILL_MANA) return `ต้องมีมานา ${SKILL_MANA}`;
+    if (c.gone) return c.fx?.godHand ? T("ออกจากเกมแล้ว") : T("ใช้แล้ว (ครั้งเดียวต่อเกม)");
+    if (c.resident) return T("ถาวรอยู่ในสนาม");
+    if (hasType(c, 'N') && this.sfx('noNP')) return T("การ์ดสถานการณ์ห้ามใช้ NP");
+    if (c.fx?.hiddenOnly && p.revealed) return T("ใช้ได้เฉพาะตอนชื่อจริงยังซ่อน");
+    if (c.fx?.archer && this.round && this.seat(p) > this.half()) return T("ลงได้เฉพาะลำดับ 1–{0}", this.half());
+    if (c.limit === 'round' && p.roundUse[`lim${c.uid}`]) return T("ใช้แล้วรอบนี้ (รอบละครั้ง)");
+    if (!this.infinite(p) && !c.fx?.no8 && mana < SKILL_MANA) return T("ต้องมีมานา {0}", SKILL_MANA);
     return '';
   }
   specialState(p, c, mana = p.mana) {
-    if (c.fx?.needMana && !this.infinite(p) && mana < SKILL_MANA) return `ต้องมีมานา ${SKILL_MANA}`;
+    if (c.fx?.needMana && !this.infinite(p) && mana < SKILL_MANA) return T("ต้องมีมานา {0}", SKILL_MANA);
     return '';
   }
   usableSkills(p, mana = p.mana) { return p.skills.filter((c) => !this.skillState(p, c, mana)); }
@@ -210,27 +211,27 @@ export class Game {
     let pw = c.power;
     const zero = (t, s, clash = false) => { if (pw) why?.push({ t, s, n: -pw, zero: true, clash }); pw = 0; };
     const seal = hasType(c, 'X') && evs.find((e) => e.fx.noSpecial);
-    if (seal) zero(`อีเวนต์ ${seal.name}: การ์ดพิเศษพลัง 0`, seal.name);
+    if (seal) zero(T("อีเวนต์ {0}: การ์ดพิเศษพลัง 0", seal.name), seal.name);
     const zt = ctx.zero && [...ctx.zero.keys()].find((t) => hasType(c, t));
-    if (zt) { const src = ctx.zero.get?.(zt); zero(`${src ? `${src.name} ของ ${src.owner}` : 'คู่ต่อสู้'}: การ์ด${TYPES[zt]}พลังพื้นฐาน 0`, src?.name || TYPES[zt], true); } // "base power becomes 0", type bonuses still add [p.18]
-    for (const e of evs) if (e.fx.lowUp && c.power <= 2) { pw += e.fx.lowUp; why?.push({ t: `อีเวนต์ ${e.name}: การ์ดพลัง 1–2 +${e.fx.lowUp}`, s: e.name, n: e.fx.lowUp }); }
-    for (const [x, kind] of [[this.sit, 'สถานการณ์'], ...evs.map((e) => [e, 'อีเวนต์'])]) {
-      if (x?.fx?.up && hasType(c, x.fx.up)) { pw += x.fx.n; why?.push({ t: `${kind} ${x.name}: การ์ด${TYPES[x.fx.up]} +${x.fx.n}`, s: x.name, n: x.fx.n }); }
+    if (zt) { const src = ctx.zero.get?.(zt); zero(T("{0}: การ์ด{1}พลังพื้นฐาน 0", src ? T("{0} ของ {1}", src.name, src.owner) : T("คู่ต่อสู้"), TYPES[zt]), src?.name || TYPES[zt], true); } // "base power becomes 0", type bonuses still add [p.18]
+    for (const e of evs) if (e.fx.lowUp && c.power <= 2) { pw += e.fx.lowUp; why?.push({ t: T("อีเวนต์ {0}: การ์ดพลัง 1–2 +{1}", e.name, e.fx.lowUp), s: e.name, n: e.fx.lowUp }); }
+    for (const [x, kind] of [[this.sit, T("สถานการณ์")], ...evs.map((e) => [e, T("อีเวนต์")])]) {
+      if (x?.fx?.up && hasType(c, x.fx.up)) { pw += x.fx.n; why?.push({ t: T("{0} {1}: การ์ด{2} +{3}", kind, x.name, TYPES[x.fx.up], x.fx.n), s: x.name, n: x.fx.n }); }
     }
     return pw;
   }
   // one card line of the power table: the printed power, then what changed it
   cardRow(p, c, val, mods) {
     const bump = c.bump || 0; // printed power raised for good by another card (none in the demo now)
-    if (bump && this.isUp(c)) mods.unshift({ t: c.bumpBy || 'พลังเพิ่มถาวร', s: c.bumpBy || 'ถาวร', n: bump });
-    if (c.off) mods.push({ t: c.offBy || 'ถูกปิด', s: '1st Strike', n: -c.power, zero: true, clash: true });
+    if (bump && this.isUp(c)) mods.unshift({ t: c.bumpBy || T("พลังเพิ่มถาวร"), s: c.bumpBy || T("ถาวร"), n: bump });
+    if (c.off) mods.push({ t: c.offBy || T("ถูกปิด"), s: '1st Strike', n: -c.power, zero: true, clash: true });
     return { k: 'card', uid: c.uid, name: c.name || '', type: c.type, types: c.types || null, base: c.power - bump, mods, val, down: !!c.down, clashIn: !!c.clashIn };
   }
   // why a Master at battlefield f has no advantage, for the power table
   noTerrain(p, f) {
     if (p.lostTerrain && p.at === f) return p.lostTerrain;
-    if (p.at !== f || p.slot == null) return 'ย้ายเข้ามาทีหลัง';
-    return 'วางคนที่ 3 ขึ้นไป ไม่มีช่องได้เปรียบ';
+    if (p.at !== f || p.slot == null) return T("ย้ายเข้ามาทีหลัง");
+    return T("วางคนที่ 3 ขึ้นไป ไม่มีช่องได้เปรียบ");
   }
 
   // the advantage multipliers are on-use effects: none when 2nd Strike blocked them (ctx.blocked)
@@ -239,13 +240,13 @@ export class Game {
     if (!p.terrain) return 0;
     const evs = f ? this.evs[f] || [] : [];
     const fog = evs.find((e) => e.fx.noTerrain);
-    if (fog) { why?.push({ t: `อีเวนต์ ${fog.name}: ได้เปรียบพื้นที่ไม่มีผล`, s: fog.name, n: -p.terrain, zero: true }); return 0; }
+    if (fog) { why?.push({ t: T("อีเวนต์ {0}: ได้เปรียบพื้นที่ไม่มีผล", fog.name), s: fog.name, n: -p.terrain, zero: true }); return 0; }
     let t = p.terrain;
-    if (p.seized?.f === f) why?.push({ t: `ยึดทั้ง 2 ช่องด้วย ${p.seized.by}`, s: p.seized.by, n: 0 });
-    for (const e of evs) if (e.fx.terrainUp) { t += e.fx.terrainUp; why?.push({ t: `อีเวนต์ ${e.name}: ได้เปรียบพื้นที่ +${e.fx.terrainUp}`, s: e.name, n: e.fx.terrainUp }); }
+    if (p.seized?.f === f) why?.push({ t: T("ยึดทั้ง 2 ช่องด้วย {0}", p.seized.by), s: p.seized.by, n: 0 });
+    for (const e of evs) if (e.fx.terrainUp) { t += e.fx.terrainUp; why?.push({ t: T("อีเวนต์ {0}: ได้เปรียบพื้นที่ +{1}", e.name, e.fx.terrainUp), s: e.name, n: e.fx.terrainUp }); }
     for (const c of cards) {
       if (!this.isUp(c) || !c.fx?.terrainMul) continue;
-      if (ctx.blocked) { why?.push({ t: `${c.name} ×${c.fx.terrainMul} ไม่ทำงาน (2nd Strike)`, s: c.name, n: 0 }); continue; }
+      if (ctx.blocked) { why?.push({ t: T("{0} ×{1} ไม่ทำงาน (2nd Strike)", c.name, c.fx.terrainMul), s: c.name, n: 0 }); continue; }
       why?.push({ t: c.name, s: c.name, mul: c.fx.terrainMul, n: t * (c.fx.terrainMul - 1) });
       t *= c.fx.terrainMul;
     }
@@ -275,25 +276,25 @@ export class Game {
       sum += n;
       rows?.push({ ...this.cardRow(p, c, n, mods), perm: true });
     }
-    const parts = [['การ์ด', sum]];
+    const parts = [[T("การ์ด"), sum]];
     const tm = rows && [];
     const t = this.terrainOf(p, cards, cx, tm);
-    if (t) parts.push(['ได้เปรียบพื้นที่', t]);
+    if (t) parts.push([T("ได้เปรียบพื้นที่"), t]);
     if (rows && AREAS[f]?.field) rows.push({ k: 'terrain', base: p.terrain, mods: tm, val: t, none: p.terrain ? '' : this.noTerrain(p, f) });
     const add = (label, n, o = {}) => { parts.push([label, n]); rows?.push({ k: 'part', label, n, ...o }); };
     const evs = f ? this.evs[f] || [] : [];
-    const named = (key) => [this.sit?.fx?.[key] ? `สถานการณ์ ${this.sit.name}` : '', ...evs.filter((e) => e.fx[key]).map((e) => `อีเวนต์ ${e.name}`)].filter(Boolean).join(' · ');
-    if (play.tsubame ?? this.tsubame(cards)) add('Tsubame Gaeshi', TSUBAME, { note: 'ดาบครบ 3 ใบ' });
+    const named = (key) => [this.sit?.fx?.[key] ? T("สถานการณ์ {0}", this.sit.name) : '', ...evs.filter((e) => e.fx[key]).map((e) => T("อีเวนต์ {0}", e.name))].filter(Boolean).join(' · ');
+    if (play.tsubame ?? this.tsubame(cards)) add('Tsubame Gaeshi', TSUBAME, { note: T("ดาบครบ 3 ใบ") });
     const unify = this.sfx('unify') + (f ? this.efx(f, 'unify') : 0);
-    if (unify && up.length >= 2 && ALL_TYPES.some((ty) => up.every((c) => hasType(c, ty)))) add('การ์ดชนิดเดียวกัน', unify, { note: named('unify') });
-    if (play.cs2) add('Command Spell', play.cs2 * CS_POWER, { note: `${play.cs2} ดวง` });
-    if (clash && p.m.key === 'kirei' && p.revealed) add('Executor', 2, { clash: true, note: 'คิเรย์ชื่อจริงเปิดแล้ว' });
+    if (unify && up.length >= 2 && ALL_TYPES.some((ty) => up.every((c) => hasType(c, ty)))) add(T("การ์ดชนิดเดียวกัน"), unify, { note: named('unify') });
+    if (play.cs2) add('Command Spell', play.cs2 * CS_POWER, { note: T("{0} ดวง", play.cs2) });
+    if (clash && p.m.key === 'kirei' && p.revealed) add('Executor', 2, { clash: true, note: T("คิเรย์ชื่อจริงเปิดแล้ว") });
     const ex = clash && this.climax() ? up.find((c) => c.fx?.excal) : null;
-    if (ex) add('Excalibur ไคลแมกซ์', ex.fx.excal, { clash: true });
+    if (ex) add(T("Excalibur ไคลแมกซ์"), ex.fx.excal, { clash: true });
     const hidden = f ? this.efx(f, 'hiddenUp') : 0;
-    if (hidden && !p.revealed) add('ชื่อจริงยังซ่อน', hidden, { note: named('hiddenUp') });
-    if (ctx.underdog) add('VP น้อยสุด', ctx.underdog, { clash: true, note: named('underdog') });
-    if (play.rb) add('Rule Breaker', play.rb, { note: 'เป้าหมายเหลือ Command Spell 0' });
+    if (hidden && !p.revealed) add(T("ชื่อจริงยังซ่อน"), hidden, { note: named('hiddenUp') });
+    if (ctx.underdog) add(T("VP น้อยสุด"), ctx.underdog, { clash: true, note: named('underdog') });
+    if (play.rb) add('Rule Breaker', play.rb, { note: T("เป้าหมายเหลือ Command Spell 0") });
     const total = parts.reduce((s, [, n]) => s + n, 0);
     return rows ? { total, parts, rows } : { total, parts };
   }
@@ -386,7 +387,7 @@ export class Game {
 
   applyCards(p, a) {
     if (a.cs4) this.csMana(p);
-    if (a.gemMana) { this.gain(p, a.gemMana); this.log(`${p.name} ใช้อัญมณี ${a.gemMana} ใบ ได้มานา +${a.gemMana}`, p.isHuman ? 'me' : ''); }
+    if (a.gemMana) { this.gain(p, a.gemMana); this.log(T("{0} ใช้อัญมณี {1} ใบ ได้มานา +{2}", p.name, a.gemMana, a.gemMana), p.isHuman ? 'me' : ''); }
     p.gems -= a.gemMana + a.gandr;
     if (a.ubw) { for (const c of p.trash) delete c.down; p.hand.push(...p.deck, ...p.trash); p.deck = []; p.trash = []; } // the new hand [FD]
     p.mana -= a.cost;
@@ -414,14 +415,14 @@ export class Game {
       cards.push(c);
     }
     for (let k = 0; k < a.gandr; k++) cards.push(inst(GANDR, { keep: true }));
-    if (a.gandr) this.log(`${p.name} ใช้อัญมณี ${a.gandr} ใบ ลง Gandr Shot ${a.gandr} ใบ`, p.isHuman ? 'me' : '');
+    if (a.gandr) this.log(T("{0} ใช้อัญมณี {1} ใบ ลง Gandr Shot {2} ใบ", p.name, a.gandr, a.gandr), p.isHuman ? 'me' : '');
     let revealing = false;
     const reveal = (why) => {
       if (p.revealed) return;
-      p.revealed = true; revealing = true; this.log(`✸ ${p.name} ใช้ ${why} เปิดชื่อจริง: ${p.sv.name} (${p.sv.cls})`, 'reveal');
+      p.revealed = true; revealing = true; this.log(T("✸ {0} ใช้ {1} เปิดชื่อจริง: {2} ({3})", p.name, why, p.sv.name, p.sv.cls), 'reveal');
       // Metamorphosis turns off when the true name is revealed and goes back to the skill slot (B, 2 Nov 2026);
       // one laid this round stays, as its hiding comes after the reveal
-      for (const c of p.skills) if (c.resident && c.fx?.offOnReveal && !cards.some((x) => x.uid === c.uid)) { c.resident = false; this.log(`${p.name}: ชื่อจริงเปิด ${c.name} ปิด กลับช่องสกิล`, p.isHuman ? 'me' : ''); }
+      for (const c of p.skills) if (c.resident && c.fx?.offOnReveal && !cards.some((x) => x.uid === c.uid)) { c.resident = false; this.log(T("{0}: ชื่อจริงเปิด {1} ปิด กลับช่องสกิล", p.name, c.name), p.isHuman ? 'me' : ''); }
     };
     const up = cards.filter((c) => this.isUp(c));
     for (const c of up) if (c.fx?.reveal) reveal(c.name);
@@ -433,46 +434,46 @@ export class Game {
     const mover = a.mover != null ? cards.find((c) => c.uid === a.mover) : null;
     const was = p.at;
     if (mover && a.moveTo) {
-      if (a.moveTo !== was) { this.enter(p, a.moveTo, 'card'); this.log(`${p.name} ใช้ ${mover.name} ย้ายจาก${AREAS[was].name}ไป${AREAS[a.moveTo].name}`, 'reveal'); }
+      if (a.moveTo !== was) { this.enter(p, a.moveTo, 'card'); this.log(T("{0} ใช้ {1} ย้ายจาก{2}ไป{3}", p.name, mover.name, AREAS[was].name, AREAS[a.moveTo].name), 'reveal'); }
       if (mover.fx.bell && AREAS[a.moveTo].field) {
-        for (const q of this.here(a.moveTo)) if (q !== p && q.terrain) { q.terrain = 0; q.lostTerrain = `ถูก ${mover.name} ของ ${p.name} ยึด`; }
+        for (const q of this.here(a.moveTo)) if (q !== p && q.terrain) { q.terrain = 0; q.lostTerrain = T("ถูก {0} ของ {1} ยึด", mover.name, p.name); }
         p.terrain = TERRAIN.reduce((s, t) => s + t, 0); p.seized = { by: mover.name, f: a.moveTo };
-        this.log(`${p.name} ใช้ ${mover.name} ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่องที่${AREAS[a.moveTo].name} (+${p.terrain})`, 'reveal');
+        this.log(T("{0} ใช้ {1} ยึดช่องได้เปรียบพื้นที่ทั้ง 2 ช่องที่{2} (+{3})", p.name, mover.name, AREAS[a.moveTo].name, p.terrain), 'reveal');
       }
     }
     // On Play effects work even where 2nd Strike holds the battlefield [FD Keywords]
-    for (const c of up) if (c.fx?.playVP) { this.addVP(p, c.fx.playVP); this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.playVP} VP`, p.isHuman ? 'good' : ''); }
+    for (const c of up) if (c.fx?.playVP) { this.addVP(p, c.fx.playVP); this.log(T("{0} ใช้ {1} ได้ {2} VP", p.name, c.name, c.fx.playVP), p.isHuman ? 'good' : ''); }
     // Metamorphosis: the tarot card goes face down again [FD]
     const hide = up.find((c) => c.fx?.hide);
-    if (hide && p.revealed) { p.revealed = false; revealing = false; p.play.revealing = false; this.log(`✸ ${p.name} ใช้ ${hide.name} ซ่อนชื่อจริงกลับ`, 'reveal'); }
+    if (hide && p.revealed) { p.revealed = false; revealing = false; p.play.revealing = false; this.log(T("✸ {0} ใช้ {1} ซ่อนชื่อจริงกลับ", p.name, hide.name), 'reveal'); }
     // Rider Class: draw 1 when laid with a basic card [FD]
-    if (up.some((c) => c.fx?.riderDraw) && cards.some((c) => c.basic)) { const n = p.hand.length; this.drawTo(p, n + 1); if (p.hand.length > n) this.log(`${p.name} ใช้ Rider Class จั่ว 1 ใบ`, p.isHuman ? 'me' : ''); }
+    if (up.some((c) => c.fx?.riderDraw) && cards.some((c) => c.basic)) { const n = p.hand.length; this.drawTo(p, n + 1); if (p.hand.length > n) this.log(T("{0} ใช้ Rider Class จั่ว 1 ใบ", p.name), p.isHuman ? 'me' : ''); }
     if (a.blocked) {
       const off = up.filter((c) => ACTION_FX.some((k) => c.fx?.[k])).map((c) => cardName(c));
-      if (off.length) this.log(`${p.name}: ความสามารถ Action ของ ${off.join(', ')} ไม่ทำงาน เพราะ 2nd Strike ของ ${this.block[was].name}`, '');
+      if (off.length) this.log(T("{0}: ความสามารถ Action ของ {1} ไม่ทำงาน เพราะ 2nd Strike ของ {2}", p.name, off.join(', '), this.block[was].name), '');
     } else {
       for (const c of up) {
         if (c.fx?.mana) this.gain(p, c.fx.mana);
-        if (c.fx?.archer) { this.addVP(p, c.fx.archer); this.log(`${p.name} ใช้ ${c.name} ได้ ${c.fx.archer} VP · ถ้าแพ้การต่อสู้รอบนี้เสีย ${c.fx.archerLose} VP`, p.isHuman ? 'good' : ''); }
+        if (c.fx?.archer) { this.addVP(p, c.fx.archer); this.log(T("{0} ใช้ {1} ได้ {2} VP · ถ้าแพ้การต่อสู้รอบนี้เสีย {3} VP", p.name, c.name, c.fx.archer, c.fx.archerLose), p.isHuman ? 'good' : ''); }
       }
       // 2nd Strike holds this battlefield for the round [FD]
-      if (up.some((c) => c.fx?.block) && AREAS[p.at].field) { this.block[p.at] = p; this.log(`${p.name} ใช้ 2nd Strike: คนอื่นที่${AREAS[p.at].name}ใช้ความสามารถ Action และ Combat และ Command Spell ไม่ได้รอบนี้`, 'reveal'); }
+      if (up.some((c) => c.fx?.block) && AREAS[p.at].field) { this.block[p.at] = p; this.log(T("{0} ใช้ 2nd Strike: คนอื่นที่{1}ใช้ความสามารถ Action และ Combat และ Command Spell ไม่ได้รอบนี้", p.name, AREAS[p.at].name), 'reveal'); }
       // Rule Breaker [FD]
       const rb = up.find((c) => c.fx?.ruleBreaker);
       const q = rb && AREAS[p.at].field ? this.players[a.rbTarget] : null;
       if (rb && q && !q.out && q !== p && q.at === p.at) {
         const had = q.cs > 0;
         if (had) q.cs--;
-        const what = [had ? `${q.name} เสีย Command Spell 1 ดวง` : `${q.name} ไม่มี Command Spell`];
+        const what = [had ? T("{0} เสีย Command Spell 1 ดวง", q.name) : T("{0} ไม่มี Command Spell", q.name)];
         // left with none (the last one, or none to lose): [แพ้] and our power +10 (paper 6, B's rule 30 Oct 2026)
-        if (q.cs <= 0) { q.roundUse.defeated = `Rule Breaker ของ ${p.name}`; p.play.rb = rb.fx.ruleBreaker; what.push(`${q.name} [แพ้]`, `${p.name} พลังรวม +${rb.fx.ruleBreaker}`); }
-        this.log(`${p.name} ใช้ Rule Breaker: ${what.join(' · ')}`, 'reveal');
+        if (q.cs <= 0) { q.roundUse.defeated = T("Rule Breaker ของ {0}", p.name); p.play.rb = rb.fx.ruleBreaker; what.push(T("{0} [แพ้]", q.name), T("{0} พลังรวม +{1}", p.name, rb.fx.ruleBreaker)); }
+        this.log(T("{0} ใช้ Rule Breaker: {1}", p.name, what.join(' · ')), 'reveal');
       }
     }
-    if (a.temper === 'mana') this.csMana(p, ' (Short Temper บังคับใช้รอบ 1)');
-    if (a.temper === 'power') this.log(`${p.name}: Short Temper บังคับใช้ Command Spell รอบ 1 จึงใช้พลัง +${CS_POWER}`, 'cs');
+    if (a.temper === 'mana') this.csMana(p, T(" (Short Temper บังคับใช้รอบ 1)"));
+    if (a.temper === 'power') this.log(T("{0}: Short Temper บังคับใช้ Command Spell รอบ 1 จึงใช้พลัง +{1}", p.name, CS_POWER), 'cs');
     if (a.csMove) { this.useCS(p); this.enter(p, a.csMove, 'cs'); }
-    if (a.cs2) this.log(`${p.name} ใช้ Command Spell พลัง +${a.cs2 * CS_POWER} ที่${AREAS[p.at].name}`, 'cs');
+    if (a.cs2) this.log(T("{0} ใช้ Command Spell พลัง +{1} ที่{2}", p.name, a.cs2 * CS_POWER, AREAS[p.at].name), 'cs');
     this.record(p, cards);
     this.ubwCheck(p);
     if (AREAS[p.at].field) {
@@ -483,13 +484,13 @@ export class Game {
     // off a battlefield the on-use effects are done but no power counts; the cards go to the
     // discard pile the way they were laid (paper 8.3, v5.1)
     const n = cards.length - up.length;
-    this.log(`${p.name} ลงการ์ดที่${AREAS[p.at].name}: ${[up.map((c) => cardName(c)).join(', '), n ? `คว่ำ ${n} ใบ` : ''].filter(Boolean).join(' · ')} · ไม่คิดพลัง`, p.isHuman ? 'me' : '');
+    this.log(T("{0} ลงการ์ดที่{1}: {2} · ไม่คิดพลัง", p.name, AREAS[p.at].name, [up.map((c) => cardName(c)).join(', '), n ? T("คว่ำ {0} ใบ", n) : ''].filter(Boolean).join(' · ')), p.isHuman ? 'me' : '');
     this.dropPlay(p);
   }
   // Unlimited Blade Works turns off once the hand is empty, back to the skill slot [FD]
   ubwCheck(p) {
     const u = p.skills.find((c) => c.fx?.ubw && c.resident);
-    if (u && !p.hand.length) { u.resident = false; this.log(`${p.name}: การ์ดในมือหมด ${u.name} ปิด กลับช่องสกิล`, p.isHuman ? 'me' : ''); }
+    if (u && !p.hand.length) { u.resident = false; this.log(T("{0}: การ์ดในมือหมด {1} ปิด กลับช่องสกิล", p.name, u.name), p.isHuman ? 'me' : ''); }
   }
 
   // what everyone saw a Master lay or use, oldest first; face-down cards stay unknown (paper 4.6 item 6)
@@ -511,11 +512,11 @@ export class Game {
   }
   // why a window card cannot be used now ('' = it can)
   useState(p, c) {
-    if (c.limit === 'round' && p.roundUse[`lim${c.uid}`]) return 'ใช้แล้วรอบนี้ (รอบละครั้ง)';
+    if (c.limit === 'round' && p.roundUse[`lim${c.uid}`]) return T("ใช้แล้วรอบนี้ (รอบละครั้ง)");
     const s = c.skill ? this.skillState(p, c) : c.keep ? this.specialState(p, c) : '';
     if (s) return s;
     const m = this.costOf(p, c);
-    if (!this.infinite(p) && m > p.mana) return `มานาไม่พอ (ใช้ ${m})`;
+    if (!this.infinite(p) && m > p.mana) return T("มานาไม่พอ (ใช้ {0})", m);
     return '';
   }
   windowCards(p, w) { return [...p.hand, ...p.specials, ...p.skills].filter((c) => this.useLine(p, c, w) && !this.useState(p, c)); }
@@ -544,11 +545,11 @@ export class Game {
     this.record(p, [c], w);
     const fx = u.fx || {};
     const got = [];
-    if (fx.mana) { this.gain(p, fx.mana); got.push(`มานา +${fx.mana}`); }
+    if (fx.mana) { this.gain(p, fx.mana); got.push(T("มานา +{0}", fx.mana)); }
     if (fx.vp) { this.addVP(p, fx.vp); got.push(`${fx.vp} VP`); }
-    if (fx.freeMove) { p.roundUse.freeMove = true; got.push('ย้ายได้แม้ติดพัน'); }
-    if (fx.peek) { p.peek = this.round; got.push('ดูอีเวนต์ชินโตะที่คว่ำอยู่'); }
-    this.log(`${p.name} ใช้ ${c.name} ช่วง${WINDOWS[w].name}${m ? ` (มานา ${m})` : ''}: ${got.join(' · ')}`, p.isHuman ? 'me' : '');
+    if (fx.freeMove) { p.roundUse.freeMove = true; got.push(T("ย้ายได้แม้ติดพัน")); }
+    if (fx.peek) { p.peek = this.round; got.push(T("ดูอีเวนต์ชินโตะที่คว่ำอยู่")); }
+    this.log(T("{0} ใช้ {1} ช่วง{2}{3}: {4}", p.name, c.name, WINDOWS[w].name, m ? T(" (มานา {0})", m) : '', got.join(' · ')), p.isHuman ? 'me' : '');
     this.emit('update');
   }
 
@@ -571,14 +572,14 @@ export class Game {
     p.hand = p.hand.filter((c) => !set.has(c.uid));
     this.drawTo(p, n);
     p.gems -= 1; p.roundUse.swaps = (p.roundUse.swaps || 0) + 1;
-    this.log(`${p.name} ใช้อัญมณี 1 ใบ ทิ้งการ์ด ${set.size} ใบแล้วจั่วใหม่`, p.isHuman ? 'me' : '');
+    this.log(T("{0} ใช้อัญมณี 1 ใบ ทิ้งการ์ด {1} ใบแล้วจั่วใหม่", p.name, set.size), p.isHuman ? 'me' : '');
     this.emit('update');
     return true;
   }
 
   // ---------- the game ----------
   async run() {
-    this.log(`สงครามจอกศักดิ์สิทธิ์เริ่มต้น · Master ${this.players.length} คน · รอบปกติ ${REGULAR} รอบ แล้วไคลแมกซ์จนเหลือคนเดียว`, 'sys');
+    this.log(T("สงครามจอกศักดิ์สิทธิ์เริ่มต้น · Master {0} คน · รอบปกติ {1} รอบ แล้วไคลแมกซ์จนเหลือคนเดียว", this.players.length, REGULAR), 'sys');
     this.emit('update');
     while (!this.over && this.alive().length > 1 && this.round < MAX_ROUNDS) {
       await this.playRound();
@@ -599,13 +600,13 @@ export class Game {
     if (left.length <= target) return;
     const line = left[target].vp;
     const keep = left.filter((p) => p.vp > line);
-    if (!keep.length) { this.log(`ทุกคนเสมอกันที่เส้นตัด (${line} VP) ไม่มีใครตกรอบ เล่นไคลแมกซ์อีกรอบ`, 'sys'); return; }
+    if (!keep.length) { this.log(T("ทุกคนเสมอกันที่เส้นตัด ({0} VP) ไม่มีใครตกรอบ เล่นไคลแมกซ์อีกรอบ", line), 'sys'); return; }
     for (const p of left.filter((q) => q.vp <= line)) {
       // Avalon: the first time Shirou would be out, he loses all his mana instead [FD]
-      if (p.m.key === 'shirou' && !p.avalonUsed) { p.avalonUsed = true; p.avalonRound = r; p.mana = 0; this.log(`${p.name} ไม่ตกรอบเพราะ Avalon: เสียมานาทั้งหมดแทน (${p.vp} VP)`, 'reveal'); continue; }
+      if (p.m.key === 'shirou' && !p.avalonUsed) { p.avalonUsed = true; p.avalonRound = r; p.mana = 0; this.log(T("{0} ไม่ตกรอบเพราะ Avalon: เสียมานาทั้งหมดแทน ({1} VP)", p.name, p.vp), 'reveal'); continue; }
       p.out = true;
       p.outRound = r;
-      this.log(`✖ ${p.name} ตกรอบ (จบรอบ ${r} · ${p.vp} VP)`, 'death');
+      this.log(T("✖ {0} ตกรอบ (จบรอบ {1} · {2} VP)", p.name, r, p.vp), 'death');
     }
     this.emit('update');
   }
@@ -613,7 +614,7 @@ export class Game {
   async playRound() {
     this.round++;
     this.sit = this.round <= REGULAR ? this.sits[this.round - 1] : this.climaxCard();
-    this.log(`── ${this.climax() ? `ไคลแมกซ์ ${this.climaxNo()} (รอบ ${this.round})` : `รอบ ${this.round}/${REGULAR}`} · ${this.sit.name} ──`, 'phase');
+    this.log(`── ${this.climax() ? T("ไคลแมกซ์ {0} (รอบ {1})", this.climaxNo(), this.round) : T("รอบ {0}/{1}", this.round, REGULAR)} · ${this.sit.name} ──`, 'phase');
     await this.prep();
     await this.outpost();
     await this.action();
@@ -633,19 +634,19 @@ export class Game {
     }
     this.step = '1.2';
     for (const p of this.alive()) this.gain(p, this.sit.mana);
-    this.log(`การ์ดสถานการณ์ ${this.sit.name}: ทุกคนได้มานา +${this.sit.mana}${this.sit.text ? ` · ${this.sit.text}` : ''}`, 'sys');
+    this.log(T("การ์ดสถานการณ์ {0}: ทุกคนได้มานา +{1}{2}", this.sit.name, this.sit.mana, this.sit.text ? ` · ${this.sit.text}` : ''), 'sys');
     // Dress of Heaven: from round 8, 2 VP if last round's battlefield had someone who went out [FD]
     const il = this.alive().find((p) => p.m.key === 'illya');
     if (il && this.round >= REGULAR && il.lastFight?.round === this.round - 1 && il.lastFight.with.some((id) => this.players[id].out && this.players[id].outRound === this.round - 1)) {
       this.addVP(il, 2);
-      this.log(`${il.name} ได้ 2 VP (Dress of Heaven: รอบก่อนอยู่สนามรบเดียวกับคนที่ตกรอบ)`, il.isHuman ? 'good' : '');
+      this.log(T("{0} ได้ 2 VP (Dress of Heaven: รอบก่อนอยู่สนามรบเดียวกับคนที่ตกรอบ)", il.name), il.isHuman ? 'good' : '');
     }
     this.step = '1.3';
     this.evs = { miyama: [this.drawEvent()], shinto: [this.drawEvent()] };
     const ex = this.sfx('extraEvent');
     if (ex) this.evs[this.sit.fx.extraEvent].push(this.drawEvent());
     this.shintoOpen = false;
-    this.log(`อีเวนต์มิยามะ: ${this.evs.miyama.map((e) => `${e.name} ${e.vp} VP`).join(' + ')} · อีเวนต์ชินโตะคว่ำไว้`, 'sys');
+    this.log(T("อีเวนต์มิยามะ: {0} · อีเวนต์ชินโตะคว่ำไว้", this.evs.miyama.map((e) => `${e.name} ${e.vp} VP`).join(' + ')), 'sys');
     this.emit('phase');
     this.step = '1.4';
     for (const p of this.order()) await this.window(p, 'prep');
@@ -675,14 +676,14 @@ export class Game {
       if (to === 'workshop') {
         const n = WORKSHOP[k];
         let txt;
-        if (p.m.key === 'kuzuki') txt = 'ไม่ได้มานา (คุซุกิ)'; else { this.gain(p, n); txt = `ได้มานา +${n}`; }
+        if (p.m.key === 'kuzuki') txt = T("ไม่ได้มานา (คุซุกิ)"); else { this.gain(p, n); txt = T("ได้มานา +{0}", n); }
         const tc = p.skills.find((c) => c.resident && c.fx?.workshop); // Caster Class [FD]
-        if (tc) { this.gain(p, tc.fx.workshop.mana); this.addVP(p, tc.fx.workshop.vp); txt += ` · ${tc.name} มานา +${tc.fx.workshop.mana} ได้ ${tc.fx.workshop.vp} VP`; }
-        this.log(`${p.name} วางที่โรงฝึกเวทช่อง ${k + 1} ${txt}`, p.isHuman ? 'me' : '');
+        if (tc) { this.gain(p, tc.fx.workshop.mana); this.addVP(p, tc.fx.workshop.vp); txt += T(" · {0} มานา +{1} ได้ {2} VP", tc.name, tc.fx.workshop.mana, tc.fx.workshop.vp); }
+        this.log(T("{0} วางที่โรงฝึกเวทช่อง {1} {2}", p.name, k + 1, txt), p.isHuman ? 'me' : '');
       } else {
         if (k < TERRAIN.length) p.terrain = TERRAIN[k];
-        this.log(`${p.name} วางที่${AREAS[to].name}${p.terrain ? ` ได้เปรียบพื้นที่ +${p.terrain}` : ''}`, p.isHuman ? 'me' : '');
-        if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(`${p.name} เข้ามิยามะ ได้มานา +1 (Immoral)`, ''); }
+        this.log(T("{0} วางที่{1}{2}", p.name, AREAS[to].name, p.terrain ? T(" ได้เปรียบพื้นที่ +{0}", p.terrain) : ''), p.isHuman ? 'me' : '');
+        if (to === 'miyama' && p.m.key === 'shinji') { this.gain(p, 1); this.log(T("{0} เข้ามิยามะ ได้มานา +1 (Immoral)", p.name), ''); }
       }
       this.emit('update');
       this.step = '2.3';
@@ -694,7 +695,7 @@ export class Game {
   async action() {
     this.phase = 'action';
     this.shintoOpen = true;
-    this.log(`เปิดอีเวนต์ชินโตะ: ${this.evs.shinto.map((e) => `${e.name} ${e.vp} VP`).join(' + ')}`, 'sys');
+    this.log(T("เปิดอีเวนต์ชินโตะ: {0}", this.evs.shinto.map((e) => `${e.name} ${e.vp} VP`).join(' + ')), 'sys');
     this.emit('phase');
     let seq = 0;
     for (const p of this.order()) {
@@ -711,8 +712,8 @@ export class Game {
       if (o && o.how !== 'stay') {
         p.mana -= o.cost;
         if (o.how === 'cs') this.useCS(p);
-        if (o.how === 'walk') this.log(`${p.name} ย้ายไป${AREAS[o.to].name}${o.cost ? ` (มานา ${o.cost})` : ''}`, p.isHuman ? 'me' : '');
-        if (o.how === 'kirei') this.log(`${p.name} ใช้ Impartial ไปลาดตระเวน (มานา 2)`, '');
+        if (o.how === 'walk') this.log(T("{0} ย้ายไป{1}{2}", p.name, AREAS[o.to].name, o.cost ? T(" (มานา {0})", o.cost) : ''), p.isHuman ? 'me' : '');
+        if (o.how === 'kirei') this.log(T("{0} ใช้ Impartial ไปลาดตระเวน (มานา 2)", p.name), '');
         this.enter(p, o.to, o.how);
       }
       this.emit('update');
@@ -728,7 +729,7 @@ export class Game {
         break;
       }
       this.applyCards(p, this.cleanCards(p, ans));
-      if (p.play) this.log(`${p.name} ลงการ์ดที่${AREAS[p.at].name} พลังรวม ${p.play.pre}`, p.isHuman ? 'me' : '');
+      if (p.play) this.log(T("{0} ลงการ์ดที่{1} พลังรวม {2}", p.name, AREAS[p.at].name, p.play.pre), p.isHuman ? 'me' : '');
       this.emit('update');
       this.step = '3.5';
       await this.window(p, 'postCards');
@@ -750,7 +751,7 @@ export class Game {
         const n = this.eventVP(f); // alone: only the event VP [p.11]
         this.addVP(p, n);
         this.results.push({ f, alone: true, pool: n, winners: [p.id], ents: [{ id: p.id, gain: n, cards: p.play?.cards || [], power: p.play?.pre ?? 0, parts: [], won: true, notes: [] }] });
-        this.log(`${AREAS[f].name}: ${p.name} อยู่คนเดียว ได้ ${n} VP`, p.isHuman ? 'good' : '');
+        this.log(T("{0}: {1} อยู่คนเดียว ได้ {2} VP", AREAS[f].name, p.name, n), p.isHuman ? 'good' : '');
         continue;
       }
       this.results.push(await this.fight(f, people));
@@ -760,9 +761,9 @@ export class Game {
       if (p.m.key === 'kuzuki' && !p.roundUse.gotVP) {
         const n = p.at === 'workshop' && this.here('workshop').length === 1 ? 2 : 1;
         this.addVP(p, n);
-        this.log(`${p.name} รอบนี้ไม่ได้ VP เลย ได้ ${n} VP${n === 2 ? ' (อยู่โรงฝึกเวทคนเดียว)' : ''}`, p.isHuman ? 'good' : '');
+        this.log(T("{0} รอบนี้ไม่ได้ VP เลย ได้ {1} VP{2}", p.name, n, n === 2 ? T(" (อยู่โรงฝึกเวทคนเดียว)") : ''), p.isHuman ? 'good' : '');
       }
-      if (p.roundUse.temper) { const k = Math.min(p.mana, CS_MANA); p.mana -= k; p.roundUse.temper = false; this.log(`${p.name} เสียมานา ${k} (Short Temper: รอบ 1 ใช้ Command Spell รับมานา)`, ''); }
+      if (p.roundUse.temper) { const k = Math.min(p.mana, CS_MANA); p.mana -= k; p.roundUse.temper = false; this.log(T("{0} เสียมานา {1} (Short Temper: รอบ 1 ใช้ Command Spell รับมานา)", p.name, k), ''); }
     }
     if (this.special) { this.over = true; this.emit('combat', { results: this.results }); return; }
     this.step = '4.2';
@@ -782,11 +783,11 @@ export class Game {
       if (this.round === REGULAR && this.rank(p) > 1) {
         p.grail = true;
         p.specials = p.specials.filter((c) => !c.consume);
-        this.log(`✸ ${p.name} ได้ The Tainted Grail: มานาไม่จำกัด ลงการ์ดได้ ${this.maxCards(p)} ใบจนจบเกม`, 'reveal');
+        this.log(T("✸ {0} ได้ The Tainted Grail: มานาไม่จำกัด ลงการ์ดได้ {1} ใบจนจบเกม", p.name, this.maxCards(p)), 'reveal');
       } else if (this.alive().every((q) => q === p || q.vp > p.vp)) {
         // Broken Vessel: everyone has more VP [FD]
         p.specials.push(inst(BLACK_SHADOW, { keep: true }));
-        this.log(`${p.name} ได้การ์ด Black Shadow (Broken Vessel: ทุกคนมี VP มากกว่า)`, p.isHuman ? 'good' : '');
+        this.log(T("{0} ได้การ์ด Black Shadow (Broken Vessel: ทุกคนมี VP มากกว่า)", p.name), p.isHuman ? 'good' : '');
       }
     }
     for (const p of this.order()) await this.window(p, 'end');
@@ -811,10 +812,10 @@ export class Game {
     // on-clash effects one by one in seat order [p.11]
     for (const a of ents) {
       const foes = ents.filter((b) => b !== a);
-      if (card(a, 'petrify')) for (const b of foes) if (!up(b).some((c) => hasType(c, 'X') && !this.efx(f, 'noSpecial'))) defeat(b, `ถูก Petrification ของ ${a.p.name}`);
-      if (card(a, 'duel') && foes.length === 1) defeat(foes[0], `โดน Gáe Bolg (แทง) ของ ${a.p.name}`);
-      if (card(a, 'zab') && this.alive().length === 2) for (const b of foes) defeat(b, `โดน Zabaniya ของ ${a.p.name} (คู่แข่งคนสุดท้าย)`);
-      if (card(a, 'enuma')) for (const b of foes) if (this.activeSpecial(b.p)) defeat(b, `โดน Enuma Elish ของ ${a.p.name} (มีการ์ด NP ชนิดพิเศษ)`);
+      if (card(a, 'petrify')) for (const b of foes) if (!up(b).some((c) => hasType(c, 'X') && !this.efx(f, 'noSpecial'))) defeat(b, T("ถูก Petrification ของ {0}", a.p.name));
+      if (card(a, 'duel') && foes.length === 1) defeat(foes[0], T("โดน Gáe Bolg (แทง) ของ {0}", a.p.name));
+      if (card(a, 'zab') && this.alive().length === 2) for (const b of foes) defeat(b, T("โดน Zabaniya ของ {0} (คู่แข่งคนสุดท้าย)", a.p.name));
+      if (card(a, 'enuma')) for (const b of foes) if (this.activeSpecial(b.p)) defeat(b, T("โดน Enuma Elish ของ {0} (มีการ์ด NP ชนิดพิเศษ)", a.p.name));
       const s1 = card(a, 'strike1');
       if (s1) await this.firstStrike(a, s1, foes, f, up);
     }
@@ -829,10 +830,10 @@ export class Game {
     if (ents.length >= 3) for (const a of ents) {
       if (!card(a, 'presence') || defeated.has(a)) continue;
       const above = ents.filter((b) => b !== a && !defeated.has(b) && b.pw.total > a.pw.total);
-      if (above.length === 1) defeat(above[0], `โดน Assassin Class ของ ${a.p.name}`);
+      if (above.length === 1) defeat(above[0], T("โดน Assassin Class ของ {0}", a.p.name));
     }
     // Luck: the defeat does not count [FD]
-    for (const e of ents) if (defeated.has(e) && card(e, 'luck')) { e.notes.push(`Luck: ไม่สน [แพ้] (${defeated.get(e)})`); defeated.delete(e); }
+    for (const e of ents) if (defeated.has(e) && card(e, 'luck')) { e.notes.push(T("Luck: ไม่สน [แพ้] ({0})", defeated.get(e))); defeated.delete(e); }
     const cand = ents.filter((e) => !defeated.has(e));
     let winners = [];
     if (cand.length) { const top = Math.max(...cand.map((e) => e.pw.total)); winners = cand.filter((e) => e.pw.total === top); }
@@ -841,16 +842,16 @@ export class Game {
       const p = e.p;
       e.gain += Math.ceil(pool / winners.length) + (p.play?.cs2 || 0) * CS_VP; // ties split, rounded up [p.11]
       for (const c of act(e)) if (c.fx?.win) { e.gain += c.fx.win; e.notes.push(`${c.name} +${c.fx.win} VP`); } // Caladbolg II, Preparation
-      const wm = this.efx(f, 'winMana'); if (wm) { this.gain(p, wm); e.notes.push(`มานา +${wm}`); }
+      const wm = this.efx(f, 'winMana'); if (wm) { this.gain(p, wm); e.notes.push(T("มานา +{0}", wm)); }
       // Excalibur: a win in the climax round "2 left" wins the game [FD]
-      if (card(e, 'excal') && this.climax() && this.sit.size === 2 && !this.special) this.special = { p, how: `Excalibur: ${p.name} ชนะในรอบไคลแมกซ์ "เหลือ 2 คน"` };
+      if (card(e, 'excal') && this.climax() && this.sit.size === 2 && !this.special) this.special = { p, how: T("Excalibur: {0} ชนะในรอบไคลแมกซ์ \"เหลือ 2 คน\"", p.name) };
     }
     for (const e of ents) {
       // Gáe Bolg (ขว้าง): a win gives 1 VP per foe, and each foe loses as much [FD]
       const st = card(e, 'strike');
       if (st && winners.includes(e)) {
         const k = st.fx.strike * (ents.length - 1);
-        e.gain += k; e.notes.push(`${st.name}: ${k} VP ตามจำนวนคู่ต่อสู้`);
+        e.gain += k; e.notes.push(T("{0}: {1} VP ตามจำนวนคู่ต่อสู้", st.name, k));
         for (const b of ents) if (b !== e) b.loss += k;
       }
       if (winners.includes(e)) continue;
@@ -862,28 +863,28 @@ export class Game {
         for (const w of winners) { w.loss += gh.fx.godHand; w.notes.push(`${gh.name} −${gh.fx.godHand} VP`); }
         const own = p.skills.find((s) => s.uid === gh.uid);
         if (own) own.gone = true;
-        e.notes.push(`${gh.name}: แพ้แต่ได้ ${gh.fx.godHand} VP แล้วออกจากเกม`);
+        e.notes.push(T("{0}: แพ้แต่ได้ {1} VP แล้วออกจากเกม", gh.name, gh.fx.godHand));
       }
       // Rain of Light: a loss brings Rule Breaker back [FD]
-      if (card(e, 'rain')) { const rb = p.skills.find((s) => s.fx?.ruleBreaker && s.gone); if (rb) { rb.gone = false; e.notes.push('Rain of Light: Rule Breaker กลับช่องสกิล'); } }
+      if (card(e, 'rain')) { const rb = p.skills.find((s) => s.fx?.ruleBreaker && s.gone); if (rb) { rb.gone = false; e.notes.push(T("Rain of Light: Rule Breaker กลับช่องสกิล")); } }
       // Archer Class: a lost fight costs 5 VP, it cannot be stopped [FD]
-      if (p.roundUse.archer) { e.loss += 5; e.notes.push('Archer Class: แพ้ −5 VP'); }
+      if (p.roundUse.archer) { e.loss += 5; e.notes.push(T("Archer Class: แพ้ −5 VP")); }
       // Poor Leadership: a lost fight costs Shinji a Command Spell [FD]
-      if (p.m.key === 'shinji' && p.cs > 0) { p.cs--; e.notes.push('Poor Leadership: เสีย Command Spell 1 ดวง'); }
+      if (p.m.key === 'shinji' && p.cs > 0) { p.cs--; e.notes.push(T("Poor Leadership: เสีย Command Spell 1 ดวง")); }
     }
     // Zabaniya: a win over a foe doubles the VP of this fight [FD]
-    for (const e of winners) if (card(e, 'zab') && this.alive().length > 2 && e.gain > 0) { const k = e.gain; e.gain += k; e.notes.push(`Zabaniya: VP จากการต่อสู้นี้ ×2 (+${k})`); }
+    for (const e of winners) if (card(e, 'zab') && this.alive().length > 2 && e.gain > 0) { const k = e.gain; e.gain += k; e.notes.push(T("Zabaniya: VP จากการต่อสู้นี้ ×2 (+{0})", k)); }
     for (const e of ents) this.addVP(e.p, e.gain);
     for (const e of ents) {
-      if (e.loss) { const k = this.loseVP(e.p, e.loss); e.notes.push(`เสีย ${k} VP`); e.gain -= k; }
-      if (defeated.has(e)) { e.notes.unshift('[แพ้]'); e.notes.push(defeated.get(e)); }
-      if (!ok(e)) e.notes.push(`ผล "ตอนปะทะ" ไม่ทำงาน (2nd Strike ของ ${blk.name})`);
+      if (e.loss) { const k = this.loseVP(e.p, e.loss); e.notes.push(T("เสีย {0} VP", k)); e.gain -= k; }
+      if (defeated.has(e)) { e.notes.unshift(T("[แพ้]")); e.notes.push(defeated.get(e)); }
+      if (!ok(e)) e.notes.push(T("ผล \"ตอนปะทะ\" ไม่ทำงาน (2nd Strike ของ {0})", blk.name));
     }
     const r = {
       f, pool, winners: winners.map((e) => e.p.id),
       ents: ents.map((e) => ({ id: e.p.id, cards: e.cards, power: e.pw.total, parts: e.pw.parts, rows: e.pw.rows, pre: e.p.play?.pre ?? 0, preParts: e.p.play?.preParts || [], gain: e.gain, notes: e.notes, won: winners.includes(e), defeated: defeated.has(e) })),
     };
-    this.log(`⚔ ${AREAS[f].name}: ${ents.map((e) => `${e.p.name} ${defeated.has(e) ? '[แพ้]' : e.pw.total}`).join(' · ')} → ${winners.length ? winners.map((e) => `${e.p.name} ${e.gain >= 0 ? '+' : ''}${e.gain} VP`).join(', ') : 'ไม่มีผู้ชนะ'}`, 'fight');
+    this.log(`⚔ ${AREAS[f].name}: ${ents.map((e) => `${e.p.name} ${defeated.has(e) ? T("[แพ้]") : e.pw.total}`).join(' · ')} → ${winners.length ? winners.map((e) => `${e.p.name} ${e.gain >= 0 ? '+' : ''}${e.gain} VP`).join(', ') : T("ไม่มีผู้ชนะ")}`, 'fight');
     return r;
   }
 
@@ -892,10 +893,10 @@ export class Game {
   // a pop-up (paper 4.6 item 8); a bot, or no answer, takes the strongest of each.
   async firstStrike(a, s1, foes, f, up) {
     const p = a.p;
-    s1.off = true; s1.offBy = '1st Strike ปิดตัวเอง';
+    s1.off = true; s1.offBy = T("1st Strike ปิดตัวเอง");
     const pw = (q, c) => this.cardPower(q, c, { f });
     const mine = p.hand.filter((c) => c.basic && hasType(c, 'S')).sort((x, y) => pw(p, y) - pw(p, x));
-    if (!mine.length) { a.notes.push('1st Strike ปิดตัวเอง · ไม่มีการ์ดกำลังพื้นฐานในมือ'); return; }
+    if (!mine.length) { a.notes.push(T("1st Strike ปิดตัวเอง · ไม่มีการ์ดกำลังพื้นฐานในมือ")); return; }
     const tgts = foes.flatMap((b) => up(b).filter((c) => c.basic).map((c) => ({ b, c }))).sort((x, y) => pw(y.b.p, y.c) - pw(x.b.p, x.c));
     this.turn = p;
     const ans = await this.decide(this, p, 'strike1', { f, card: s1.uid, mine: mine.map((c) => c.uid), foes: tgts.map(({ b, c }) => ({ id: b.p.id, uid: c.uid })) });
@@ -907,8 +908,8 @@ export class Game {
     a.cards.push(s);
     this.record(p, [s], 'clash');
     this.gain(p, s1.fx.strike1);
-    if (tgt) { tgt.c.off = true; tgt.c.offBy = `ถูก 1st Strike ของ ${p.name} ปิด`; tgt.b.notes.push(`${cardName(tgt.c)} ถูก 1st Strike ปิด`); }
-    a.notes.push(`1st Strike ปิดตัวเอง ลง ${cardName(s)} · มานา +${s1.fx.strike1}${tgt ? ` · ปิด ${cardName(tgt.c)} ของ ${tgt.b.p.name}` : ''}`);
+    if (tgt) { tgt.c.off = true; tgt.c.offBy = T("ถูก 1st Strike ของ {0} ปิด", p.name); tgt.b.notes.push(T("{0} ถูก 1st Strike ปิด", cardName(tgt.c))); }
+    a.notes.push(T("1st Strike ปิดตัวเอง ลง {0} · มานา +{1}{2}", cardName(s), s1.fx.strike1, tgt ? T(" · ปิด {0} ของ {1}", cardName(tgt.c), tgt.b.p.name) : ''));
   }
 
   cleanup() {
@@ -932,7 +933,7 @@ export class Game {
     this.dealServant(p, sv);
     p.revealed = false;
     p.cs += 3;
-    this.log(`📖 ${p.name} ใช้ Book of the False Attendant: Command Spell หมด เปลี่ยนเป็น Servant ใหม่ ชื่อจริงซ่อน · Command Spell +3`, 'reveal');
+    this.log(T("📖 {0} ใช้ Book of the False Attendant: Command Spell หมด เปลี่ยนเป็น Servant ใหม่ ชื่อจริงซ่อน · Command Spell +3", p.name), 'reveal');
     this.emit('book', { p, old });
   }
 
@@ -951,14 +952,14 @@ export class Game {
       this.how = this.special.how;
     } else if (left.length === 1) {
       this.winner = left[0];
-      this.how = `คนสุดท้ายที่เหลือ (${this.winner.vp} VP)`;
+      this.how = T("คนสุดท้ายที่เหลือ ({0} VP)", this.winner.vp);
     } else {
       const top = Math.max(...left.map((p) => p.vp));
       const best = left.filter((p) => p.vp === top);
       this.winner = best.length === 1 ? best[0] : null;
-      this.how = this.winner ? `VP มากที่สุดเมื่อครบ ${MAX_ROUNDS} รอบ` : `เสมอกันจนครบ ${MAX_ROUNDS} รอบ`;
+      this.how = this.winner ? T("VP มากที่สุดเมื่อครบ {0} รอบ", MAX_ROUNDS) : T("เสมอกันจนครบ {0} รอบ", MAX_ROUNDS);
     }
-    this.log(this.winner ? `🏆 ${this.winner.name} ชนะสงครามจอกศักดิ์สิทธิ์! (${this.winner.sv.name})` : `🏆 ${this.how}`, 'grail');
+    this.log(this.winner ? T("🏆 {0} ชนะสงครามจอกศักดิ์สิทธิ์! ({1})", this.winner.name, this.winner.sv.name) : `🏆 ${this.how}`, 'grail');
     this.emit('over');
   }
 }

@@ -4,6 +4,7 @@
 // The board always fits the window. Tapping an area opens a pop-up with its details and the
 // actions you can take there; what does not fit on the screen (event texts, your cards on a
 // phone, the standings, the log) opens from a button. Counters show their current value only.
+import { T, TX, lang, setLang, LANGS, tplRe, anyRe, rxEsc } from './i18n.js';
 import {
   Game, AREAS, PATH, TYPES, MASTERS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, MANA_MAX, REGULAR, PLAY,
   CS_MANA, CS_POWER, CS_VP, STEP_COST, TSUBAME, UBW_PLAY, RIDE_MAX, GANDR, SERVANTS, SAMPLE, SNAKE,
@@ -16,8 +17,10 @@ import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
 import { online, openOnline, onlineAgain, onlineAuto, barHtml } from './online.js';
 
 const $ = (s) => document.querySelector(s);
+// the two texts written in index.html, in the page's language
+{ const h = document.querySelector('#logbox h2'), n = document.querySelector('#nav'); if (h) h.textContent = T('บันทึกสงคราม'); if (n) n.setAttribute('aria-label', T('ข้อมูลเพิ่มเติม')); }
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const PHASES = [['prep', 'เตรียมการ'], ['outpost', 'ตั้งมั่น'], ['action', 'ปฏิบัติการ'], ['combat', 'ต่อสู้'], ['end', 'จบรอบ']];
+const PHASES = [['prep', T("เตรียมการ")], ['outpost', T("ตั้งมั่น")], ['action', T("ปฏิบัติการ")], ['combat', T("ต่อสู้")], ['end', T("จบรอบ")]];
 // the settings menu (paper 4.6 item 24), kept in this browser; the page works the same without storage
 const settings = { sound: 2, turnAlert: true, vibrate: true, sysNote: false, botSpeed: 'normal', strip: 'auto' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('dgw-settings') || '{}')); } catch { /* no storage: the defaults */ }
@@ -51,7 +54,7 @@ function startGame(tutorial = false) {
   $('#log').innerHTML = '';
   render();
   showSummon(() => {
-    game.run().catch((e) => { console.error(e); if (game === g) { game.log(`เกิดข้อผิดพลาด: ${e.message}`, 'death'); render(); } });
+    game.run().catch((e) => { console.error(e); if (game === g) { game.log(T("เกิดข้อผิดพลาด: {0}", e.message), 'death'); render(); } });
   });
 }
 
@@ -101,7 +104,7 @@ let queued = false;
 function onEvent(e) {
   if (!skip) eventSound(e);
   if (e.type === 'log' && ['death', 'reveal', 'grail'].includes(e.entry.cls) && !skip) toast(e.entry.text, e.entry.cls);
-  if (e.type === 'book' && e.p.isHuman && !skip) toast(`Servant ใหม่ของคุณ: ${e.p.sv.cls} · ${e.p.sv.name}`, 'reveal');
+  if (e.type === 'book' && e.p.isHuman && !skip) toast(T("Servant ใหม่ของคุณ: {0} · {1}", e.p.sv.cls, e.p.sv.name), 'reveal');
   later();
 }
 function later() {
@@ -121,11 +124,11 @@ const kireiSees = () => started && me().m.key === 'kirei' && !me().revealed && !
 const CLS_AB = { Saber: 'SA', Archer: 'AR', Lancer: 'LA', Rider: 'RI', Caster: 'CA', Assassin: 'AS', Berserker: 'BE' };
 const clsAb = (sv) => CLS_AB[sv.cls] || esc(sv.cls.slice(0, 2).toUpperCase());
 const svArt = (sv, size = '') => SV_ART[sv.key] ? `<img class="svimg${size ? ` ${size}` : ''}" src="${SV_ART[sv.key]}" alt="${esc(`${sv.cls} · ${sv.name}`)}">` : `<span class="svart${size ? ` ${size}` : ''}" role="img" aria-label="${esc(`${sv.cls} · ${sv.name}`)}"><b>${clsAb(sv)}</b><small>${esc(sv.cls.toUpperCase())}</small></span>`;
-const svLabel = (p) => (seen(p) ? `${p.sv.cls} · ${p.sv.name}` : kireiSees() ? `คลาส ${p.sv.cls} · คุณเห็น (Supervisor)` : 'ชื่อจริงซ่อน');
+const svLabel = (p) => (seen(p) ? `${p.sv.cls} · ${p.sv.name}` : kireiSees() ? T("คลาส {0} · คุณเห็น (Supervisor)", p.sv.cls) : T("ชื่อจริงซ่อน"));
 function chip(p, extra = '') {
   const face = !seen(p) ? `<i>${esc(p.m.tok)}</i>` : SV_ART[p.sv.key] ? `<img src="${SV_ART[p.sv.key]}" alt="">` : `<i class="sv">${clsAb(p.sv)}</i>`;
   const cls = `chip${p.isHuman ? ' me' : ''}${g.turn === p ? ' turn' : ''}${p.out ? ' out' : ''}`;
-  return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name} · ${svLabel(p)}`)}">${face}<b>${esc(p.name)}${p.isHuman ? ' (คุณ)' : ''}</b>${extra}</span>`;
+  return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name} · ${svLabel(p)}`)}">${face}<b>${esc(p.name)}${p.isHuman ? T(" (คุณ)") : ''}</b>${extra}</span>`;
 }
 // rank 1 (paper 4.6 item 15): the most VP now among the Masters still in, ties all count; nobody
 // before anyone has VP; at the end of the game, the winner. Worked out once per drawing.
@@ -142,17 +145,17 @@ const crown = (p, cls = '') => (lead.has(p) ? ic('crown', '', { v: crownV([p]), 
 // a round Master piece for the board; rank 1 wears a small crown on top
 function tok(p, note = '', o = {}) {
   const cls = `tok${p.isHuman ? ' me' : ''}${g.turn === p ? ' turn' : ''}`;
-  return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name}${p.isHuman ? ' (คุณ)' : ''}${note}`)}">${esc(p.m.tok)}${o.noCrown ? '' : crown(p, 'crn')}</span>`;
+  return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name}${p.isHuman ? T(" (คุณ)") : ''}${note}`)}">${esc(p.m.tok)}${o.noCrown ? '' : crown(p, 'crn')}</span>`;
 }
 const csDots = (n) => '◆'.repeat(Math.max(0, n)) || '–';
 // the Command Spells left as ◆◆◆, a tap says what they are
-const csIc = (n, of = null) => `<span class="ic c-seal cs" data-ic="cs" data-v="${esc(`เหลือ ${n}${of != null ? `/${of}` : ''} ดวง`)}" aria-label="${esc(`Command Spell ${n}`)}">${csDots(n)}</span>`;
+const csIc = (n, of = null) => `<span class="ic c-seal cs" data-ic="cs" data-v="${esc(T("เหลือ {0}{1} ดวง", n, of != null ? `/${of}` : ''))}" aria-label="${esc(`Command Spell ${n}`)}">${csDots(n)}</span>`;
 // a step of paper 8.0 as its number; a tap gives its name
-const stepIc = (code) => `<span class="ic c-grail stc" data-ic="step" data-t="${esc(`ขั้น ${code} ${STEPS[code] || ''}`)}" data-m="ขั้นของรอบ (กระดาษข้อ 8.0)"><b>${code}</b></span>`;
+const stepIc = (code) => `<span class="ic c-grail stc" data-ic="step" data-t="${esc(T("ขั้น {0} {1}", code, STEPS[code] || ''))}" data-m="${T("ขั้นของรอบ (กระดาษข้อ 8.0)")}"><b>${code}</b></span>`;
 // permanent cards still in play (paper 4.6 item 11): laid face up, so public; UBW goes when the hand runs out
 const lasting = (q) => (q.out ? [] : q.skills.filter((c) => c.resident));
 const PERM_SHORT = { 'Unlimited Blade Works': 'UBW', 'Caster Class': 'Caster', Metamorphosis: 'Meta' };
-const permTitle = (c, q) => `${c.name} · ${q.name} · ถาวรตั้งแต่รอบ ${c.residentFrom} · พลัง ${c.power} ทุกรอบ${c.fx?.ubw ? ` · การ์ดในมือเหลือ ${q.hand.length} ใบ หมดแล้ว UBW ปิด` : ''}${c.fx?.offOnReveal ? ' · เปิดชื่อจริงเมื่อไร ปิด กลับช่องสกิล' : ''} · ${cardText(c)}`;
+const permTitle = (c, q) => T("{0} · {1} · ถาวรตั้งแต่รอบ {2} · พลัง {3} ทุกรอบ{4}{5} · {6}", c.name, q.name, c.residentFrom, c.power, c.fx?.ubw ? T(" · การ์ดในมือเหลือ {0} ใบ หมดแล้ว UBW ปิด", q.hand.length) : '', c.fx?.offOnReveal ? T(" · เปิดชื่อจริงเมื่อไร ปิด กลับช่องสกิล") : '', cardText(c));
 // one tag per card: a button in the lists (opens the card), a plain tag by the piece on the map
 function permTags(q, { btn = false } = {}) {
   const cs = lasting(q);
@@ -160,25 +163,25 @@ function permTags(q, { btn = false } = {}) {
   const one = (c) => {
     const nm = esc(c.fx?.ubw ? 'UBW' : c.name);
     return btn
-      ? `<button class="pchip t${c.type}" data-act="permcard" data-id="${q.id}" data-uid="${c.uid}" title="${esc(permTitle(c, q))}" aria-label="${esc(`${c.name} ถาวร · ดูการ์ด`)}">${nm}</button>`
+      ? `<button class="pchip t${c.type}" data-act="permcard" data-id="${q.id}" data-uid="${c.uid}" title="${esc(permTitle(c, q))}" aria-label="${esc(T("{0} ถาวร · ดูการ์ด", c.name))}">${nm}</button>`
       : `<span class="pchip t${c.type}" title="${esc(permTitle(c, q))}">${nm}</span>`;
   };
   return `<span class="${btn ? 'perms' : 'ptags'}">${cs.map(one).join('')}</span>`;
 }
 
 const TAG = {
-  reveal: 'เปิดชื่อจริง', once: 'ครั้งเดียวต่อเกม', permanent: 'ถาวร', petrify: 'ไม่มีชนิดพิเศษ [แพ้]', duel: '1 ต่อ 1 [แพ้]',
-  ruleBreaker: 'Command Spell −1', zeroOpp: (t) => `${TYPES[t]}คู่ต่อสู้ = 0`, hiddenDisc: (n) => `ชื่อซ่อน มานา −${n}`,
-  ubw: 'ทั้งสำรับขึ้นมือ', offOnReveal: 'เปิดชื่อแล้วปิด', riding: (n) => `ลงเพิ่มพลัง ≤${RIDE_MAX} ได้ ${n} ใบ`, riderDraw: 'จั่ว 1', move: (v) => (v === 'next' ? 'ย้ายช่องถัดไป' : 'ย้ายได้ทุกที่'),
-  bell: 'ย้าย + ยึดพื้นที่', extra: 'ลงเพิ่มนอก 2 ใบ', strike3: 'ลงเพิ่มถ้ามีว่องไว 2', sword: (n) => `ดาบ ${n}/3`, needMana: `มานา ${SKILL_MANA}+`,
-  no8: `ไม่ต้องมานา ${SKILL_MANA}`, strike1: 'ลงการ์ดกำลังแทน', block: 'ปิดผลคนอื่นที่นี่', playVP: (n) => `+${n} VP`, win: (n) => `ชนะ +${n} VP`,
-  strike: 'ชนะ: VP ตามคู่ต่อสู้', godHand: (n) => `แพ้ได้ ${n} VP`, terrainMul: (n) => `พื้นที่ ×${n}`, mana: (n) => `ได้มานา +${n}`,
-  zab: 'ชนะ VP ×2', hiddenOnly: 'ชื่อจริงซ่อนเท่านั้น', hide: 'ซ่อนชื่อจริงกลับ', excal: (n) => `ไคลแมกซ์ +${n}`,
-  rain: 'แพ้ Rule Breaker กลับ', workshop: 'โรงฝึก +1 มานา +2 VP', manaX: 'มานา 16−รอบ×2', gate: 'เลือกชนิด',
-  enuma: 'NP พิเศษ [แพ้]', archer: (n) => `+${n} VP · แพ้ −5`, presence: 'ล้มคนพลังสูงสุด', luck: 'ไม่สน [แพ้]',
+  reveal: T("เปิดชื่อจริง"), once: T("ครั้งเดียวต่อเกม"), permanent: T("ถาวร"), petrify: T("ไม่มีชนิดพิเศษ [แพ้]"), duel: T("1 ต่อ 1 [แพ้]"),
+  ruleBreaker: 'Command Spell −1', zeroOpp: (t) => T("{0}คู่ต่อสู้ = 0", TYPES[t]), hiddenDisc: (n) => T("ชื่อซ่อน มานา −{0}", n),
+  ubw: T("ทั้งสำรับขึ้นมือ"), offOnReveal: T("เปิดชื่อแล้วปิด"), riding: (n) => T("ลงเพิ่มพลัง ≤{0} ได้ {1} ใบ", RIDE_MAX, n), riderDraw: T("จั่ว 1"), move: (v) => (v === 'next' ? T("ย้ายช่องถัดไป") : T("ย้ายได้ทุกที่")),
+  bell: T("ย้าย + ยึดพื้นที่"), extra: T("ลงเพิ่มนอก 2 ใบ"), strike3: T("ลงเพิ่มถ้ามีว่องไว 2"), sword: (n) => T("ดาบ {0}/3", n), needMana: T("มานา {0}+", SKILL_MANA),
+  no8: T("ไม่ต้องมานา {0}", SKILL_MANA), strike1: T("ลงการ์ดกำลังแทน"), block: T("ปิดผลคนอื่นที่นี่"), playVP: (n) => `+${n} VP`, win: (n) => T("ชนะ +{0} VP", n),
+  strike: T("ชนะ: VP ตามคู่ต่อสู้"), godHand: (n) => T("แพ้ได้ {0} VP", n), terrainMul: (n) => T("พื้นที่ ×{0}", n), mana: (n) => T("ได้มานา +{0}", n),
+  zab: T("ชนะ VP ×2"), hiddenOnly: T("ชื่อจริงซ่อนเท่านั้น"), hide: T("ซ่อนชื่อจริงกลับ"), excal: (n) => T("ไคลแมกซ์ +{0}", n),
+  rain: T("แพ้ Rule Breaker กลับ"), workshop: T("โรงฝึก +1 มานา +2 VP"), manaX: T("มานา 16−รอบ×2"), gate: T("เลือกชนิด"),
+  enuma: T("NP พิเศษ [แพ้]"), archer: (n) => T("+{0} VP · แพ้ −5", n), presence: T("ล้มคนพลังสูงสุด"), luck: T("ไม่สน [แพ้]"),
 };
 // what an effect line of a window card does, in short (paper section 9)
-const useFx = (fx) => [fx.mana && `มานา +${fx.mana}`, fx.vp && `${fx.vp} VP`, fx.peek && 'ดูอีเวนต์ชินโตะ', fx.freeMove && 'ย้ายแม้ติดพัน'].filter(Boolean).join(' · ');
+const useFx = (fx) => [fx.mana && T("มานา +{0}", fx.mana), fx.vp && `${fx.vp} VP`, fx.peek && T("ดูอีเวนต์ชินโตะ"), fx.freeMove && T("ย้ายแม้ติดพัน")].filter(Boolean).join(' · ');
 const tags = (c) => [...(c.use || []).map((u) => `${WHEN_NAME[u.when]}: ${useFx(u.fx)}`), ...Object.entries(c.fx || {}).filter(([k]) => TAG[k]).map(([k, v]) => (typeof TAG[k] === 'function' ? TAG[k](v) : TAG[k]))];
 const typeName = (c) => (c.types ? c.types.map((t) => TYPES[t]).join(' · ') : TYPES[c.type]); // e.g. Excalibur: NP · กำลัง
 // the same words in each type's colour, for card lists and details (NP · กำลัง: gold, then red)
@@ -187,22 +190,33 @@ const typeHtml = (c) => (c.types || [c.type]).map((t) => `<span class="tw tw-${t
 const typeIc = (t) => (t === 'N' ? '<b class="tw tw-N">NP</b>' : `<i class="ti ti-${t}" role="img" aria-label="${TYPES[t]}"></i>`);
 const typeIcons = (c) => (c.types || [c.type]).map(typeIc).join('');
 // the short states and tags on a card face as icons (paper 4.6 item 14); the details keep the words
-const FX_IC = [
+const FX_IC = lang() === 'th' ? [
   [/ใช้แล้ว · ครั้งเดียว(?:ต่อเกม)?/g, () => `${ic('used')}${ic('once')}`],
   [/ครั้งเดียวต่อเกม|ครั้งเดียว/g, () => ic('once')],
-  [/ถาวรอยู่ในสนาม|ถาวรอยู่/g, () => ic('perm', '', { w: 'ถาวร' })],
+  [/ถาวรอยู่ในสนาม|ถาวรอยู่/g, () => ic('perm', '', { w: T("ถาวร") })],
   [/ถาวร/g, () => ic('perm')],
-  [/ใช้แล้ว(?: · หงายไว้)?/g, () => ic('used', '', { w: 'ใช้แล้ว' })],
-  [/พร้อมใช้/g, () => ic('ready', '', { w: 'พร้อม' })],
-  [/ช่องสกิล · ลงเพิ่ม|ลงเพิ่มนอก 2 ใบ/g, () => ic('extra', '', { w: 'ลงเพิ่ม' })],
+  [/ใช้แล้ว(?: · หงายไว้)?/g, () => ic('used', '', { w: T("ใช้แล้ว") })],
+  [/พร้อมใช้/g, () => ic('ready', '', { w: T("พร้อม") })],
+  [/ช่องสกิล · ลงเพิ่ม|ลงเพิ่มนอก 2 ใบ/g, () => ic('extra', '', { w: T("ลงเพิ่ม") })],
   [/ชื่อจริงซ่อนเท่านั้น|ชื่อจริงยังซ่อน|ชื่อซ่อน/g, () => ic('hidden')],
   [/เปิดชื่อจริง/g, () => ic('open')],
+  [/Command Spell ([−+]\d+)/g, (m, n) => `${ic('cs')}${n}`],
+] : [
+  [anyRe(['ใช้แล้ว · ครั้งเดียวต่อเกม', 'ใช้แล้ว · ครั้งเดียว']), () => `${ic('used')}${ic('once')}`],
+  [anyRe(['ครั้งเดียวต่อเกม', 'ครั้งเดียว']), () => ic('once')],
+  [anyRe(['ถาวรอยู่ในสนาม', 'ถาวรอยู่']), () => ic('perm', '', { w: T('ถาวร') })],
+  [anyRe(['ถาวร']), () => ic('perm')],
+  [anyRe(['ใช้แล้ว · หงายไว้', 'ใช้แล้ว']), () => ic('used', '', { w: T('ใช้แล้ว') })],
+  [anyRe(['พร้อมใช้']), () => ic('ready', '', { w: T('พร้อม') })],
+  [anyRe(['ช่องสกิล · ลงเพิ่ม', 'ลงเพิ่มนอก 2 ใบ']), () => ic('extra', '', { w: T('ลงเพิ่ม') })],
+  [anyRe(['ชื่อจริงซ่อนเท่านั้น', 'ชื่อจริงยังซ่อน', 'ชื่อซ่อน']), () => ic('hidden')],
+  [anyRe(['เปิดชื่อจริง']), () => ic('open')],
   [/Command Spell ([−+]\d+)/g, (m, n) => `${ic('cs')}${n}`],
 ];
 const fxHtml = (t) => iconize(esc(t), FX_IC);
 const cardName = (c) => c.name || `${typeName(c)} ${c.power}`;
 const clean = (t) => t.replace(/\s*\[(p\.\d+(–\d+)?|4G|GZ|NW|FD|ฟามิซือ)\]/g, ''); // source tags belong to the paper, not the table
-const cardText = (c) => (c.text ? clean(c.text) : [`${typeName(c)} พลัง ${c.power} มานา ${c.mana}`, ...tags(c)].join(' · '));
+const cardText = (c) => (c.text ? clean(c.text) : [T("{0} พลัง {1} มานา {2}", typeName(c), c.power, c.mana), ...tags(c)].join(' · '));
 // the label of each effect line: window · where · condition (paper section 9)
 const lineText = (l) => [WHEN_NAME[l.when], l.where && WHERE[l.where], l.cond && COND[l.cond]].filter(Boolean).join(' · ');
 // the timing label as an icon (▶ ตอนใช้ · 💥 ตอนปะทะ · ⟳ ตลอด · ∞ ถาวร) or, for a window, its step
@@ -218,16 +232,16 @@ const srcOf = (c) => (c.skill && c.type !== 'N' ? 'sv' : c.special ? 'ms' : '');
 const masterOf = (c) => MASTERS.find((m) => m.key === MASTER_CARD[c.name])?.short || '';
 function srcText(c, owner) {
   const s = srcOf(c);
-  if (s === 'sv') return `สกิลของ ${owner && seen(owner) ? owner.sv.cls : 'Servant'}`;
-  if (s === 'ms') return `สกิลของ Master ${masterOf(c)}`;
-  return c.skill ? `NP ของ ${owner && seen(owner) ? owner.sv.cls : 'Servant'}` : '';
+  if (s === 'sv') return T("สกิลของ {0}", owner && seen(owner) ? owner.sv.cls : 'Servant');
+  if (s === 'ms') return T("สกิลของ Master {0}", masterOf(c));
+  return c.skill ? T("NP ของ {0}", owner && seen(owner) ? owner.sv.cls : 'Servant') : '';
 }
-const srcBand = (s) => (s ? `<b class="src ${s}">สกิล<span class="who"> ${s === 'sv' ? 'Servant' : 'Master'}</span></b>` : '');
+const srcBand = (s) => (s ? `<b class="src ${s}">${T("สกิล")}<span class="who"> ${s === 'sv' ? 'Servant' : 'Master'}</span></b>` : '');
 
 // a card tile. o: { btn, act, sel, down, back, lock, glow, power, cost, mini, sm, hd, note, key }
 function tile(c, o = {}) {
   const size = o.mini ? ' mini' : o.sm ? ' sm' : o.hd ? ' hd' : '';
-  if (o.back) return `<div class="card back${size}" title="การ์ดคว่ำ"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`;
+  if (o.back) return `<div class="card back${size}" title="${T("การ์ดคว่ำ")}"><span class="ty">${T("คว่ำ")}</span><span class="pw">?</span></div>`;
   const down = o.down ?? c.down;
   const src = srcOf(c);
   const art = !down && CARD_ART[c.name]; // the real card's picture behind the numbers (paper 4.6 item 16)
@@ -236,9 +250,9 @@ function tile(c, o = {}) {
   const pw = o.power ?? c.power;
   const zero = down || c.off;
   const up = pw > c.power ? `<sup>+${pw - c.power}</sup>` : '';
-  const fx = o.note ?? (c.gone ? 'ใช้แล้ว' : c.resident ? 'ถาวรอยู่' : tags(c).slice(0, 2).join(' · '));
-  const body = `${srcBand(src)}<span class="ty">${down ? 'คว่ำ · ' : c.off ? 'ปิด · ' : ''}${typeIcons(c)}</span><span class="pw">${zero ? 0 : Math.min(pw, c.power)}${zero ? '' : up}</span>`
-    + `<span class="mn" title="มานา">${o.cost ?? (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana)}</span>`
+  const fx = o.note ?? (c.gone ? T("ใช้แล้ว") : c.resident ? T("ถาวรอยู่") : tags(c).slice(0, 2).join(' · '));
+  const body = `${srcBand(src)}<span class="ty">${down ? T("คว่ำ · ") : c.off ? T("ปิด · ") : ''}${typeIcons(c)}</span><span class="pw">${zero ? 0 : Math.min(pw, c.power)}${zero ? '' : up}</span>`
+    + `<span class="mn" title="${T("มานา")}">${o.cost ?? (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana)}</span>`
     + `<span>${c.name ? `<span class="nm">${esc(c.name)}</span>` : ''}${fx ? `<span class="fx">${fxHtml(fx)}</span>` : ''}</span>`;
   const title = esc([srcText(c), cardText(c)].filter(Boolean).join(' · '));
   if (o.btn) return `<button class="${cls}"${st} data-act="${o.act || 'pick'}" data-uid="${o.key ?? c.uid}" title="${title}" aria-pressed="${!!o.sel}">${body}</button>`;
@@ -251,13 +265,13 @@ const peeked = () => started && me().peek === g.round;
 const evHidden = (f) => f === 'shinto' && !g.shintoOpen && !peeked();
 function prizeText(f) {
   if (!g.evs[f].length) return '';
-  if (evHidden(f)) return `อีเวนต์คว่ำ · ชนะได้ VP การ์ด + ${bonusOf(f)}`;
-  return `คนเดียว ${g.eventVP(f)} VP · ชนะคู่ต่อสู้ ${g.fieldVP(f)} VP`;
+  if (evHidden(f)) return T("อีเวนต์คว่ำ · ชนะได้ VP การ์ด + {0}", bonusOf(f));
+  return T("คนเดียว {0} VP · ชนะคู่ต่อสู้ {1} VP", g.eventVP(f), g.fieldVP(f));
 }
 // the same as icons: 👤2 👥4 (paper 4.6 item 14)
 function prizeHtml(f) {
   if (!g.evs[f].length) return '';
-  if (evHidden(f)) return ic('duel', `?+${bonusOf(f)}`, { v: `อีเวนต์ยังคว่ำ · ชนะได้ VP การ์ด + ${bonusOf(f)}` });
+  if (evHidden(f)) return ic('duel', `?+${bonusOf(f)}`, { v: T("อีเวนต์ยังคว่ำ · ชนะได้ VP การ์ด + {0}", bonusOf(f)) });
   return `${ic('alone', g.eventVP(f), { v: `${g.eventVP(f)} VP` })} ${ic('duel', g.fieldVP(f), { v: `${g.fieldVP(f)} VP` })}`;
 }
 
@@ -269,15 +283,15 @@ function cutInfo() {
   const target = !climax ? (left.length >= 5 ? 4 : left.length - 1) : g.sit?.size === 2 ? 1 : 2;
   if (left.length <= target) return null;
   const line = left[target].vp;
-  return { target, line, when: climax ? `จบไคลแมกซ์ ${g.climaxNo()}` : `จบรอบ ${REGULAR}`, allOut: !left.some((p) => p.vp > line), show: climax || g.round >= 6 };
+  return { target, line, when: climax ? T("จบไคลแมกซ์ {0}", g.climaxNo()) : T("จบรอบ {0}", REGULAR), allOut: !left.some((p) => p.vp > line), show: climax || g.round >= 6 };
 }
 
 function roundLabel() {
-  if (!g.round) return 'ก่อนเริ่มเกม';
-  return g.climax() ? `ไคลแมกซ์ ${g.climaxNo()} · รอบ ${g.round}` : `รอบ ${g.round}/${REGULAR}`;
+  if (!g.round) return T("ก่อนเริ่มเกม");
+  return g.climax() ? T("ไคลแมกซ์ {0} · รอบ {1}", g.climaxNo(), g.round) : T("รอบ {0}/{1}", g.round, REGULAR);
 }
-const roundHtml = () => (!g.round ? 'ก่อนเริ่มเกม' : g.climax() ? `${ic('round', g.round, { v: `รอบ ${g.round} · ไคลแมกซ์ ${g.climaxNo()}` })} ไคลแมกซ์ ${g.climaxNo()}`
-  : ic('round', `${g.round}/${REGULAR}`, { v: `รอบ ${g.round} จาก ${REGULAR}` }));
+const roundHtml = () => (!g.round ? T("ก่อนเริ่มเกม") : g.climax() ? T("{0} ไคลแมกซ์ {1}", ic('round', g.round, { v: T("รอบ {0} · ไคลแมกซ์ {1}", g.round, g.climaxNo()) }), g.climaxNo())
+  : ic('round', `${g.round}/${REGULAR}`, { v: T("รอบ {0} จาก {1}", g.round, REGULAR) }));
 const phaseName = () => (g.phase && !g.over ? PHASES.find(([k]) => k === g.phase)?.[1] || '' : '');
 
 // ---------- drawing ----------
@@ -300,27 +314,27 @@ function render() {
 }
 
 const stepNow = () => (g.step && g.phase && !g.over ? g.step : '');
-const PHASE_TIP = { prep: 'จั่ว · เปิดสถานการณ์ · วางอีเวนต์ (ขั้น 1.1–1.4)', outpost: 'ทีละคนวางหมาก Master (ขั้น 2.1–2.3)', action: 'ทีละคนย้ายแล้วลงการ์ด 2 ใบ (ขั้น 3.1–3.5)', combat: 'ผลตอนปะทะ แล้วตัดสินผู้ชนะ (ขั้น 4.1–4.2)', end: 'เก็บการ์ด ส่งผู้เริ่ม (ขั้น 5.1–5.2)' };
+const PHASE_TIP = { prep: T("จั่ว · เปิดสถานการณ์ · วางอีเวนต์ (ขั้น 1.1–1.4)"), outpost: T("ทีละคนวางหมาก Master (ขั้น 2.1–2.3)"), action: T("ทีละคนย้ายแล้วลงการ์ด 2 ใบ (ขั้น 3.1–3.5)"), combat: T("ผลตอนปะทะ แล้วตัดสินผู้ชนะ (ขั้น 4.1–4.2)"), end: T("เก็บการ์ด ส่งผู้เริ่ม (ขั้น 5.1–5.2)") };
 function drawHud() {
   const st = stepNow();
   // the five phases as numbers; the phase now has its name and step (paper 4.6 item 14)
   const steps = PHASES.map(([k, t], i) => (g.phase === k && !g.over
-    ? `<li class="now"><b class="pn">${i + 1}</b> ${t}${st ? `<small class="stp" title="ขั้นของรอบ (กระดาษข้อ 8.0)"><b>${st}</b><span class="sn"> ${esc(STEPS[st])}</span></small>` : ''}</li>`
-    : `<li><span class="ic pn" data-ic="phase" data-t="เฟส ${i + 1} ${t}" data-m="${esc(PHASE_TIP[k])}" aria-label="เฟส ${i + 1} ${t}"><b>${i + 1}</b></span></li>`)).join('');
+    ? `<li class="now"><b class="pn">${i + 1}</b> ${t}${st ? `<small class="stp" title="${T("ขั้นของรอบ (กระดาษข้อ 8.0)")}"><b>${st}</b><span class="sn"> ${esc(STEPS[st])}</span></small>` : ''}</li>`
+    : `<li><span class="ic pn" data-ic="phase" data-t="${T("เฟส")} ${i + 1} ${t}" data-m="${esc(PHASE_TIP[k])}" aria-label="${T("เฟส")} ${i + 1} ${t}"><b>${i + 1}</b></span></li>`)).join('');
   const p = me();
-  const stats = started ? `<div class="mystat" aria-label="ของคุณ">${ic('mana', p.mana, { v: `${p.mana}/${MANA_MAX}`, cls: 'm' })}${ic('cs', p.cs, { v: `เหลือ ${p.cs} ดวง`, cls: 'c' })}${ic('vp', p.vp, { v: `${p.vp} VP`, cls: 'v' })}${crown(p)}</div>` : '';
+  const stats = started ? `<div class="mystat" aria-label="${T("ของคุณ")}">${ic('mana', p.mana, { v: `${p.mana}/${MANA_MAX}`, cls: 'm' })}${ic('cs', p.cs, { v: T("เหลือ {0} ดวง", p.cs), cls: 'c' })}${ic('vp', p.vp, { v: `${p.vp} VP`, cls: 'v' })}${crown(p)}</div>` : '';
   const ph = phaseName();
   $('#hud').innerHTML = `<span class="crest">DOMINATE GRAIL WAR</span>
-    <div class="track"><b class="rl">${roundHtml()}${ph ? `<span class="ph"> · ${ph}${st ? `<span class="stc"> ${st}</span>` : ''}</span>` : ''}</b><ol class="steps" aria-label="ขั้นของรอบ">${steps}</ol></div>
+    <div class="track"><b class="rl">${roundHtml()}${ph ? `<span class="ph"> · ${ph}${st ? `<span class="stc"> ${st}</span>` : ''}</span>` : ''}</b><ol class="steps" aria-label="${T("ขั้นของรอบ")}">${steps}</ol></div>
     ${stats}
-    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="rules" title="กติกา" aria-label="กติกา">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">เกมใหม่</button><button class="btn sm ghost w-only icb" data-act="settings" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">เมนู</button></div>`;
+    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="rules" title="${T("กติกา")}" aria-label="${T("กติกา")}">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">${T("เกมใหม่")}</button><button class="btn sm ghost w-only icb" data-act="settings" title="${T("ตั้งค่า")}" aria-label="${T("ตั้งค่า")}">⚙</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">${T("เมนู")}</button></div>`;
 }
 
 // one status line: whose turn it is and what to do; pop-ups open from here too
 function orderToks() {
   const ord = g.order();
   const done = (p) => (g.phase === 'outpost' ? p.at != null : g.phase === 'action' ? ord.indexOf(p) < ord.indexOf(g.turn) : false);
-  return `<span class="order" aria-label="ลำดับเล่น">${ord.map((p) => `<span class="${done(p) ? 'done' : ''}">${tok(p)}</span>`).join('')}</span>`;
+  return `<span class="order" aria-label="${T("ลำดับเล่น")}">${ord.map((p) => `<span class="${done(p) ? 'done' : ''}">${tok(p)}</span>`).join('')}</span>`;
 }
 function drawBar() {
   const el = $('#bar');
@@ -329,35 +343,35 @@ function drawBar() {
   const phc = !started || g.over ? '' : ['prep', 'outpost'].includes(g.phase) ? 'place' : g.phase === 'action' ? 'move' : g.phase === 'combat' ? 'fight' : '';
   for (const k of ['place', 'move', 'fight']) el.classList.toggle(`ph-${k}`, phc === k);
   let html;
-  if (!started) html = '<span class="dim">เลือก Master เพื่อเริ่มสงคราม</span>';
+  if (!started) html = `<span class="dim">${T("เลือก Master เพื่อเริ่มสงคราม")}</span>`;
   else if (g.over) {
-    html = `<span class="who">GAME OVER</span><b>${esc(g.winner ? `${g.winner.name} ชนะสงครามจอกศักดิ์สิทธิ์` : 'ไม่มีผู้ชนะ')}</b>
-      <span class="acts"><button class="btn sm" data-act="showover">ดูอันดับ</button><button class="btn sm primary" data-act="again">เล่นอีกครั้ง</button></span>`;
+    html = `<span class="who">GAME OVER</span><b>${esc(g.winner ? T("{0} ชนะสงครามจอกศักดิ์สิทธิ์", g.winner.name) : T("ไม่มีผู้ชนะ"))}</b>
+      <span class="acts"><button class="btn sm" data-act="showover">${T("ดูอันดับ")}</button><button class="btn sm primary" data-act="again">${T("เล่นอีกครั้ง")}</button></span>`;
   } else if (myTurn()) {
     const k = wait.kind;
     const w = k === 'window' ? WINDOWS[wait.ctx.w] : null;
-    const what = k === 'strike1' ? 'ต่อสู้ · 1st Strike เลือกการ์ด' : k === 'place' ? 'ตั้งมั่น · วางหมาก' : k === 'move' ? 'ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม' : w ? `ช่วง${w.name} · ใช้การ์ดได้` : `ลงการ์ดที่${AREAS[p.at].name}${AREAS[p.at].field ? '' : ' · ไม่คิดพลัง'}`;
-    const hint = k === 'cards' ? '' : k === 'strike1' ? '<span class="hint">ขั้น 4.1 · ผล "ตอนปะทะ" ของคุณ</span>' : w ? `<span class="hint">ขั้น ${w.code} · การ์ดที่ใช้ได้เรืองแสงในแถบการ์ด</span>` : '<span class="hint">แตะพื้นที่ที่เรืองแสงบนกระดาน</span>';
+    const what = k === 'strike1' ? T("ต่อสู้ · 1st Strike เลือกการ์ด") : k === 'place' ? T("ตั้งมั่น · วางหมาก") : k === 'move' ? T("ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม") : w ? T("ช่วง{0} · ใช้การ์ดได้", w.name) : T("ลงการ์ดที่{0}{1}", AREAS[p.at].name, AREAS[p.at].field ? '' : T(" · ไม่คิดพลัง"));
+    const hint = k === 'cards' ? '' : k === 'strike1' ? `<span class="hint">${T("ขั้น 4.1 · ผล \"ตอนปะทะ\" ของคุณ")}</span>` : w ? `<span class="hint">${T("ขั้น {0} · การ์ดที่ใช้ได้เรืองแสงในแถบการ์ด", w.code)}</span>` : `<span class="hint">${T("แตะพื้นที่ที่เรืองแสงบนกระดาน")}</span>`;
     const cs4 = k === 'move' && p.cs > 0 && p.mana < MANA_MAX
-      ? `<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="mvcs4" aria-pressed="${!!draft.cs4}">◆ มานา +${CS_MANA} ก่อนย้าย</button>` : '';
-    const btn = k === 'strike1' ? '<button class="btn sm primary" data-act="copen" data-k="strike1">เปิดหน้าเลือก</button>'
-      : k === 'cards' ? '<button class="btn sm primary" data-act="openact">เปิดหน้าลงการ์ด</button>'
-      : w ? '<button class="btn sm" data-act="winpass">ผ่าน</button><button class="btn sm primary" data-act="openwin">เปิดหน้าใช้การ์ด</button>'
-      : '<button class="btn sm" data-act="pop" data-k="opts">ดูตัวเลือกทั้งหมด</button>';
-    html = `<span class="yourturn">ตาของคุณ</span><b>${esc(what)}</b>${hint}<span class="acts">${cs4}${btn}</span>`;
+      ? `<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="mvcs4" aria-pressed="${!!draft.cs4}">${T("◆ มานา +{0} ก่อนย้าย", CS_MANA)}</button>` : '';
+    const btn = k === 'strike1' ? `<button class="btn sm primary" data-act="copen" data-k="strike1">${T("เปิดหน้าเลือก")}</button>`
+      : k === 'cards' ? `<button class="btn sm primary" data-act="openact">${T("เปิดหน้าลงการ์ด")}</button>`
+      : w ? `<button class="btn sm" data-act="winpass">${T("ผ่าน")}</button><button class="btn sm primary" data-act="openwin">${T("เปิดหน้าใช้การ์ด")}</button>`
+      : `<button class="btn sm" data-act="pop" data-k="opts">${T("ดูตัวเลือกทั้งหมด")}</button>`;
+    html = `<span class="yourturn">${T("ตาของคุณ")}</span><b>${esc(what)}</b>${hint}<span class="acts">${cs4}${btn}</span>`;
   } else if (wait?.kind === 'combatEnd') {
     const bt = myBattle();
     const r = bt?.res;
     const mine = r?.ents.find((e) => e.id === p.id);
-    const how = !mine ? '' : mine.defeated ? ` · คุณ ${ic('dead', '', { w: 'แพ้' })}` : mine.won ? ` · คุณชนะ ${ic('vp', pm(mine.gain), { cls: 'r' })}` : ' · คุณแพ้';
-    html = `<span class="who">ผลการต่อสู้</span><b>${bt ? `${esc(AREAS[bt.f].name)}${how}` : 'ทุกสนามรบ'}</b>
-      <span class="acts"><button class="btn sm" data-act="allres">ดูผลทุกสนามรบ</button><button class="btn sm primary" data-act="cont">จบรอบ</button></span>`;
+    const how = !mine ? '' : mine.defeated ? T(" · คุณ {0}", ic('dead', '', { w: T("แพ้") })) : mine.won ? T(" · คุณชนะ {0}", ic('vp', pm(mine.gain), { cls: 'r' })) : T(" · คุณแพ้");
+    html = `<span class="who">${T("ผลการต่อสู้")}</span><b>${bt ? `${esc(AREAS[bt.f].name)}${how}` : T("ทุกสนามรบ")}</b>
+      <span class="acts"><button class="btn sm" data-act="allres">${T("ดูผลทุกสนามรบ")}</button><button class="btn sm primary" data-act="cont">${T("จบรอบ")}</button></span>`;
   } else {
     const t = g.turn;
     const st = stepNow();
-    const what = !g.round ? 'กำลังเรียก Servant…' : t ? `${esc(t.name)} ${ic('wait', '', { v: 'กำลังเลือก' })}${st ? ` ${stepIc(st)} ${esc(STEPS[st])}` : ''}` : g.phase === 'combat' ? 'กำลังตัดสินผลการต่อสู้' : 'กำลังเตรียมรอบ';
-    html = `<span class="who">${p.out ? 'คุณตกรอบแล้ว' : 'รอคู่แข่ง'}</span><b>${what}</b>${g.round ? orderToks() : ''}
-      ${p.out && !skip ? '<span class="acts"><button class="btn sm" data-act="skip">ข้ามไปผลสุดท้าย</button></span>' : ''}`;
+    const what = !g.round ? T("กำลังเรียก Servant…") : t ? `${esc(t.name)} ${ic('wait', '', { v: T("กำลังเลือก") })}${st ? ` ${stepIc(st)} ${esc(STEPS[st])}` : ''}` : g.phase === 'combat' ? T("กำลังตัดสินผลการต่อสู้") : T("กำลังเตรียมรอบ");
+    html = `<span class="who">${p.out ? T("คุณตกรอบแล้ว") : T("รอคู่แข่ง")}</span><b>${what}</b>${g.round ? orderToks() : ''}
+      ${p.out && !skip ? `<span class="acts"><button class="btn sm" data-act="skip">${T("ข้ามไปผลสุดท้าย")}</button></span>` : ''}`;
   }
   el.classList.toggle('act', myTurn());
   el.innerHTML = html + barHtml(); // online: room, who is thinking, the clock
@@ -378,7 +392,7 @@ function drawBoard() {
   const can = boardChoices();
   const arrow = (i) => {
     const kz = me().m.key === 'kuzuki' && i === 0 && started;
-    return `<div class="arrow a${i + 1}"><i aria-hidden="true">➜</i><span class="cost">${ic('mana', kz ? 0 : STEP_COST[i], { t: 'มานาที่ใช้เดิน', m: 'เดินตามลูกศรได้ทางเดียว จ่ายมานาตามเลขนี้', v: kz ? 'คุซุกิเดินช่องนี้ฟรี' : `${STEP_COST[i]}` })}</span></div>`;
+    return `<div class="arrow a${i + 1}"><i aria-hidden="true">➜</i><span class="cost">${ic('mana', kz ? 0 : STEP_COST[i], { t: T("มานาที่ใช้เดิน"), m: T("เดินตามลูกศรได้ทางเดียว จ่ายมานาตามเลขนี้"), v: kz ? T("คุซุกิเดินช่องนี้ฟรี") : `${STEP_COST[i]}` })}</span></div>`;
   };
   const bt = myBattle();
   $('#board').innerHTML = `${sitLine()}
@@ -388,13 +402,13 @@ function drawBoard() {
 
 // the situation card in one line; the full text opens from it. Type words become crests there.
 const TYPE_WORD = Object.fromEntries(Object.entries(TYPES).map(([k, v]) => [v, k]));
-const SIT_IC = [[/การ์ด(กำลัง|ว่องไว|เวท|พิเศษ)/g, (m, w) => typeIc(TYPE_WORD[w])]];
+const SIT_IC = [[lang() === 'th' ? /การ์ด(กำลัง|ว่องไว|เวท|พิเศษ)/g : tplRe('การ์ด{0}', `(${['S', 'A', 'M', 'X'].map((k) => rxEsc(TYPES[k])).join('|')})`), (m, w) => typeIc(TYPE_WORD[w] ?? TYPE_WORD[Object.keys(TYPE_WORD).find((k) => k.toLowerCase() === w.toLowerCase())])]];
 function sitLine() {
   const s = g.sit;
   const body = s
-    ? `<span class="lab">${ic('sit', '', { v: s.name })}</span><b>${esc(s.name)}</b><span class="mana">${ic('mana', `+${s.mana}`, { v: `ทุกคนได้มานา +${s.mana} ตอนเตรียมการ` })}</span><span class="rule">${iconize(esc(s.text), SIT_IC)}</span>`
-    : `<span class="lab">${ic('sit')}</span><span class="rule">เปิดรอบละใบตอนเตรียมการ</span>`;
-  return `<button class="sit${g.climax() ? ' climax' : ''}" data-act="pop" data-k="sit" aria-label="การ์ดสถานการณ์ · ดูเพิ่ม">${body}<span class="more">${svg('more')}</span></button>`;
+    ? `<span class="lab">${ic('sit', '', { v: s.name })}</span><b>${esc(s.name)}</b><span class="mana">${ic('mana', `+${s.mana}`, { v: T("ทุกคนได้มานา +{0} ตอนเตรียมการ", s.mana) })}</span><span class="rule">${iconize(esc(s.text), SIT_IC)}</span>`
+    : `<span class="lab">${ic('sit')}</span><span class="rule">${T("เปิดรอบละใบตอนเตรียมการ")}</span>`;
+  return `<button class="sit${g.climax() ? ' climax' : ''}" data-act="pop" data-k="sit" aria-label="${T("การ์ดสถานการณ์ · ดูเพิ่ม")}">${body}<span class="more">${svg('more')}</span></button>`;
 }
 
 // every Master still in the war, ranked by VP, with the cut line (phones; the side shows it on a computer)
@@ -405,10 +419,10 @@ function strip() {
   const line = cut?.show && !cut.allOut ? alive.findIndex((p) => p.vp <= cut.line) : -1;
   let s = '';
   alive.forEach((p, i) => {
-    if (i === line) s += '<i class="cut" title="เส้นตัด"></i>';
+    if (i === line) s += `<i class="cut" title="${T("เส้นตัด")}"></i>`;
     s += `<span class="sp${p.isHuman ? ' me' : ''}">${tok(p, ` · ${p.vp} VP`)}<b>${p.vp}</b></span>`;
   });
-  return `<button class="strip" data-act="pop" data-k="rank" aria-label="อันดับ VP ของทุกคน"><span class="lab">${svg('vp')}</span>${s}</button>`;
+  return `<button class="strip" data-act="pop" data-k="rank" aria-label="${T("อันดับ VP ของทุกคน")}"><span class="lab">${svg('vp')}</span>${s}</button>`;
 }
 
 // your cards along the bottom of the board, on every screen (paper 4.6); the deck opens from its end
@@ -419,24 +433,24 @@ function handStrip() {
   const can = winCan(); // cards usable in the window being asked glow (paper 8.0 rule 7)
   const hand = p.hand.map((c) => tile(c, { ...o, glow: can.has(c.uid) })).join('') + p.specials.map((c) => tile(c, { ...o, note: specialNote(c), glow: can.has(c.uid) })).join('');
   const skills = p.skills.map((c) => tile(c, { ...o, note: skillNote(c), lock: skillLocked(c), glow: can.has(c.uid), cost: costNow(c) })).join('');
-  return `<div class="hand"><span class="lab">${ic('hand', p.hand.length, { v: `ในมือ ${p.hand.length} ใบ` })}</span><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div><i class="sep"></i><div class="cards">${skills}</div>
-    <button class="deckbtn" data-act="pop" data-k="deck" aria-label="ดูเดค · สำรับ ${p.deck.length} ใบ">${p.deck.length ? '<i class="dk" aria-hidden="true"></i>' : ''}<b>ดูเดค</b><small>${svg('deck')}${p.deck.length}</small></button></div>`;
+  return `<div class="hand"><span class="lab">${ic('hand', p.hand.length, { v: T("ในมือ {0} ใบ", p.hand.length) })}</span><div class="cards">${hand || `<span class="dim">${T("ยังไม่มีการ์ด")}</span>`}</div><i class="sep"></i><div class="cards">${skills}</div>
+    <button class="deckbtn" data-act="pop" data-k="deck" aria-label="${T("ดูเดค · สำรับ {0} ใบ", p.deck.length)}">${p.deck.length ? '<i class="dk" aria-hidden="true"></i>' : ''}<b>${T("ดูเดค")}</b><small>${svg('deck')}${p.deck.length}</small></button></div>`;
 }
 const winCan = () => new Set(wait?.kind === 'window' ? wait.ctx.cards : []);
 // the mana a card costs now (Caster Class X, Gate of Babylon X, Invisible Air while hidden)
 const costNow = (c, p = me()) => (c.fx?.gate ? 'X' : g.round && !g.over ? g.costOf(p, c) : c.fx?.manaX ? 'X' : c.mana);
 const skillNote = (c) => {
   const p = me();
-  if (c.gone) return c.fx?.godHand ? 'ออกจากเกม' : 'ใช้แล้ว · ครั้งเดียว';
-  if (c.resident) return c.fx?.ubw ? 'ถาวร · จั่วไม่ได้' : 'ถาวรอยู่ในสนาม';
-  if (p.uses[c.name]) return 'ใช้แล้ว';
-  return g.round && !g.over ? g.skillState(p, c) || 'พร้อมใช้' : 'คว่ำไว้';
+  if (c.gone) return c.fx?.godHand ? T("ออกจากเกม") : T("ใช้แล้ว · ครั้งเดียว");
+  if (c.resident) return c.fx?.ubw ? T("ถาวร · จั่วไม่ได้") : T("ถาวรอยู่ในสนาม");
+  if (p.uses[c.name]) return T("ใช้แล้ว");
+  return g.round && !g.over ? g.skillState(p, c) || T("พร้อมใช้") : T("คว่ำไว้");
 };
 const skillLocked = (c) => !c.gone && !c.resident && !!(g.round && !g.over && g.skillState(me(), c));
-const specialNote = (c) => (c.windowOnly ? 'ใช้ช่วงเตรียมการ' : c.temp ? 'ใช้รอบเดียว' : (g.round && !g.over && g.specialState(me(), c)) || 'ช่องสกิล · ลงเพิ่ม');
+const specialNote = (c) => (c.windowOnly ? T("ใช้ช่วงเตรียมการ") : c.temp ? T("ใช้รอบเดียว") : (g.round && !g.over && g.specialState(me(), c)) || T("ช่องสกิล · ลงเพิ่ม"));
 
 function areaAttrs(k, can) {
-  return ` data-act="area" data-to="${k}" role="button" tabindex="0" aria-label="${esc(`${AREAS[k].name}${can[k] ? ' · เลือกได้' : ''} · ดูรายละเอียด`)}"`;
+  return ` data-act="area" data-to="${k}" role="button" tabindex="0" aria-label="${esc(T("{0}{1} · ดูรายละเอียด", AREAS[k].name, can[k] ? T(" · เลือกได้") : ''))}"`;
 }
 const amHere = (k) => me().at === k && !me().out && started;
 const areaCls = (k, can) => `${can[k] ? ' can' : ''}${amHere(k) ? ' here' : ''}${g.here(k).some((q) => lead.has(q)) ? ' lead' : ''}`;
@@ -444,7 +458,7 @@ const areaCls = (k, can) => `${can[k] ? ' can' : ''}${amHere(k) ? ' here' : ''}$
 function areaHead(k, extra = '') {
   const top = g.here(k).filter((q) => lead.has(q));
   const cr = top.length ? ic('crown', '', { v: crownV(top) }) : '';
-  return `<h3>${esc(AREAS[k].name)}${cr}${amHere(k) ? ic('here', '', { v: 'หมากของคุณอยู่ที่นี่' }) : ''}${extra}</h3>`;
+  return `<h3>${esc(AREAS[k].name)}${cr}${amHere(k) ? ic('here', '', { v: T("หมากของคุณอยู่ที่นี่") }) : ''}${extra}</h3>`;
 }
 
 function workshop(can) {
@@ -452,24 +466,24 @@ function workshop(can) {
   const kz = me().m.key === 'kuzuki' && started;
   const slots = WORKSHOP.map((n, i) => {
     const p = here.find((q) => q.slot === i);
-    return `<span class="slot${p ? ' full' : ''}">${p ? tok(p) + permTags(p) : ''}<i>${ic('mana', `+${n}`, { v: `คนที่ ${i + 1} ที่วางที่นี่ได้มานา +${n}` })}</i></span>`;
+    return `<span class="slot${p ? ' full' : ''}">${p ? tok(p) + permTags(p) : ''}<i>${ic('mana', `+${n}`, { v: T("คนที่ {0} ที่วางที่นี่ได้มานา +{1}", i + 1, n) })}</i></span>`;
   }).join('');
   return `<div class="area ws${areaCls('workshop', can)}"${areaAttrs('workshop', can)}>
-    <div class="ah">${areaHead('workshop')}<span class="kind">${ic('seat', WORKSHOP.length, { v: `${WORKSHOP.length} คน` })}</span></div>
-    <div class="slots">${slots}</div>${kz ? '<span class="rule">คุณไม่ได้มานาที่นี่ · เดินออกถูกลง 1</span>' : ''}</div>`;
+    <div class="ah">${areaHead('workshop')}<span class="kind">${ic('seat', WORKSHOP.length, { v: T("{0} คน", WORKSHOP.length) })}</span></div>
+    <div class="slots">${slots}</div>${kz ? `<span class="rule">${T("คุณไม่ได้มานาที่นี่ · เดินออกถูกลง 1")}</span>` : ''}</div>`;
 }
 
 function recon(can) {
   const p = g.here('recon')[0];
   return `<div class="area rc${areaCls('recon', can)}"${areaAttrs('recon', can)}>
-    <div class="ah">${areaHead('recon')}<span class="kind">${ic('seat', 1, { v: '1 คน' })}</span></div>
+    <div class="ah">${areaHead('recon')}<span class="kind">${ic('seat', 1, { v: T("1 คน") })}</span></div>
     <div class="slots"><span class="slot${p ? ' full' : ''}">${p ? tok(p) + permTags(p) : ''}</span></div>
-    <span class="prize">${ic('enter', '', { v: `ย้ายเข้าตอนปฏิบัติการได้ ${RECON_VP} VP ทันที` })}<b>${ic('vp', `+${RECON_VP}`, { cls: 'r', v: `${RECON_VP} VP` })}</b></span><span class="rule">ตั้งมั่นวางไม่ได้</span></div>`;
+    <span class="prize">${ic('enter', '', { v: T("ย้ายเข้าตอนปฏิบัติการได้ {0} VP ทันที", RECON_VP) })}<b>${ic('vp', `+${RECON_VP}`, { cls: 'r', v: `${RECON_VP} VP` })}</b></span><span class="rule">${T("ตั้งมั่นวางไม่ได้")}</span></div>`;
 }
 
 // a Master on a battlefield: piece, advantage token and power once the cards are down
 function occ(p) {
-  const note = `${p.terrain ? ` · ได้เปรียบ +${p.terrain}` : ''}${p.play ? ` · พลัง ${p.play.pre}` : ''}`;
+  const note = `${p.terrain ? T(" · ได้เปรียบ +{0}", p.terrain) : ''}${p.play ? T(" · พลัง {0}", p.play.pre) : ''}`;
   return `<span class="occ${p.play ? ' played' : ''}${p.isHuman ? ' mine' : ''}">${tok(p, note)}${p.terrain ? `<i class="tr">+${p.terrain}</i>` : ''}${p.play ? `<b class="pw">${p.play.pre}</b>` : ''}${permTags(p)}</span>`;
 }
 function field(f, can, bt) {
@@ -477,13 +491,13 @@ function field(f, can, bt) {
   const here = g.here(f);
   if (bt?.f === f) { // your fight, drawn inside the area (paper 4.6)
     return `<div class="area field f-${f}${areaCls(f, can)} fighting"${areaAttrs(f, can)}>
-      <div class="ah">${areaHead(f, ic('fight', '', { v: bt.res ? 'ผลการต่อสู้' : 'กำลังต่อสู้' }))}<span class="bprize">${bt.res ? ic('duel', bt.res.pool, { t: 'ผู้ชนะได้', v: `${bt.res.pool} VP` }) : prizeHtml(f)}</span></div>
+      <div class="ah">${areaHead(f, ic('fight', '', { v: bt.res ? T("ผลการต่อสู้") : T("กำลังต่อสู้") }))}<span class="bprize">${bt.res ? ic('duel', bt.res.pool, { t: T("ผู้ชนะได้"), v: `${bt.res.pool} VP` }) : prizeHtml(f)}</span></div>
       <div class="battle n${Math.min(here.length, 5)}${here.length >= 5 ? ' dense' : ''}">${battleRows(f, bt.res, false)}</div></div>`;
   }
   const early = !g.round || g.phase === 'prep' || g.phase === 'outpost';
-  const free = early ? TERRAIN.filter((_, i) => !here.some((q) => q.slot === i)).map((t) => `<span class="slot"><i>${ic('terrain', `+${t}`, { v: `คนต่อไปที่วางที่นี่ +${t}` })}</i></span>`).join('') : '';
-  const engaged = g.phase === 'action' && g.engagedAt(f) ? `<span class="tag-engaged">${ic('engaged', '', { w: 'ติดพัน' })}</span>` : '';
-  const fight = g.phase === 'combat' && here.length >= 2 ? ic('fight', '', { v: 'รอบนี้สู้กันที่นี่' }) : '';
+  const free = early ? TERRAIN.filter((_, i) => !here.some((q) => q.slot === i)).map((t) => `<span class="slot"><i>${ic('terrain', `+${t}`, { v: T("คนต่อไปที่วางที่นี่ +{0}", t) })}</i></span>`).join('') : '';
+  const engaged = g.phase === 'action' && g.engagedAt(f) ? `<span class="tag-engaged">${ic('engaged', '', { w: T("ติดพัน") })}</span>` : '';
+  const fight = g.phase === 'combat' && here.length >= 2 ? ic('fight', '', { v: T("รอบนี้สู้กันที่นี่") }) : '';
   const vp = g.evs[f].length ? `<span class="prize">${prizeHtml(f)}</span>` : '';
   return `<div class="area field f-${f}${areaCls(f, can)}${here.length >= 3 ? ' crowd' : ''}${here.length >= 4 ? ' packed' : ''}"${areaAttrs(f, can)}>
     <div class="ah">${areaHead(f, fight)}${engaged}</div>
@@ -513,11 +527,11 @@ function myBattle() {
 const RES_STEP = 450; // ms between the Masters' results
 let resAnim = null; // { res, t0 }: when the result first showed, so redraws carry on the animation
 function bcard(c, q) {
-  if (c.down && !q.isHuman) return '<span class="bc back" title="การ์ดคว่ำ">?</span>';
+  if (c.down && !q.isHuman) return `<span class="bc back" title="${T("การ์ดคว่ำ")}">?</span>`;
   const s = srcOf(c);
-  const title = esc(`${c.down ? 'ลงคว่ำ · ' : ''}${cardName(c)} · ${[srcText(c, q), cardText(c)].filter(Boolean).join(' · ')}`);
+  const title = esc(`${c.down ? T("ลงคว่ำ · ") : ''}${cardName(c)} · ${[srcText(c, q), cardText(c)].filter(Boolean).join(' · ')}`);
   const art = !c.down && CARD_ART[c.name];
-  return `<span class="bc t${c.type}${c.down || c.off ? ' down' : ''}${s ? ` src-${s}` : ''}${art ? ' art' : ''}"${art ? ` style="--art:url('${art.art}')"` : ''} title="${title}"><b>${c.down || c.off ? 0 : c.power}</b><small>${c.down ? 'คว่ำ' : c.off ? 'ปิด' : c.fx?.permanent ? svg('perm') : s ? 'สกิล' : typeIcons(c)}</small></span>`;
+  return `<span class="bc t${c.type}${c.down || c.off ? ' down' : ''}${s ? ` src-${s}` : ''}${art ? ' art' : ''}"${art ? ` style="--art:url('${art.art}')"` : ''} title="${title}"><b>${c.down || c.off ? 0 : c.power}</b><small>${c.down ? T("คว่ำ") : c.off ? T("ปิด") : c.fx?.permanent ? svg('perm') : s ? T("สกิล") : typeIcons(c)}</small></span>`;
 }
 // a permanent card from an earlier round: still in play, its effects work and its power counts every round [FD Keywords]
 const permCard = (c, q) => {
@@ -525,13 +539,13 @@ const permCard = (c, q) => {
   return `<span class="bc t${c.type} perm${art ? ' art' : ''}"${art ? ` style="--art:url('${art.art}')"` : ''} title="${esc(permTitle(c, q))}"><b>${c.power}</b><small>${svg('perm')}${esc(PERM_SHORT[c.name] || c.name)}</small></span>`;
 };
 // the short line under a power: "การ์ด 6 · พื้นที่ +3 · CS +2" (paper 4.6 item 9)
-const PART_SHORT = { 'ได้เปรียบพื้นที่': 'พื้นที่', 'Command Spell': 'CS', 'Tsubame Gaeshi': 'Tsubame', 'การ์ดชนิดเดียวกัน': 'ชนิดเดียวกัน', 'Excalibur ไคลแมกซ์': 'Excalibur', 'ชื่อจริงยังซ่อน': 'ชื่อซ่อน' };
-const PART_IC = { 'ได้เปรียบพื้นที่': 'terrain', 'Command Spell': 'cs', 'ชื่อจริงยังซ่อน': 'hidden' };
+const PART_SHORT = { [T("ได้เปรียบพื้นที่")]: T("พื้นที่"), 'Command Spell': 'CS', 'Tsubame Gaeshi': 'Tsubame', [T("การ์ดชนิดเดียวกัน")]: T("ชนิดเดียวกัน"), [T("Excalibur ไคลแมกซ์")]: 'Excalibur', [T("ชื่อจริงยังซ่อน")]: T("ชื่อซ่อน") };
+const PART_IC = { [T("ได้เปรียบพื้นที่")]: 'terrain', 'Command Spell': 'cs', [T("ชื่อจริงยังซ่อน")]: 'hidden' };
 const sgn = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 const pm = (n) => (n < 0 ? `−${-n}` : `+${n}`); // a VP change, +0 included
-const shortParts = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? `การ์ด ${n}` : `${PART_SHORT[t] || t} ${sgn(n)}`)).join(' · ');
+const shortParts = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? T("การ์ด {0}", n) : `${PART_SHORT[t] || t} ${sgn(n)}`)).join(' · ');
 // the same with icons, as HTML: "🃏6 ⛰+3 ◆+2 Tsubame +3" (paper 4.6 item 14)
-const partsHtml = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? ic('hand', n, { t: 'พลังจากการ์ด' }) : PART_IC[t] ? ic(PART_IC[t], sgn(n), { t }) : `${esc(PART_SHORT[t] || t)} ${sgn(n)}`)).join(' ');
+const partsHtml = (parts) => parts.filter(([, n], i) => i === 0 || n).map(([t, n], i) => (i === 0 ? ic('hand', n, { t: T("พลังจากการ์ด") }) : PART_IC[t] ? ic(PART_IC[t], sgn(n), { t }) : `${esc(PART_SHORT[t] || t)} ${sgn(n)}`)).join(' ');
 // what the clash changed, by name ("Executor", "Invisible Air", "1st Strike"); a bonus already in
 // the power before the fight is left out
 function clashNames(e) {
@@ -555,36 +569,36 @@ function battleRows(f, res, full) {
     const n = (q.play?.cards.length || 0) + perm.length;
     const cards = (q.play
       ? q.play.cards.map((c) => (full ? (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true })) : bcard(c, q))).join('')
-      : `<span class="bwait">${ic('wait', '', { v: 'ยังไม่ลงการ์ด', w: full ? 'รอ' : '' })}</span>`) + perm.map((c) => (full ? tile(c, { mini: true, note: 'ถาวร' }) : permCard(c, q))).join('');
+      : `<span class="bwait">${ic('wait', '', { v: T("ยังไม่ลงการ์ด"), w: full ? T("รอ") : '' })}</span>`) + perm.map((c) => (full ? tile(c, { mini: true, note: T("ถาวร") }) : permCard(c, q))).join('');
     const lead = !res && q.play && q.play.pre === top && top > 0;
     let out = '';
     let note = '';
     let short = ''; // the result under the power, for narrow areas
     let pw = q.play ? q.play.pre : '–';
-    let sub = q.terrain ? `<i class="tr" title="ได้เปรียบพื้นที่">${svg('terrain')}+${q.terrain}</i>` : '';
+    let sub = q.terrain ? `<i class="tr" title="${T("ได้เปรียบพื้นที่")}">${svg('terrain')}+${q.terrain}</i>` : '';
     const parts = e ? e.parts : q.play?.preParts || [];
     if (e) {
       // a win is "+3🏆" in gold, a plain loss "แพ้" in grey, a loss by a card's effect ☠ in red (paper 4.6 item 14)
       const vpg = (k) => ic('vp', pm(k), { cls: 'r', v: `${pm(k)} VP` });
-      const what = e.defeated ? ic('dead', '', { w: 'แพ้' }) : e.won ? vpg(e.gain) : `แพ้${e.gain ? ` ${vpg(e.gain)}` : ''}`;
+      const what = e.defeated ? ic('dead', '', { w: T("แพ้") }) : e.won ? vpg(e.gain) : T("แพ้{0}", e.gain ? ` ${vpg(e.gain)}` : '');
       const d = q.play && !e.defeated ? e.power - q.play.pre : 0;
       const names = clashNames(e);
       const dl = d ? `${sgn(d)}${names ? ` ${names}` : ''}` : ''; // what the clash added, popping up by the power
-      note = [dl, ...e.notes.filter((x) => x !== '[แพ้]')].filter(Boolean).join(' · ');
+      note = [dl, ...e.notes.filter((x) => x !== T('[แพ้]'))].filter(Boolean).join(' · ');
       pw = e.defeated ? '–' : e.power;
       sub = dl ? `<i class="dl${d < 0 ? ' neg' : ''}" title="${esc(note)}">${esc(dl)}</i>` : '';
       out = `<span class="bres${e.won ? ' won' : e.defeated ? ' def' : ''}">${what}</span>`;
-      short = e.defeated ? ic('dead') : e.won ? ic('vp', pm(e.gain), { cls: 'r' }) : 'แพ้';
+      short = e.defeated ? ic('dead') : e.won ? ic('vp', pm(e.gain), { cls: 'r' }) : T("แพ้");
     }
     const delay = res ? `style="--d:${i * RES_STEP - since}ms;--dw:${people.length * RES_STEP - since}ms"` : '';
     const cls = `brow${q.isHuman ? ' me' : ''}${lead ? ' lead' : ''}${e ? ` res${e.won ? ' won' : ' lost'}` : ''}${n >= 4 ? ' c4' : n === 3 ? ' c3' : ''}`;
     const fx = !full ? '' : (q.play?.cards || []).filter((c) => !(c.down && !q.isHuman) && (c.text || tags(c).length))
-      .map((c) => `<li><b>${esc(cardName(c))}</b> ${esc([c.down ? 'ลงคว่ำ ไม่มีผล' : '', srcText(c, q), cardText(c)].filter(Boolean).join(' · '))}</li>`).join('')
-      + perm.map((c) => `<li><b>${esc(c.name)}</b> ${esc(`ถาวรตั้งแต่รอบ ${c.residentFrom} · ${cardText(c)}`)}</li>`).join('');
+      .map((c) => `<li><b>${esc(cardName(c))}</b> ${esc([c.down ? T("ลงคว่ำ ไม่มีผล") : '', srcText(c, q), cardText(c)].filter(Boolean).join(' · '))}</li>`).join('')
+      + perm.map((c) => `<li><b>${esc(c.name)}</b> ${esc(T("ถาวรตั้งแต่รอบ {0} · {1}", c.residentFrom, cardText(c)))}</li>`).join('');
     // the full table in the pop-up; on the board a tap on the row opens it (paper 4.6 item 9)
     const table = full && q.play ? `<div class="bpwt">${pwDrop(e ? { rows: e.rows || [], total: e.power, parts: e.parts || [] } : g.powerOf(q, q.play, { detail: true }), q, { dk: `a:${g.round}:${f}:${q.id}` })}</div>` : '';
     const bar = !full && parts.length ? `<small class="bsum">${partsHtml(parts)}</small>` : '';
-    const tap = !full && q.play ? ` data-act="pwrow" data-id="${q.id}" role="button" tabindex="0" aria-label="${esc(`พลังของ ${q.name} · แตะดูที่มา`)}"` : '';
+    const tap = !full && q.play ? ` data-act="pwrow" data-id="${q.id}" role="button" tabindex="0" aria-label="${esc(T("พลังของ {0} · แตะดูที่มา", q.name))}"` : '';
     const late = q.slot == null && !q.terrain ? ic('late') : ''; // moved in after the outpost phase
     return `<div class="${cls}" ${delay}${tap}><span class="bwho">${full ? `${crown(q)}${chip(q)}${late}` : `${tok(q, '', { noCrown: true })}<b>${crown(q)}${esc(q.name)}</b>${late}`}</span>
       <span class="bcards">${cards}</span>${out ? `<span class="bout">${out}</span>` : ''}
@@ -597,42 +611,42 @@ function battleRows(f, res, full) {
 function evCards(f, onBoard) {
   const hidden = evHidden(f);
   const peek = f === 'shinto' && !g.shintoOpen && peeked(); // only you see it
-  if (!g.evs[f].length) return `<div class="ev empty">การ์ดอีเวนต์วางตอนเตรียมการ</div>`;
+  if (!g.evs[f].length) return `<div class="ev empty">${T("การ์ดอีเวนต์วางตอนเตรียมการ")}</div>`;
   return g.evs[f].map((e) => (hidden
-    ? `<div class="ev back"><b>อีเวนต์คว่ำ</b><small>เปิดตอนปฏิบัติการ</small></div>`
-    : `<div class="ev${peek ? ' peek' : ''}"${onBoard ? ` title="${esc(`${peek ? 'คุณแอบดู คนอื่นยังไม่เห็น · ' : ''}${e.text}`)}"` : ''}><span class="vpc">${e.vp}</span><span class="tx"><b>${esc(e.name)}</b><small>${esc(`${peek ? 'คุณแอบดู · ' : ''}${e.text}`)}</small></span></div>`)).join('');
+    ? `<div class="ev back"><b>${T("อีเวนต์คว่ำ")}</b><small>${T("เปิดตอนปฏิบัติการ")}</small></div>`
+    : `<div class="ev${peek ? ' peek' : ''}"${onBoard ? ` title="${esc(`${peek ? T("คุณแอบดู คนอื่นยังไม่เห็น · ") : ''}${e.text}`)}"` : ''}><span class="vpc">${e.vp}</span><span class="tx"><b>${esc(e.name)}</b><small>${esc(`${peek ? T("คุณแอบดู · ") : ''}${e.text}`)}</small></span></div>`)).join('');
 }
 
 function drawNav() {
   $('#nav').innerHTML = started
-    ? `<button class="btn" data-act="pop" data-k="me">การ์ด<span class="lg">ของคุณ</span></button><button class="btn" data-act="pop" data-k="rank">อันดับ</button><button class="btn" data-act="pop" data-k="log">บันทึก</button>`
+    ? `<button class="btn" data-act="pop" data-k="me">${T("การ์ด")}<span class="lg">${T("ของคุณ")}</span></button><button class="btn" data-act="pop" data-k="rank">${T("อันดับ")}</button><button class="btn" data-act="pop" data-k="log">${T("บันทึก")}</button>`
     : '';
 }
 
 // ---------- the side (computer): you, every Master, the log ----------
 function meHead(p) {
-  return `<div class="me-head">${svArt(p.sv, 'sm')}<div class="nm"><b>${esc(p.m.name)} <small>(คุณ) · ระดับ${esc(p.m.level)}</small></b>
-    <small>${esc(p.sv.cls)} · ${esc(p.sv.name)} ${p.revealed ? `<span class="open">${ic('open', '', { w: 'เปิดชื่อ', v: 'ทุกคนรู้ว่า Servant ของคุณคือใคร' })}</span>` : ic('hidden', '', { w: 'ซ่อนชื่อ', v: 'คู่แข่งยังไม่รู้ว่า Servant ของคุณคือใคร' })}</small></div>${p.out ? `<span class="bad">${ic('out', '', { w: 'ตกรอบ' })}</span>` : ''}</div>`;
+  return `<div class="me-head">${svArt(p.sv, 'sm')}<div class="nm"><b>${esc(p.m.name)} <small>${T("(คุณ) · ระดับ")}${esc(p.m.level)}</small></b>
+    <small>${esc(p.sv.cls)} · ${esc(p.sv.name)} ${p.revealed ? `<span class="open">${ic('open', '', { w: T("เปิดชื่อ"), v: T("ทุกคนรู้ว่า Servant ของคุณคือใคร") })}</span>` : ic('hidden', '', { w: T("ซ่อนชื่อ"), v: T("คู่แข่งยังไม่รู้ว่า Servant ของคุณคือใคร") })}</small></div>${p.out ? `<span class="bad">${ic('out', '', { w: T("ตกรอบ") })}</span>` : ''}</div>`;
 }
 function meStats(p) {
   const seals = Array.from({ length: 3 }, (_, i) => `<i class="seal${i < p.cs ? ' on' : i >= p.m.cs ? ' gone' : ''}">◆</i>`).join('');
-  return `<div class="me-stats">${ic('mana', `${p.mana}<small>/${MANA_MAX}</small>`, { v: `${p.mana}/${MANA_MAX}`, cls: 'm' })}<span class="ic c-seal seals" data-ic="cs" data-v="${esc(`เหลือ ${p.cs} ดวง${p.m.cs < 3 ? ` (เริ่มเกมมี ${p.m.cs})` : ''}`)}" aria-label="Command Spell ${p.cs}">${seals}</span>${ic('vp', p.vp, { v: `${p.vp} VP`, cls: 'v' })}${crown(p)}${p.m.key === 'rin' ? ic('gem', p.gems, { v: `เหลือ ${p.gems}`, cls: 'gm' }) : ''}</div>`;
+  return `<div class="me-stats">${ic('mana', `${p.mana}<small>/${MANA_MAX}</small>`, { v: `${p.mana}/${MANA_MAX}`, cls: 'm' })}<span class="ic c-seal seals" data-ic="cs" data-v="${esc(T("เหลือ {0} ดวง{1}", p.cs, p.m.cs < 3 ? T(" (เริ่มเกมมี {0})", p.m.cs) : ''))}" aria-label="Command Spell ${p.cs}">${seals}</span>${ic('vp', p.vp, { v: `${p.vp} VP`, cls: 'v' })}${crown(p)}${p.m.key === 'rin' ? ic('gem', p.gems, { v: T("เหลือ {0}", p.gems), cls: 'gm' }) : ''}</div>`;
 }
 function mePiles(p) {
   const last = p.trash[p.trash.length - 1];
-  return `<p class="me-piles">${ic('deck', p.deck.length, { v: `${p.deck.length} ใบ` })} ${ic('trash', p.trash.length, { v: `${p.trash.length} ใบ${last ? ` · บนสุด ${last.down ? 'คว่ำ · ' : ''}${cardName(last)}` : ''}` })}</p>`;
+  return `<p class="me-piles">${ic('deck', p.deck.length, { v: T("{0} ใบ", p.deck.length) })} ${ic('trash', p.trash.length, { v: T("{0} ใบ{1}", p.trash.length, last ? T(" · บนสุด {0}{1}", last.down ? T("คว่ำ · ") : '', cardName(last)) : '') })}</p>`;
 }
 function drawDock() {
-  if (!started) { $('#dock').innerHTML = '<p class="dim">เลือก Master แล้วข้อมูลของคุณจะอยู่ตรงนี้</p>'; return; }
+  if (!started) { $('#dock').innerHTML = `<p class="dim">${T("เลือก Master แล้วข้อมูลของคุณจะอยู่ตรงนี้")}</p>`; return; }
   const p = me();
-  $('#dock').innerHTML = `${meHead(p)}${meStats(p)}<div class="me-row">${mePiles(p)}<button class="btn sm ghost" data-act="pop" data-k="me">กระดาน Master</button></div>`;
+  $('#dock').innerHTML = `${meHead(p)}${meStats(p)}<div class="me-row">${mePiles(p)}<button class="btn sm ghost" data-act="pop" data-k="me">${T("กระดาน Master")}</button></div>`;
 }
 
 function topTrash(p) {
   const c = p.trash[p.trash.length - 1];
-  if (!c) return 'ว่าง';
-  if (c.down && !p.isHuman) return 'คว่ำ';
-  return `${c.down ? 'คว่ำ · ' : ''}${cardName(c)}`;
+  if (!c) return T("ว่าง");
+  if (c.down && !p.isHuman) return T("คว่ำ");
+  return `${c.down ? T("คว่ำ · ") : ''}${cardName(c)}`;
 }
 function standingsHtml() {
   const alive = [...g.alive()].sort((a, b) => b.vp - a.vp);
@@ -643,23 +657,23 @@ function standingsHtml() {
   const row = (p, i) => {
     const used = p.skills.filter((c) => p.uses[c.name] && !c.resident).map((c) => c.name); // the permanent ones have their own tags
     // rank 1 shows 👑 instead of the number (paper 4.6 item 15); the rest are icons with a meaning on a tap (item 14)
-    const rk = p.out ? ic('out', '', { v: `ตกรอบหลังรอบ ${p.outRound}` }) : lead.has(p) ? ic('crown', '', { v: crownV([p]) }) : i + 1;
-    const sv = seen(p) || kireiSees() ? `<span class="sv">${esc(svLabel(p))}</span>` : ic('hidden', '', { v: 'ยังไม่มีใครรู้ว่า Servant เป็นใคร' });
-    return `<li class="${p.isHuman ? 'me' : ''}${p.out ? ' out' : ''}" data-act="player" data-id="${p.id}" role="button" tabindex="0" title="${esc(`แตะดูรายละเอียด · ทิ้งล่าสุด: ${topTrash(p)}`)}"><span class="rk">${rk}</span>
+    const rk = p.out ? ic('out', '', { v: T("ตกรอบหลังรอบ {0}", p.outRound) }) : lead.has(p) ? ic('crown', '', { v: crownV([p]) }) : i + 1;
+    const sv = seen(p) || kireiSees() ? `<span class="sv">${esc(svLabel(p))}</span>` : ic('hidden', '', { v: T("ยังไม่มีใครรู้ว่า Servant เป็นใคร") });
+    return `<li class="${p.isHuman ? 'me' : ''}${p.out ? ' out' : ''}" data-act="player" data-id="${p.id}" role="button" tabindex="0" title="${esc(T("แตะดูรายละเอียด · ทิ้งล่าสุด: {0}", topTrash(p)))}"><span class="rk">${rk}</span>
       <span class="who">${chip(p, p === sun && !p.out && !g.over ? ic('first', '', { cls: 't' }) : '')}${permTags(p, { btn: true })}</span>
       <span class="mini">${ic('mana', p.mana, { v: `${p.mana}/${MANA_MAX}`, cls: 'm' })} ${csIc(p.cs)}</span><span class="vp">${p.vp}</span>
-      <span class="pub">${p.m.key === 'rin' ? `${ic('gem', p.gems, { v: `เหลือ ${p.gems}` })} · ` : ''}${p.out ? `ตกรอบหลังรอบ ${p.outRound}` : p.at ? `${ic('here', '', { t: 'อยู่ที่', v: AREAS[p.at].name })}${esc(AREAS[p.at].name)}` : 'ยังไม่วางหมาก'} · ${sv}${used.length ? ` · ${ic('used', '', { t: 'ใช้แล้ว หงายไว้', v: used.join(', ') })}${esc(used.join(', '))}` : ''}</span></li>`;
+      <span class="pub">${p.m.key === 'rin' ? `${ic('gem', p.gems, { v: T("เหลือ {0}", p.gems) })} · ` : ''}${p.out ? T("ตกรอบหลังรอบ {0}", p.outRound) : p.at ? `${ic('here', '', { t: T("อยู่ที่"), v: AREAS[p.at].name })}${esc(AREAS[p.at].name)}` : T("ยังไม่วางหมาก")} · ${sv}${used.length ? ` · ${ic('used', '', { t: T("ใช้แล้ว หงายไว้"), v: used.join(', ') })}${esc(used.join(', '))}` : ''}</span></li>`;
   };
   let rows = '';
-  alive.forEach((p, i) => { if (i === line) rows += `<li class="cutline">${ic('cut', '', { w: 'เส้นตัด', v: `${cut.when} เหลือ ${cut.target} คน · ใต้เส้นตกรอบถ้าคัดตอนนี้` })}</li>`; rows += row(p, i); });
+  alive.forEach((p, i) => { if (i === line) rows += `<li class="cutline">${ic('cut', '', { w: T("เส้นตัด"), v: T("{0} เหลือ {1} คน · ใต้เส้นตกรอบถ้าคัดตอนนี้", cut.when, cut.target) })}</li>`; rows += row(p, i); });
   rows += out.map((p) => row(p, 0)).join('');
-  const sub = g.over ? 'จบเกม' : cut?.show && cut.allOut ? 'ทุกคนเสมอที่เส้นตัด จะไม่มีใครออก' : !g.climax() ? `${ic('cut', '', { v: `จบรอบ ${REGULAR} เหลือ 4 คน · เสมอที่เส้นตัดออกหมด` })} จบรอบ ${REGULAR} เหลือ 4` : 'คัดออกจนเหลือคนสุดท้าย';
+  const sub = g.over ? T("จบเกม") : cut?.show && cut.allOut ? T("ทุกคนเสมอที่เส้นตัด จะไม่มีใครออก") : !g.climax() ? T("{0} จบรอบ {1} เหลือ 4", ic('cut', '', { v: T("จบรอบ {0} เหลือ 4 คน · เสมอที่เส้นตัดออกหมด", REGULAR) }), REGULAR) : T("คัดออกจนเหลือคนสุดท้าย");
   return { sub, html: `<ol class="st">${rows}</ol>` };
 }
 function drawStandings() {
   if (!wide()) return;
   const s = standingsHtml();
-  $('#standings').innerHTML = `<div class="st-head"><h2>อันดับ ${svg('vp')}</h2><button class="btn ghost icb" data-act="pop" data-k="rank" aria-label="ดูเพิ่ม" title="ดูเพิ่ม">${svg('more')}</button><small>${s.sub}</small></div>${s.html}`;
+  $('#standings').innerHTML = `<div class="st-head"><h2>${T("อันดับ")} ${svg('vp')}</h2><button class="btn ghost icb" data-act="pop" data-k="rank" aria-label="${T("ดูเพิ่ม")}" title="${T("ดูเพิ่ม")}">${svg('more')}</button><small>${s.sub}</small></div>${s.html}`;
 }
 
 let logCount = 0;
@@ -698,7 +712,7 @@ function fightSound() { // your fight's result: won or lost
 }
 
 // ---------- your turn (paper 4.6 item 26): a banner, a sound, a buzz, and the tab title ----------
-const TURN_WHAT = { place: 'ตั้งมั่น · วางหมาก', move: 'ปฏิบัติการ · ย้าย', cards: 'ลงการ์ด', window: 'ใช้การ์ดได้', strike1: '1st Strike · เลือกการ์ด' };
+const TURN_WHAT = { place: T("ตั้งมั่น · วางหมาก"), move: T("ปฏิบัติการ · ย้าย"), cards: T("ลงการ์ด"), window: T("ใช้การ์ดได้"), strike1: T("1st Strike · เลือกการ์ด") };
 let turnTimer = null;
 const baseTitle = document.title;
 function turnNotice(kind) {
@@ -710,15 +724,15 @@ function turnNotice(kind) {
   let el = $('#turnban');
   if (!el) { document.body.insertAdjacentHTML('beforeend', '<div id="turnban" role="status" hidden></div>'); el = $('#turnban'); }
   el.className = $('#bar').className.split(' ').filter((c) => c.startsWith('ph-')).join(' ');
-  el.innerHTML = `<b>ถึงตาคุณแล้ว</b>${what ? `<span>${esc(what)}</span>` : ''}`;
+  el.innerHTML = `<b>${T("ถึงตาคุณแล้ว")}</b>${what ? `<span>${esc(what)}</span>` : ''}`;
   el.hidden = false;
   el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; // play it again
   clearTimeout(turnTimer);
   turnTimer = setTimeout(() => { el.hidden = true; }, 1900);
   if (document.hidden) {
-    document.title = `● ถึงตาคุณ · ${baseTitle}`;
+    document.title = T("● ถึงตาคุณ · {0}", baseTitle);
     if (settings.sysNote && 'Notification' in window && Notification.permission === 'granted') {
-      try { new Notification('ถึงตาคุณแล้ว', { body: what, tag: 'dgw-turn' }); } catch { /* not allowed here */ }
+      try { new Notification(T("ถึงตาคุณแล้ว"), { body: what, tag: 'dgw-turn' }); } catch { /* not allowed here */ }
     }
   }
 }
@@ -727,20 +741,23 @@ document.addEventListener('pointerdown', () => { unlockSound(); const b = $('#tu
 
 // ---------- settings (paper 4.6 item 24) ----------
 let settingsBack = null; // the start screen to go back to
+// the language buttons (B 6 Nov 2026): settings and the start screen
+const langSeg = (cls = '') => `<div class="seg langs${cls}" role="group" aria-label="Language">${Object.entries(LANGS).map(([k, n]) => `<button class="btn sm${lang() === k ? ' on' : ''}" data-act="lang" data-l="${k}" lang="${k}" aria-pressed="${lang() === k}">${n}</button>`).join('')}</div>`;
 function showSettings(back = null) {
   settingsBack = back;
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, t]) => `<button class="btn sm${settings[k] === v ? ' on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${settings[k] === v}">${t}</button>`).join('')}</div>`;
-  const onOff = (k) => seg(k, [[true, 'เปิด'], [false, 'ปิด']]);
+  const onOff = (k) => seg(k, [[true, T("เปิด")], [false, T("ปิด")]]);
   const canNote = 'Notification' in window;
-  const noteState = !canNote ? 'เบราว์เซอร์นี้ไม่รองรับ' : Notification.permission === 'denied' ? 'เบราว์เซอร์ไม่อนุญาต · เปิดได้ในตั้งค่าของเบราว์เซอร์' : '';
-  openModal(`<div class="dlg settings"><span class="eyebrow">เมนู</span><h2>ตั้งค่า</h2>
-    <div class="setrow"><div><b>เสียงเอฟเฟกต์</b><small>วางหมาก ย้าย ลงการ์ด ต่อสู้ เปิดชื่อจริง ถึงตาคุณ</small></div>${seg('sound', [[0, 'ปิด'], [1, 'เบา'], [2, 'กลาง'], [3, 'ดัง']])}<button class="btn sm ghost" data-act="sndtest">▶ ลองฟัง</button></div>
-    <div class="setrow"><div><b>แจ้งเตือนเมื่อถึงตาคุณ</b><small>ป้ายบนจอและเสียง</small></div>${onOff('turnAlert')}</div>
-    <div class="setrow"><div><b>สั่นเมื่อถึงตาคุณ</b><small>มือถือที่สั่นได้</small></div>${onOff('vibrate')}</div>
-    <div class="setrow"><div><b>แจ้งเตือนเมื่อสลับไปแอปอื่น</b><small>${noteState || 'ขึ้นเป็นการแจ้งเตือนของเครื่อง · ชื่อแท็บขึ้น ● เสมอ'}</small></div>${canNote && Notification.permission !== 'denied' ? onOff('sysNote') : ''}</div>
-    <div class="setrow"><div><b>ความเร็วบอท</b><small>เล่นคนเดียว · ออนไลน์ไม่มีผล</small></div>${seg('botSpeed', [['slow', 'ช้า'], ['normal', 'ปกติ'], ['fast', 'เร็ว']])}</div>
-    <div class="setrow"><div><b>แถบอันดับบนกระดาน (มือถือ)</b><small>ถ้าไม่พอดีจอจะซ่อนเอง · ดูได้ที่ปุ่ม "อันดับ"</small></div>${seg('strip', [['auto', 'แสดงเมื่อพอดี'], ['off', 'ซ่อน']])}</div>
-    <div class="acts"><button class="btn primary" data-act="setdone">${back ? 'กลับ' : 'ปิด'}</button></div></div>`);
+  const noteState = !canNote ? T("เบราว์เซอร์นี้ไม่รองรับ") : Notification.permission === 'denied' ? T("เบราว์เซอร์ไม่อนุญาต · เปิดได้ในตั้งค่าของเบราว์เซอร์") : '';
+  openModal(`<div class="dlg settings"><span class="eyebrow">${T("เมนู")}</span><h2>${T("ตั้งค่า")}</h2>
+    <div class="setrow"><div><b>${T("ภาษา")} · Language</b><small>${started && !g.over && !online.on ? T("เปลี่ยนแล้วหน้าเว็บโหลดใหม่ เกมที่เล่นอยู่จะเริ่มใหม่") : T("เปลี่ยนแล้วหน้าเว็บโหลดใหม่")}</small></div>${langSeg()}</div>
+    <div class="setrow"><div><b>${T("เสียงเอฟเฟกต์")}</b><small>${T("วางหมาก ย้าย ลงการ์ด ต่อสู้ เปิดชื่อจริง ถึงตาคุณ")}</small></div>${seg('sound', [[0, T("ปิด")], [1, T("เบา")], [2, T("กลาง")], [3, T("ดัง")]])}<button class="btn sm ghost" data-act="sndtest">${T("▶ ลองฟัง")}</button></div>
+    <div class="setrow"><div><b>${T("แจ้งเตือนเมื่อถึงตาคุณ")}</b><small>${T("ป้ายบนจอและเสียง")}</small></div>${onOff('turnAlert')}</div>
+    <div class="setrow"><div><b>${T("สั่นเมื่อถึงตาคุณ")}</b><small>${T("มือถือที่สั่นได้")}</small></div>${onOff('vibrate')}</div>
+    <div class="setrow"><div><b>${T("แจ้งเตือนเมื่อสลับไปแอปอื่น")}</b><small>${noteState || T("ขึ้นเป็นการแจ้งเตือนของเครื่อง · ชื่อแท็บขึ้น ● เสมอ")}</small></div>${canNote && Notification.permission !== 'denied' ? onOff('sysNote') : ''}</div>
+    <div class="setrow"><div><b>${T("ความเร็วบอท")}</b><small>${T("เล่นคนเดียว · ออนไลน์ไม่มีผล")}</small></div>${seg('botSpeed', [['slow', T("ช้า")], ['normal', T("ปกติ")], ['fast', T("เร็ว")]])}</div>
+    <div class="setrow"><div><b>${T("แถบอันดับบนกระดาน (มือถือ)")}</b><small>${T("ถ้าไม่พอดีจอจะซ่อนเอง · ดูได้ที่ปุ่ม \"อันดับ\"")}</small></div>${seg('strip', [['auto', T("แสดงเมื่อพอดี")], ['off', T("ซ่อน")]])}</div>
+    <div class="acts"><button class="btn primary" data-act="setdone">${back ? T("กลับ") : T("ปิด")}</button></div></div>`);
 }
 function setSetting(k, raw) {
   const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
@@ -802,7 +819,7 @@ function drawPop() {
   let dlg = el.querySelector('.pop-dlg');
   if (el.dataset.k !== key || !dlg) {
     el.innerHTML = `<div class="pop-dlg" role="dialog"><div class="pop-head"><div class="pop-title"><h2></h2><span class="sub"></span><span class="mini"></span></div>
-      <button class="x fold" data-act="popmin"></button><button class="x" data-act="popclose" aria-label="ปิด">✕</button></div><div class="pop-body"></div><div class="pop-foot"></div></div>`;
+      <button class="x fold" data-act="popmin"></button><button class="x" data-act="popclose" aria-label="${T("ปิด")}">✕</button></div><div class="pop-body"></div><div class="pop-foot"></div></div>`;
     el.dataset.k = key;
     dlg = el.querySelector('.pop-dlg');
     drawPop.last = {};
@@ -825,7 +842,7 @@ function drawPop() {
   dlg.querySelector('.pop-foot').hidden = !b.foot;
   const fold = dlg.querySelector('.fold');
   fold.textContent = min ? '▴' : '▾';
-  fold.title = min ? 'ขยายหน้าต่าง' : 'พับหน้าต่าง';
+  fold.title = min ? T("ขยายหน้าต่าง") : T("พับหน้าต่าง");
   fold.setAttribute('aria-label', fold.title);
   el.hidden = false;
   // folded: sit just above the hand bar so its cards stay tappable (paper 4.6 item 5)
@@ -867,10 +884,10 @@ function popBody() {
   if (k === 'me') return mePop();
   if (k === 'deck') return deckPop();
   if (k === 'card') return cardPop(pop.f);
-  if (k === 'rank') { const s = standingsHtml(); return { title: 'อันดับ VP ของทุกคน', sub: s.sub, html: s.html }; }
-  if (k === 'log') return { title: 'บันทึกสงคราม', html: `<div class="loglist">${logHtml()}</div>` };
+  if (k === 'rank') { const s = standingsHtml(); return { title: T("อันดับ VP ของทุกคน"), sub: s.sub, html: s.html }; }
+  if (k === 'log') return { title: T("บันทึกสงคราม"), html: `<div class="loglist">${logHtml()}</div>` };
   if (k === 'sit') return sitPop();
-  if (k === 'menu') return { title: 'เมนู', html: '<div class="menu"><button class="btn" data-act="rules">กติกา</button><button class="btn" data-act="icons">ไอคอนทั้งหมด</button><button class="btn" data-act="new">เกมใหม่ · เปลี่ยน Master</button><button class="btn" data-act="settings">⚙ ตั้งค่า</button></div>' };
+  if (k === 'menu') return { title: T("เมนู"), html: `<div class="menu"><button class="btn" data-act="rules">${T("กติกา")}</button><button class="btn" data-act="icons">${T("ไอคอนทั้งหมด")}</button><button class="btn" data-act="new">${T("เกมใหม่ · เปลี่ยน Master")}</button><button class="btn" data-act="settings">${T("⚙ ตั้งค่า")}</button></div>` };
   return null;
 }
 
@@ -878,13 +895,13 @@ function sitPop() {
   const s = g.sit;
   const cut = cutInfo();
   const left = REGULAR - Math.min(g.round, REGULAR);
-  const ev = (f) => `<div class="pop-sec"><p class="row-lab">อีเวนต์${AREAS[f].name}</p><div class="evlist">${evCards(f, false)}</div></div>`;
+  const ev = (f) => `<div class="pop-sec"><p class="row-lab">${T("อีเวนต์")}${AREAS[f].name}</p><div class="evlist">${evCards(f, false)}</div></div>`;
   return {
-    title: s ? s.name : 'การ์ดสถานการณ์',
-    sub: s ? `${esc(roundLabel())} · จ่ายมานา +${s.mana}` : '',
-    html: `${s ? `<p class="lede">${esc(s.text)}</p>` : '<p class="lede">เปิดรอบละใบตอนเตรียมการ</p>'}
-      <p class="p-text">กองสถานการณ์เหลือ ${left} ใบ · ไคลแมกซ์ 3 ใบแยกไว้ · กองอีเวนต์เหลือ ${g.evDeck.length} ใบ (ใช้แล้ว ${g.evUsed.length})</p>
-      ${cut?.show ? `<p class="p-text warnline">${cut.allOut ? 'ทุกคนเสมอที่เส้นตัด ถ้าคัดตอนนี้จะไม่มีใครออก' : `ถ้าคัดตอนนี้ (${cut.when} เหลือ ${cut.target} คน) คนที่มี ${cut.line} VP ลงไปตกรอบ`}</p>` : ''}
+    title: s ? s.name : T("การ์ดสถานการณ์"),
+    sub: s ? T("{0} · จ่ายมานา +{1}", esc(roundLabel()), s.mana) : '',
+    html: `${s ? `<p class="lede">${esc(s.text)}</p>` : `<p class="lede">${T("เปิดรอบละใบตอนเตรียมการ")}</p>`}
+      <p class="p-text">${T("กองสถานการณ์เหลือ {0} ใบ · ไคลแมกซ์ 3 ใบแยกไว้ · กองอีเวนต์เหลือ {1} ใบ (ใช้แล้ว {2})", left, g.evDeck.length, g.evUsed.length)}</p>
+      ${cut?.show ? `<p class="p-text warnline">${cut.allOut ? T("ทุกคนเสมอที่เส้นตัด ถ้าคัดตอนนี้จะไม่มีใครออก") : T("ถ้าคัดตอนนี้ ({0} เหลือ {1} คน) คนที่มี {2} VP ลงไปตกรอบ", cut.when, cut.target, cut.line)}</p>` : ''}
       ${ev('miyama')}${ev('shinto')}`,
   };
 }
@@ -900,51 +917,51 @@ function areaPop(f) {
   let html = '';
   if (A.field) {
     html += `<div class="evlist">${evCards(f, false)}</div>`;
-    if (g.evs[f].length) html += `<p class="p-text">${esc(prizeText(f))} · แพ้ไม่เสียอะไร</p>`;
-    html += `<p class="p-text">ได้เปรียบพื้นที่: คนแรกที่วางตอนตั้งมั่น +${TERRAIN[0]} · คนที่สอง +${TERRAIN[1]} · ย้ายออกแล้วหาย · มี 2 คนขึ้นไปติดพัน เดินออกตามปกติไม่ได้</p>`;
+    if (g.evs[f].length) html += `<p class="p-text">${esc(prizeText(f))} ${T("· แพ้ไม่เสียอะไร")}</p>`;
+    html += `<p class="p-text">${T("ได้เปรียบพื้นที่: คนแรกที่วางตอนตั้งมั่น +{0} · คนที่สอง +{1} · ย้ายออกแล้วหาย · มี 2 คนขึ้นไปติดพัน เดินออกตามปกติไม่ได้", TERRAIN[0], TERRAIN[1])}</p>`;
   } else if (f === 'workshop') {
-    html += `<p class="p-text">วางตอนตั้งมั่นแล้วได้มานาตามช่อง: คนแรก +${WORKSHOP[0]} · คนต่อไป +${WORKSHOP[1]} · รับ 4 คน · ไม่ได้สู้ · ตอนปฏิบัติการเดินต่อไปได้${p.m.key === 'kuzuki' ? ' · คุณ (คุซุกิ) ไม่ได้มานาที่นี่ แต่เดินออกจ่ายน้อยลง 1' : ''}</p>`;
+    html += `<p class="p-text">${T("วางตอนตั้งมั่นแล้วได้มานาตามช่อง: คนแรก +{0} · คนต่อไป +{1} · รับ 4 คน · ไม่ได้สู้ · ตอนปฏิบัติการเดินต่อไปได้", WORKSHOP[0], WORKSHOP[1])}${p.m.key === 'kuzuki' ? T(" · คุณ (คุซุกิ) ไม่ได้มานาที่นี่ แต่เดินออกจ่ายน้อยลง 1") : ''}</p>`;
   } else {
-    html += `<p class="p-text">รับ 1 คน · ย้ายเข้าตอนปฏิบัติการได้ ${RECON_VP} VP ทันที · วางตอนตั้งมั่นไม่ได้ · ไม่ได้สู้</p>`;
+    html += `<p class="p-text">${T("รับ 1 คน · ย้ายเข้าตอนปฏิบัติการได้ {0} VP ทันที · วางตอนตั้งมั่นไม่ได้ · ไม่ได้สู้", RECON_VP)}</p>`;
   }
-  if (next) html += `<p class="p-text">ทางออก: ไป${AREAS[next].name} มานา ${kz ? `${Math.max(0, STEP_COST[i] - 1)} (คุณจ่ายน้อยลง 1)` : STEP_COST[i]} · ทางเดียว</p>`;
+  if (next) html += `<p class="p-text">${T("ทางออก: ไป{0} มานา {1} · ทางเดียว", AREAS[next].name, kz ? T("{0} (คุณจ่ายน้อยลง 1)", Math.max(0, STEP_COST[i] - 1)) : STEP_COST[i])}</p>`;
   const bt = myBattle();
   if (bt?.f === f) {
-    html += `<div class="pop-sec"><p class="row-lab">${bt.res ? 'ผลการต่อสู้ · ผล "ตอนปะทะ" ตามลำดับที่นั่ง' : `ต่อสู้ · อยู่ที่นี่ ${here.length} คน ตามลำดับที่นั่ง`}</p><div class="battle full">${battleRows(f, bt.res, true)}</div></div>`;
-    return { title: A.name, sub: bt.res ? `ผลการต่อสู้ · ผู้ชนะได้ ${bt.res.pool} VP` : 'สนามรบ · กำลังต่อสู้', mini: `ต่อสู้ ${here.length} คน`, html, foot: areaActs(f) };
+    html += `<div class="pop-sec"><p class="row-lab">${bt.res ? T("ผลการต่อสู้ · ผล \"ตอนปะทะ\" ตามลำดับที่นั่ง") : T("ต่อสู้ · อยู่ที่นี่ {0} คน ตามลำดับที่นั่ง", here.length)}</p><div class="battle full">${battleRows(f, bt.res, true)}</div></div>`;
+    return { title: A.name, sub: bt.res ? T("ผลการต่อสู้ · ผู้ชนะได้ {0} VP", bt.res.pool) : T("สนามรบ · กำลังต่อสู้"), mini: T("ต่อสู้ {0} คน", here.length), html, foot: areaActs(f) };
   }
   const rows = here.map((q) => {
     const cards = q.play ? q.play.cards.map((c) => (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('') : '';
-    return `<div class="foe">${chip(q)}${permTags(q, { btn: true })}<span>${q.terrain ? `ได้เปรียบ +${q.terrain}` : 'ไม่มีได้เปรียบ'}${q.play ? ` · พลัง <b class="pw">${q.play.pre}</b>` : ''}</span>${cards ? `<div class="cards">${cards}</div>` : ''}</div>`;
+    return `<div class="foe">${chip(q)}${permTags(q, { btn: true })}<span>${q.terrain ? T("ได้เปรียบ +{0}", q.terrain) : T("ไม่มีได้เปรียบ")}${q.play ? ` ${T("· พลัง")} <b class="pw">${q.play.pre}</b>` : ''}</span>${cards ? `<div class="cards">${cards}</div>` : ''}</div>`;
   }).join('');
-  html += `<div class="pop-sec"><p class="row-lab">อยู่ที่นี่ ${here.length} คน</p>${rows ? `<div class="foes">${rows}</div>` : '<p class="p-text">ยังไม่มีใคร</p>'}</div>`;
-  return { title: A.name, sub: A.field ? 'สนามรบ' : f === 'workshop' ? 'เก็บมานา' : 'เก็บ VP', mini: `อยู่ที่นี่ ${here.length} คน${A.field && g.evs[f].length ? ` · ${esc(prizeText(f))}` : ''}`, html, foot: areaActs(f) };
+  html += `<div class="pop-sec"><p class="row-lab">${T("อยู่ที่นี่ {0} คน", here.length)}</p>${rows ? `<div class="foes">${rows}</div>` : `<p class="p-text">${T("ยังไม่มีใคร")}</p>`}</div>`;
+  return { title: A.name, sub: A.field ? T("สนามรบ") : f === 'workshop' ? T("เก็บมานา") : T("เก็บ VP"), mini: T("อยู่ที่นี่ {0} คน{1}", here.length, A.field && g.evs[f].length ? ` · ${esc(prizeText(f))}` : ''), html, foot: areaActs(f) };
 }
 
 function areaActs(f) {
   if (!myTurn()) return '';
   const p = me();
   if (wait.kind === 'place') {
-    if (!wait.ctx.opts.includes(f)) return '<span class="dim">ตอนนี้วางหมากที่นี่ไม่ได้</span>';
-    return `<button class="btn primary" data-act="place" data-to="${f}">วางหมากที่นี่ · ${placeGain(f)}</button>`;
+    if (!wait.ctx.opts.includes(f)) return `<span class="dim">${T("ตอนนี้วางหมากที่นี่ไม่ได้")}</span>`;
+    return `<button class="btn primary" data-act="place" data-to="${f}">${T("วางหมากที่นี่ ·")} ${placeGain(f)}</button>`;
   }
   if (wait.kind === 'move') {
     const os = moveOpts().filter((o) => o.to === f);
-    const cs4 = p.cs > 0 && p.mana < MANA_MAX ? `<label class="check"><input type="checkbox" id="mv-cs4"${draft.cs4 ? ' checked' : ''}> ◆ ใช้ Command Spell รับมานา +${CS_MANA} ก่อนย้าย</label>` : '';
-    if (!os.length) return `${cs4}<span class="dim">ตอนนี้ไปที่นี่ไม่ได้ (ทางเดียว มานาไม่พอ หรือเต็ม)</span>`;
+    const cs4 = p.cs > 0 && p.mana < MANA_MAX ? `<label class="check"><input type="checkbox" id="mv-cs4"${draft.cs4 ? ' checked' : ''}> ${T("◆ ใช้ Command Spell รับมานา +{0} ก่อนย้าย", CS_MANA)}</label>` : '';
+    if (!os.length) return `${cs4}<span class="dim">${T("ตอนนี้ไปที่นี่ไม่ได้ (ทางเดียว มานาไม่พอ หรือเต็ม)")}</span>`;
     return `${cs4}<div class="acts">${os.map((o) => moveBtn(o, true)).join('')}</div>`;
   }
-  if (wait.kind === 'cards' && f === p.at) return '<button class="btn primary" data-act="openact">ลงการ์ดที่นี่</button>';
-  if (wait.kind === 'window' && f === p.at) return '<button class="btn primary" data-act="openwin">ใช้การ์ด</button>';
+  if (wait.kind === 'cards' && f === p.at) return `<button class="btn primary" data-act="openact">${T("ลงการ์ดที่นี่")}</button>`;
+  if (wait.kind === 'window' && f === p.at) return `<button class="btn primary" data-act="openwin">${T("ใช้การ์ด")}</button>`;
   return '';
 }
 
 function placeGain(k) {
   const p = me();
   const here = g.here(k);
-  if (k === 'workshop') { const n = WORKSHOP[here.length]; return p.m.key === 'kuzuki' ? 'ไม่ได้มานา' : `มานา +${Math.min(n, MANA_MAX - p.mana)}`; }
+  if (k === 'workshop') { const n = WORKSHOP[here.length]; return p.m.key === 'kuzuki' ? T("ไม่ได้มานา") : T("มานา +{0}", Math.min(n, MANA_MAX - p.mana)); }
   const t = here.length < TERRAIN.length ? TERRAIN[here.length] : 0;
-  return t ? `ได้เปรียบ +${t}` : 'ไม่มีได้เปรียบ';
+  return t ? T("ได้เปรียบ +{0}", t) : T("ไม่มีได้เปรียบ");
 }
 
 function placeOpts() {
@@ -954,13 +971,13 @@ function placeOpts() {
     let sub;
     if (k === 'workshop') {
       const tc = p.skills.find((c) => c.resident && c.fx?.workshop); // Caster Class
-      sub = `<span>ช่อง ${here.length + 1} · <span class="gain">${placeGain(k)}</span>${tc ? ` · ${esc(tc.name)} มานา +${tc.fx.workshop.mana} ได้ ${tc.fx.workshop.vp} VP` : ''}</span><span>ไม่ได้สู้ · ตอนปฏิบัติการเดินต่อไปได้</span>`;
+      sub = `<span>${T("ช่อง {0} ·", here.length + 1)} <span class="gain">${placeGain(k)}</span>${tc ? T(" · {0} มานา +{1} ได้ {2} VP", esc(tc.name), tc.fx.workshop.mana, tc.fx.workshop.vp) : ''}</span><span>${T("ไม่ได้สู้ · ตอนปฏิบัติการเดินต่อไปได้")}</span>`;
     } else {
-      sub = `<span><span class="gain">${placeGain(k)}</span>${k === 'miyama' && p.m.key === 'shinji' ? ' · มานา +1' : ''} · ${esc(prizeText(k))}</span><span>${here.length ? `อยู่แล้ว: ${here.map((q) => esc(q.name)).join(', ')}` : 'ยังไม่มีใคร'}</span>`;
+      sub = `<span><span class="gain">${placeGain(k)}</span>${k === 'miyama' && p.m.key === 'shinji' ? T(" · มานา +1") : ''} · ${esc(prizeText(k))}</span><span>${here.length ? T("อยู่แล้ว: {0}", here.map((q) => esc(q.name)).join(', ')) : T("ยังไม่มีใคร")}</span>`;
     }
     return `<button class="opt" data-act="place" data-to="${k}"><b>${esc(AREAS[k].name)}</b>${sub}</button>`;
   }).join('');
-  return { title: 'ตั้งมั่น · วางหมาก Master', sub: 'โรงฝึกเวทให้มานา · สนามรบให้ได้เปรียบพื้นที่ 2 คนแรก · ลาดตระเวนวางตอนนี้ไม่ได้', mini: 'ตาของคุณ · เลือกจุดวางหมาก', html: `<div class="opts">${opts}</div>` };
+  return { title: T("ตั้งมั่น · วางหมาก Master"), sub: T("โรงฝึกเวทให้มานา · สนามรบให้ได้เปรียบพื้นที่ 2 คนแรก · ลาดตระเวนวางตอนนี้ไม่ได้"), mini: T("ตาของคุณ · เลือกจุดวางหมาก"), html: `<div class="opts">${opts}</div>` };
 }
 
 function moveBtn(o, short) {
@@ -968,26 +985,26 @@ function moveBtn(o, short) {
   const A = AREAS[o.to];
   const fieldTxt = (k) => {
     const foes = g.here(k).filter((q) => q !== p);
-    return foes.length ? `สู้กับ ${foes.map((q) => esc(q.name)).join(', ')} · ${esc(prizeText(k))}` : `ยังไม่มีคู่ต่อสู้ · ${esc(prizeText(k))}`;
+    return foes.length ? T("สู้กับ {0} · {1}", foes.map((q) => esc(q.name)).join(', '), esc(prizeText(k))) : T("ยังไม่มีคู่ต่อสู้ · {0}", esc(prizeText(k)));
   };
-  const where = (k) => (AREAS[k].field ? fieldTxt(k) : k === 'recon' ? `ได้ ${RECON_VP} VP ทันที` : '');
+  const where = (k) => (AREAS[k].field ? fieldTxt(k) : k === 'recon' ? T("ได้ {0} VP ทันที", RECON_VP) : '');
   let b, sub;
-  if (o.how === 'stay') { b = short ? 'อยู่ที่นี่' : `อยู่ที่${A.name}`; sub = A.field ? fieldTxt(o.to) : 'ไม่สู้ · ยังลงการ์ดได้ ผล "ตอนใช้" ทำงาน ไม่คิดพลัง'; }
-  else if (o.how === 'walk') { b = short ? 'เดินมาที่นี่' : `เดินไป${A.name}`; sub = `<span class="gain">มานา ${o.cost}</span> · ${where(o.to)}${o.to === 'miyama' && p.m.key === 'shinji' ? ' · มานา +1' : ''}`; }
-  else if (o.how === 'kirei') { b = 'Impartial: ไปลาดตระเวน'; sub = `<span class="gain">มานา 2</span> · ไม่สนการติดพัน · ได้ ${RECON_VP} VP ทันที`; }
-  else { b = short ? 'ย้ายมาด้วย Command Spell' : `ย้ายไป${A.name}`; sub = `Command Spell 1 ดวง · ไม่สนการติดพัน · ${where(o.to)}`; }
+  if (o.how === 'stay') { b = short ? T("อยู่ที่นี่") : T("อยู่ที่{0}", A.name); sub = A.field ? fieldTxt(o.to) : T("ไม่สู้ · ยังลงการ์ดได้ ผล \"ตอนใช้\" ทำงาน ไม่คิดพลัง"); }
+  else if (o.how === 'walk') { b = short ? T("เดินมาที่นี่") : T("เดินไป{0}", A.name); sub = `<span class="gain">${T("มานา")} ${o.cost}</span> · ${where(o.to)}${o.to === 'miyama' && p.m.key === 'shinji' ? T(" · มานา +1") : ''}`; }
+  else if (o.how === 'kirei') { b = T("Impartial: ไปลาดตระเวน"); sub = `<span class="gain">${T("มานา 2")}</span> ${T("· ไม่สนการติดพัน · ได้ {0} VP ทันที", RECON_VP)}`; }
+  else { b = short ? T("ย้ายมาด้วย Command Spell") : T("ย้ายไป{0}", A.name); sub = T("Command Spell 1 ดวง · ไม่สนการติดพัน · {0}", where(o.to)); }
   return `<button class="opt${o.how === 'cs' ? ' cs' : ''}" data-act="move" data-to="${o.to}" data-how="${o.how}"><b>${esc(b)}</b><span>${sub}</span></button>`;
 }
 
 function moveOptsPop() {
   const p = me();
   const mana = Math.min(MANA_MAX, p.mana + (draft.cs4 ? CS_MANA : 0));
-  const engaged = g.engagedAt(p.at) ? `<p class="p-text warnline">${esc(AREAS[p.at].name)}ติดพัน (มี 2 คนขึ้นไป) เดินออกตามปกติไม่ได้</p>` : '';
+  const engaged = g.engagedAt(p.at) ? `<p class="p-text warnline">${esc(AREAS[p.at].name)}${T("ติดพัน (มี 2 คนขึ้นไป) เดินออกตามปกติไม่ได้")}</p>` : '';
   return {
-    title: 'ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม',
-    sub: `เดินตามลูกศรได้ทางเดียว จ่ายมานาตามลูกศร · มานาคุณ ${p.mana}${draft.cs4 ? ` → ${mana}` : ''}`,
-    mini: `ตาของคุณ · มานา ${mana}`,
-    html: `${engaged}${p.cs > 0 && p.mana < MANA_MAX ? `<label class="check"><input type="checkbox" id="mv-cs4"${draft.cs4 ? ' checked' : ''}> ◆ ใช้ Command Spell 1 ดวงรับมานา +${CS_MANA} ก่อนย้าย (สูงสุด ${MANA_MAX})</label>` : ''}
+    title: T("ปฏิบัติการ · ย้ายหรืออยู่ที่เดิม"),
+    sub: T("เดินตามลูกศรได้ทางเดียว จ่ายมานาตามลูกศร · มานาคุณ {0}{1}", p.mana, draft.cs4 ? ` → ${mana}` : ''),
+    mini: T("ตาของคุณ · มานา {0}", mana),
+    html: `${engaged}${p.cs > 0 && p.mana < MANA_MAX ? `<label class="check"><input type="checkbox" id="mv-cs4"${draft.cs4 ? ' checked' : ''}> ${T("◆ ใช้ Command Spell 1 ดวงรับมานา +{0} ก่อนย้าย (สูงสุด {1})", CS_MANA, MANA_MAX)}</label>` : ''}
       <div class="opts">${moveOpts().map((o) => moveBtn(o, false)).join('')}</div>`,
   };
 }
@@ -1027,8 +1044,8 @@ function cardsPop() {
   const inf = g.infinite(p);
   const mana = inf ? p.mana : a.budget;
   const foes = (AREAS[f].field ? g.here(f) : []).filter((q) => q !== p).map((q) => `<div class="foe">${chip(q)}${q.play
-    ? `<span>พลัง <b class="pw">${q.play.pre}</b></span><div class="cards">${q.play.cards.map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('')}</div>`
-    : `<span>ยังไม่ลงการ์ด${q.terrain ? ` · ได้เปรียบ +${q.terrain}` : ''}</span>`}</div>`).join('');
+    ? `<span>${T("พลัง")} <b class="pw">${q.play.pre}</b></span><div class="cards">${q.play.cards.map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('')}</div>`
+    : `<span>${T("ยังไม่ลงการ์ด")}${q.terrain ? T(" · ได้เปรียบ +{0}", q.terrain) : ''}</span>`}</div>`).join('');
   const sel = new Set(draft.ids.filter((id) => a.ids.includes(id)));
   const down = new Set(a.down); // the engine's sides, so a card the mana cannot pay for shows face down
   const forced = forcedDown(a);
@@ -1040,84 +1057,84 @@ function cardsPop() {
     const s = sel.has(c.uid);
     const isDown = s && down.has(c.uid);
     const m = g.costOf(p, c, a.gate.length);
-    const note = !s && g.canFlip(c) && m > free ? 'มานาไม่พอ · ลงคว่ำได้' : undefined;
+    const note = !s && g.canFlip(c) && m > free ? T("มานาไม่พอ · ลงคว่ำได้") : undefined;
     const t = tile(c, { btn: true, sel: s, down: isDown, note, power: g.cardPower(p, { ...c, down: false }, ctx), cost: c.fx?.gate ? m : costNow(c) });
     const flip = !s || !g.canFlip(c) ? ''
-      : forced.has(c.uid) ? `<button class="flip down" disabled>คว่ำอยู่ · มานาไม่พอหงาย</button>`
-      : `<button class="flip${isDown ? ' down' : ''}" data-act="flip" data-uid="${c.uid}">${isDown ? 'คว่ำอยู่ · กดหงาย' : 'หงาย · กดคว่ำ'}</button>`;
+      : forced.has(c.uid) ? `<button class="flip down" disabled>${T("คว่ำอยู่ · มานาไม่พอหงาย")}</button>`
+      : `<button class="flip${isDown ? ' down' : ''}" data-act="flip" data-uid="${c.uid}">${isDown ? T("คว่ำอยู่ · กดหงาย") : T("หงาย · กดคว่ำ")}</button>`;
     return `<div class="pickcol">${t}${flip}${choiceTag(c, a)}</div>`;
   };
   const locked = (c, why) => `<div class="pickcol">${tile(c, { lock: true, note: why })}</div>`;
-  const short = (c) => { const m = g.costOf(p, c); return !inf && !sel.has(c.uid) && m > a.budget - fixed ? `มานาไม่พอ (เหลือ ${Math.max(0, a.budget - fixed)} ใช้ ${m})` : ''; };
+  const short = (c) => { const m = g.costOf(p, c); return !inf && !sel.has(c.uid) && m > a.budget - fixed ? T("มานาไม่พอ (เหลือ {0} ใช้ {1})", Math.max(0, a.budget - fixed), m) : ''; };
   const skills = p.skills.map((c) => { const why = g.skillState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('');
-  const specials = p.specials.map((c) => { const why = c.windowOnly ? 'ใช้ช่วงเตรียมการ' : g.specialState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('')
+  const specials = p.specials.map((c) => { const why = c.windowOnly ? T("ใช้ช่วงเตรียมการ") : g.specialState(p, c, mana) || short(c); return why ? locked(c, why) : pick(c); }).join('')
     + (p.m.key === 'rin' ? gemTile(a) : '');
-  const handCards = p.hand.map((c) => (c.fx?.luck && p.roundUse.defeated ? locked(c, 'แพ้ไปแล้ว ลง Luck ไม่ได้') : pick(c))).join('');
+  const handCards = p.hand.map((c) => (c.fx?.luck && p.roundUse.defeated ? locked(c, T("แพ้ไปแล้ว ลง Luck ไม่ได้")) : pick(c))).join('');
   const ubw = cards.find((c) => c.fx?.ubw);
-  const deckRow = ubw ? `<div class="pop-sec"><p class="row-lab">สำรับและกองทิ้ง (Unlimited Blade Works ลงการ์ดเพิ่มได้ถึง ${ubw.fx.ubw} ใบ · ที่เหลือขึ้นมือ)</p><div class="cards">${[...p.deck, ...p.trash].map((c) => pick(c)).join('')}</div></div>` : '';
+  const deckRow = ubw ? `<div class="pop-sec"><p class="row-lab">${T("สำรับและกองทิ้ง (Unlimited Blade Works ลงการ์ดเพิ่มได้ถึง {0} ใบ · ที่เหลือขึ้นมือ)", ubw.fx.ubw)}</p><div class="cards">${[...p.deck, ...p.trash].map((c) => pick(c)).join('')}</div></div>` : '';
 
   // Command Spells only (paper section 10): the skills' choices open their own pop-ups (paper 4.6
   // item 8); none in a battlefield held by 2nd Strike
   const csLeft = p.cs - (a.cs4 ? 1 : 0);
   const ctrl = [];
-  if (!a.blocked && p.cs > 0 && p.mana < MANA_MAX) ctrl.push(`<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="cs4" aria-pressed="${!!draft.cs4}">◆ มานา +${CS_MANA} ก่อนจ่าย</button>`);
-  if (!a.blocked && csLeft > 0 && !off) ctrl.push(stepper('cs2', `◆ พลัง +${CS_POWER} (ชนะได้ VP +${CS_VP})`, a.cs2, csLeft - (a.csMove ? 1 : 0)));
+  if (!a.blocked && p.cs > 0 && p.mana < MANA_MAX) ctrl.push(`<button class="btn sm${draft.cs4 ? ' on' : ''}" data-act="cs4" aria-pressed="${!!draft.cs4}">${T("◆ มานา +{0} ก่อนจ่าย", CS_MANA)}</button>`);
+  if (!a.blocked && csLeft > 0 && !off) ctrl.push(stepper('cs2', T("◆ พลัง +{0} (ชนะได้ VP +{1})", CS_POWER, CS_VP), a.cs2, csLeft - (a.csMove ? 1 : 0)));
   const csDests = PATH.slice(1).filter((k) => k !== p.at && (k !== 'recon' || g.reconFree(p)));
   if (!a.blocked && csLeft > 0 && csDests.length) {
     // one move a play: a move card already takes you, so this one greys out
-    const why = a.moveTo ? 'การ์ดย้ายแล้ว' : csLeft - a.cs2 <= 0 ? 'Command Spell ใช้กับพลังหมดแล้ว' : '';
-    ctrl.push(`<span class="stepper${why ? ' off' : ''}">◆ หลังลงการ์ดย้ายไป: ${['', ...csDests].map((k) => `<button class="btn sm${!why && (a.csMove || '') === k ? ' on' : ''}" data-act="csMove" data-to="${k}"${why ? ' disabled' : ''}>${k ? esc(AREAS[k].name) : 'ไม่ย้าย'}</button>`).join('')}${why ? `<em class="why">${why}</em>` : ''}</span>`);
+    const why = a.moveTo ? T("การ์ดย้ายแล้ว") : csLeft - a.cs2 <= 0 ? T("Command Spell ใช้กับพลังหมดแล้ว") : '';
+    ctrl.push(`<span class="stepper${why ? ' off' : ''}">${T("◆ หลังลงการ์ดย้ายไป:")} ${['', ...csDests].map((k) => `<button class="btn sm${!why && (a.csMove || '') === k ? ' on' : ''}" data-act="csMove" data-to="${k}"${why ? ' disabled' : ''}>${k ? esc(AREAS[k].name) : T("ไม่ย้าย")}</button>`).join('')}${why ? `<em class="why">${why}</em>` : ''}</span>`);
   }
 
   // what the engine changed from the draft
   const notes = [];
-  if (a.blocked) notes.push(`2nd Strike ของ ${esc(g.block[p.at].name)}: ที่นี่ความสามารถ Action และ Combat ของคุณ (ผล "ตอนใช้" "ตอนปะทะ") Command Spell และอัญมณีใช้ไม่ได้รอบนี้ · ผลตอนลง (On Play) เช่น Metamorphosis และชนิดของ Gate of Babylon ยังทำงาน`);
-  for (const id of a.ids) if (!sel.has(id) && id > 0) notes.push(`เติม ${esc(cardName(cards.find((c) => c.uid === id)))} แบบคว่ำให้ครบ ${PLAY} ใบ`);
-  for (const id of forced) if (sel.has(id)) notes.push(`คว่ำ ${esc(cardName(cards.find((c) => c.uid === id)))} เพราะมานาไม่พอ`);
-  for (const id of draft.ids) if (!a.ids.includes(id)) { const c = allCards(p).find((x) => x.uid === id); if (c) notes.push(`ไม่ได้ลง ${esc(cardName(c))} (เกินจำนวนหรือมานาไม่พอ)`); }
-  if (a.temper) notes.push('Short Temper: รอบ 1 ต้องใช้ Command Spell 1 ดวง · คุณยังไม่ได้ใช้ กด "ลงการ์ด" แล้วเลือกว่าใช้แบบไหน');
-  if (g.tsubame(cards)) notes.push(`ลงดาบครบ 3 ใบ: Tsubame Gaeshi พลัง +${TSUBAME} และเปิดชื่อจริง`);
-  if (revealing) notes.push(`ลงชุดนี้แล้วชื่อจริงจะเปิด: ${esc(p.sv.name)}`);
+  if (a.blocked) notes.push(T("2nd Strike ของ {0}: ที่นี่ความสามารถ Action และ Combat ของคุณ (ผล \"ตอนใช้\" \"ตอนปะทะ\") Command Spell และอัญมณีใช้ไม่ได้รอบนี้ · ผลตอนลง (On Play) เช่น Metamorphosis และชนิดของ Gate of Babylon ยังทำงาน", esc(g.block[p.at].name)));
+  for (const id of a.ids) if (!sel.has(id) && id > 0) notes.push(T("เติม {0} แบบคว่ำให้ครบ {1} ใบ", esc(cardName(cards.find((c) => c.uid === id))), PLAY));
+  for (const id of forced) if (sel.has(id)) notes.push(T("คว่ำ {0} เพราะมานาไม่พอ", esc(cardName(cards.find((c) => c.uid === id)))));
+  for (const id of draft.ids) if (!a.ids.includes(id)) { const c = allCards(p).find((x) => x.uid === id); if (c) notes.push(T("ไม่ได้ลง {0} (เกินจำนวนหรือมานาไม่พอ)", esc(cardName(c)))); }
+  if (a.temper) notes.push(T("Short Temper: รอบ 1 ต้องใช้ Command Spell 1 ดวง · คุณยังไม่ได้ใช้ กด \"ลงการ์ด\" แล้วเลือกว่าใช้แบบไหน"));
+  if (g.tsubame(cards)) notes.push(T("ลงดาบครบ 3 ใบ: Tsubame Gaeshi พลัง +{0} และเปิดชื่อจริง", TSUBAME));
+  if (revealing) notes.push(T("ลงชุดนี้แล้วชื่อจริงจะเปิด: {0}", esc(p.sv.name)));
   const extras = cards.filter((c) => c.fx?.extra || c.temp).map((c) => cardName(c));
-  if (extras.length) notes.push(`ลงเพิ่มนอกเหนือ ${PLAY} ใบ: ${esc(extras.join(', '))}`);
-  if (rbQ && !a.blocked) notes.push(`Rule Breaker: ${esc(rbQ.name)} ${rbQ.cs ? 'เสีย Command Spell 1 ดวง' : 'ไม่มี Command Spell'}${rbQ.cs <= 1 ? ' · เหลือ 0 จึง [แพ้] · คุณพลังรวม +10' : ''}`);
+  if (extras.length) notes.push(T("ลงเพิ่มนอกเหนือ {0} ใบ: {1}", PLAY, esc(extras.join(', '))));
+  if (rbQ && !a.blocked) notes.push(`Rule Breaker: ${esc(rbQ.name)} ${rbQ.cs ? T("เสีย Command Spell 1 ดวง") : T("ไม่มี Command Spell")}${rbQ.cs <= 1 ? T(" · เหลือ 0 จึง [แพ้] · คุณพลังรวม +10") : ''}`);
   // on-use effects work wherever you are; on-clash ones only on a battlefield (paper 8.3, v5.1)
   for (const c of cards.filter((x) => !x.down)) {
     const fx = c.fx || {};
-    if (fx.mana && !a.blocked) notes.push(`${esc(cardName(c))}: ได้มานา +${fx.mana} ทันที`);
-    if (fx.permanent) notes.push(`${esc(cardName(c))}: ถาวร อยู่ในสนามต่อ มีผลและให้พลัง ${c.power} ทุกรอบตั้งแต่รอบนี้`);
-    if (fx.ubw) notes.push(`${esc(cardName(c))}: การ์ดที่ไม่ได้ลงขึ้นมือทั้งหมด · รอบต่อไปจั่วไม่ได้ ลงได้ 0–${UBW_PLAY} ใบ จนการ์ดในมือหมด`);
-    if (fx.hide) notes.push(p.revealed || revealing ? `${esc(cardName(c))}: ชื่อจริงกลับไปซ่อน · ได้ ${fx.playVP} VP` : `${esc(cardName(c))}: ชื่อจริงยังซ่อนอยู่ · ได้ ${fx.playVP} VP`);
-    if (fx.archer && !a.blocked) notes.push(`${esc(cardName(c))}: ได้ ${fx.archer} VP ทันที · ถ้าแพ้การต่อสู้รอบนี้เสีย ${fx.archerLose} VP`);
-    if (fx.block && !off && !a.blocked) notes.push(`${esc(cardName(c))}: คนอื่นที่${esc(AREAS[f].name)}ใช้ความสามารถ Action และ Combat (ผล "ตอนใช้" "ตอนปะทะ") และ Command Spell ไม่ได้รอบนี้ · ผลตอนลงและข้อความที่ไม่มีป้ายยังทำงาน`);
-    if (off && cardLines(c).some((l) => l.when === 'clash')) notes.push(`${esc(cardName(c))}: ผล "ตอนปะทะ" ไม่มีผลนอกสนามรบ`);
+    if (fx.mana && !a.blocked) notes.push(T("{0}: ได้มานา +{1} ทันที", esc(cardName(c)), fx.mana));
+    if (fx.permanent) notes.push(T("{0}: ถาวร อยู่ในสนามต่อ มีผลและให้พลัง {1} ทุกรอบตั้งแต่รอบนี้", esc(cardName(c)), c.power));
+    if (fx.ubw) notes.push(T("{0}: การ์ดที่ไม่ได้ลงขึ้นมือทั้งหมด · รอบต่อไปจั่วไม่ได้ ลงได้ 0–{1} ใบ จนการ์ดในมือหมด", esc(cardName(c)), UBW_PLAY));
+    if (fx.hide) notes.push(p.revealed || revealing ? T("{0}: ชื่อจริงกลับไปซ่อน · ได้ {1} VP", esc(cardName(c)), fx.playVP) : T("{0}: ชื่อจริงยังซ่อนอยู่ · ได้ {1} VP", esc(cardName(c)), fx.playVP));
+    if (fx.archer && !a.blocked) notes.push(T("{0}: ได้ {1} VP ทันที · ถ้าแพ้การต่อสู้รอบนี้เสีย {2} VP", esc(cardName(c)), fx.archer, fx.archerLose));
+    if (fx.block && !off && !a.blocked) notes.push(T("{0}: คนอื่นที่{1}ใช้ความสามารถ Action และ Combat (ผล \"ตอนใช้\" \"ตอนปะทะ\") และ Command Spell ไม่ได้รอบนี้ · ผลตอนลงและข้อความที่ไม่มีป้ายยังทำงาน", esc(cardName(c)), esc(AREAS[f].name)));
+    if (off && cardLines(c).some((l) => l.when === 'clash')) notes.push(T("{0}: ผล \"ตอนปะทะ\" ไม่มีผลนอกสนามรบ", esc(cardName(c))));
   }
   if (dest) {
-    const from = here ? ' ได้เปรียบพื้นที่เดิมหายไป' : '';
-    notes.push(!AREAS[dest].field ? `ย้ายไป${esc(AREAS[dest].name)}หลังลงการ์ด: ได้ ${RECON_VP} VP การ์ดลงกองทิ้ง`
-      : `ย้ายไป${esc(AREAS[dest].name)}หลังลงการ์ด: การ์ดตามไป คิดพลังที่นั่น${from}${stolen ? ` · ยึดได้เปรียบพื้นที่ +${stolen}` : ''}`);
+    const from = here ? T(" ได้เปรียบพื้นที่เดิมหายไป") : '';
+    notes.push(!AREAS[dest].field ? T("ย้ายไป{0}หลังลงการ์ด: ได้ {1} VP การ์ดลงกองทิ้ง", esc(AREAS[dest].name), RECON_VP)
+      : T("ย้ายไป{0}หลังลงการ์ด: การ์ดตามไป คิดพลังที่นั่น{1}{2}", esc(AREAS[dest].name), from, stolen ? T(" · ยึดได้เปรียบพื้นที่ +{0}", stolen) : ''));
   }
-  if (off && !dest) notes.push(`อยู่${esc(AREAS[p.at].name)} ไม่ได้สู้: ไม่คิดพลัง การ์ดลงกองทิ้งตามด้านที่ลง`);
-  if (a.ids.length && a.ids.every((id) => a.down.includes(id))) notes.push(off ? 'คว่ำทั้ง 2 ใบ: ไม่เสียมานา คนอื่นไม่รู้ว่าทิ้งอะไร' : 'คว่ำทั้ง 2 ใบ: พลังจากการ์ดเป็น 0 แต่ไม่เสียมานา');
+  if (off && !dest) notes.push(T("อยู่{0} ไม่ได้สู้: ไม่คิดพลัง การ์ดลงกองทิ้งตามด้านที่ลง", esc(AREAS[p.at].name)));
+  if (a.ids.length && a.ids.every((id) => a.down.includes(id))) notes.push(off ? T("คว่ำทั้ง 2 ใบ: ไม่เสียมานา คนอื่นไม่รู้ว่าทิ้งอะไร") : T("คว่ำทั้ง 2 ใบ: พลังจากการ์ดเป็น 0 แต่ไม่เสียมานา"));
   const left = inf ? p.mana : mana - a.cost;
   const gemsLeft = p.gems - a.gemMana - a.gandr;
   const infoLine = info ? `<div class="info"><b>${esc(cardName(info))}</b> · ${esc(cardText(info))}</div>` : '';
   const max = g.maxCards(p);
 
   return {
-    title: `ลงการ์ดที่${AREAS[p.at].name}`,
-    sub: `${here ? `${esc(prizeText(p.at))}${prizeText(p.at) ? ' · ' : ''}` : 'ไม่ได้อยู่สนามรบ: ผล "ตอนใช้" ทำงาน ไม่คิดพลัง · การ์ดย้ายพาเข้าสนามรบได้ · '}${g.ubwOn(p) ? `ลง 0–${max} ใบ (Unlimited Blade Works)` : `เลือก ${max} ใบ`}${inf ? ' (The Tainted Grail: มานาไม่จำกัด)' : ''} · หงาย = จ่ายมานาและมีพลัง · คว่ำ = พลัง 0 มานา 0 · NP/สกิลต้องมีมานา ${SKILL_MANA}+`,
-    mini: `${off ? (dest ? `ย้ายไป${esc(AREAS[dest].name)}` : 'ไม่คิดพลัง') : ic('power', pw.total, { t: 'พลังรวม' })} ${ic('mana', inf ? '∞' : left, { t: 'มานาเหลือ' })} ${ic('hand', a.ids.length, { t: 'เลือกแล้ว', v: `${a.ids.length} ใบ` })}`,
+    title: T("ลงการ์ดที่{0}", AREAS[p.at].name),
+    sub: T("{0}{1}{2} · หงาย = จ่ายมานาและมีพลัง · คว่ำ = พลัง 0 มานา 0 · NP/สกิลต้องมีมานา {3}+", here ? `${esc(prizeText(p.at))}${prizeText(p.at) ? ' · ' : ''}` : T("ไม่ได้อยู่สนามรบ: ผล \"ตอนใช้\" ทำงาน ไม่คิดพลัง · การ์ดย้ายพาเข้าสนามรบได้ · "), g.ubwOn(p) ? T("ลง 0–{0} ใบ (Unlimited Blade Works)", max) : T("เลือก {0} ใบ", max), inf ? T(" (The Tainted Grail: มานาไม่จำกัด)") : '', SKILL_MANA),
+    mini: `${off ? (dest ? T("ย้ายไป{0}", esc(AREAS[dest].name)) : T("ไม่คิดพลัง")) : ic('power', pw.total, { t: T("พลังรวม") })} ${ic('mana', inf ? '∞' : left, { t: T("มานาเหลือ") })} ${ic('hand', a.ids.length, { t: T("เลือกแล้ว"), v: T("{0} ใบ", a.ids.length) })}`,
     wide: true,
-    html: `${foes ? `<div class="foes">${foes}</div>` : AREAS[f].field ? '<p class="p-text">ยังไม่มีคู่ต่อสู้ที่นี่ (คนที่ยังไม่เล่นอาจย้ายเข้ามา)</p>' : ''}
-      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ${p.specials.length ? ' · สกิล Master (กรอบเขียว)' : ''}</p><div class="cards">${handCards}${specials}</div></div>
-        <div class="cg"><p class="row-lab">การ์ด NP/สกิล · ${esc(p.sv.cls)}</p><div class="cards">${skills}</div></div></div>
+    html: `${foes ? `<div class="foes">${foes}</div>` : AREAS[f].field ? `<p class="p-text">${T("ยังไม่มีคู่ต่อสู้ที่นี่ (คนที่ยังไม่เล่นอาจย้ายเข้ามา)")}</p>` : ''}
+      <div class="cgroups"><div class="cg"><p class="row-lab">${T("การ์ดในมือ")}${p.specials.length ? T(" · สกิล Master (กรอบเขียว)") : ''}</p><div class="cards">${handCards}${specials}</div></div>
+        <div class="cg"><p class="row-lab">${T("การ์ด NP/สกิล ·")} ${esc(p.sv.cls)}</p><div class="cards">${skills}</div></div></div>
       ${deckRow}${infoLine}
-      ${ctrl.length ? `<div class="ctrl"><span class="row-lab">Command Spell (เหลือ ${p.cs})</span>${ctrl.join('')}</div>` : ''}
-      <div class="sum">${off ? `<div class="parts">${dest ? `ย้ายไป${esc(AREAS[dest].name)}` : `อยู่${esc(AREAS[p.at].name)}`} · ไม่คิดพลัง</div>` : pwDrop(pw, p, { label: `ที่มาของพลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}`, dk: 'cards' })}${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
-    foot: `<div class="tot"><span class="dim">${off ? 'ไม่คิดพลัง' : `พลังรวม${dest ? `ที่${esc(AREAS[f].name)}` : ''}`}</span><b>${off ? '–' : pw.total}</b></div>
-      <div class="num"><div>${inf ? 'มานาไม่จำกัด' : `มานา ${mana} − ${a.cost} = <b style="color:var(--mana)">${left}</b>`}</div><div class="dim">${p.m.key === 'rin' ? `อัญมณีเหลือ ${gemsLeft} · ` : ''}Command Spell เหลือ ${csLeft - a.cs2 - (a.csMove ? 1 : 0) - (a.temper === 'mana' ? 1 : 0)}</div></div>
-      <div class="acts"><button class="btn ghost" data-act="clear" title="เอาการ์ดที่เลือกออกทั้งหมด ล้าง Command Spell อัญมณี และตัวเลือกของสกิล">รีเซ็ตทั้งหมด</button><button class="btn ghost" data-act="reset">ใช้ชุดที่แนะนำ</button><button class="btn primary" data-act="play">ลงการ์ด${off ? '' : ` · พลัง ${pw.total}`}</button></div>`,
+      ${ctrl.length ? `<div class="ctrl"><span class="row-lab">${T("Command Spell (เหลือ {0})", p.cs)}</span>${ctrl.join('')}</div>` : ''}
+      <div class="sum">${off ? `<div class="parts">${dest ? T("ย้ายไป{0}", esc(AREAS[dest].name)) : T("อยู่{0}", esc(AREAS[p.at].name))} ${T("· ไม่คิดพลัง")}</div>` : pwDrop(pw, p, { label: T("ที่มาของพลังรวม{0}", dest ? T("ที่{0}", esc(AREAS[f].name)) : ''), dk: 'cards' })}${notes.map((n) => `<div class="warn">${n}</div>`).join('')}</div>`,
+    foot: `<div class="tot"><span class="dim">${off ? T("ไม่คิดพลัง") : T("พลังรวม{0}", dest ? T("ที่{0}", esc(AREAS[f].name)) : '')}</span><b>${off ? '–' : pw.total}</b></div>
+      <div class="num"><div>${inf ? T("มานาไม่จำกัด") : `${T("มานา {0} − {1} =", mana, a.cost)} <b style="color:var(--mana)">${left}</b>`}</div><div class="dim">${p.m.key === 'rin' ? T("อัญมณีเหลือ {0} · ", gemsLeft) : ''}${T("Command Spell เหลือ")} ${csLeft - a.cs2 - (a.csMove ? 1 : 0) - (a.temper === 'mana' ? 1 : 0)}</div></div>
+      <div class="acts"><button class="btn ghost" data-act="clear" title="${T("เอาการ์ดที่เลือกออกทั้งหมด ล้าง Command Spell อัญมณี และตัวเลือกของสกิล")}">${T("รีเซ็ตทั้งหมด")}</button><button class="btn ghost" data-act="reset">${T("ใช้ชุดที่แนะนำ")}</button><button class="btn primary" data-act="play">${T("ลงการ์ด")}${off ? '' : T(" · พลัง {0}", pw.total)}</button></div>`,
   };
 }
 
@@ -1144,24 +1161,24 @@ function choiceTag(c, a) {
   if (!k) return '';
   const p = me();
   const short = (f) => AREAS[f].name.replace(/^ย่าน/, '');
-  const txt = k === 'move' ? (a.mover === c.uid && a.moveTo ? (a.moveTo === p.at ? 'อยู่ที่นี่ · ยึดพื้นที่' : `→ ${short(a.moveTo)}`) : 'ไม่ย้าย')
-    : k === 'gate' ? `${a.gate.length ? a.gate.map((t) => TYPES[t]).join(' ') : 'NP อย่างเดียว'} · X=${a.gate.length}`
-    : `เป้าหมาย: ${g.players[a.rbTarget]?.name || '–'}`;
-  return `<button class="ctag" data-act="copen" data-k="${k}" data-uid="${c.uid}" title="แตะเพื่อเปลี่ยน">${esc(txt)} ▾</button>`;
+  const txt = k === 'move' ? (a.mover === c.uid && a.moveTo ? (a.moveTo === p.at ? T("อยู่ที่นี่ · ยึดพื้นที่") : `→ ${short(a.moveTo)}`) : T("ไม่ย้าย"))
+    : k === 'gate' ? `${a.gate.length ? a.gate.map((t) => TYPES[t]).join(' ') : T("NP อย่างเดียว")} · X=${a.gate.length}`
+    : T("เป้าหมาย: {0}", g.players[a.rbTarget]?.name || '–');
+  return `<button class="ctag" data-act="copen" data-k="${k}" data-uid="${c.uid}" title="${T("แตะเพื่อเปลี่ยน")}">${esc(txt)} ▾</button>`;
 }
 // Rin's gems: a tile in the Master card row opens the gem pop-up; chips show what this play uses
 function gemTile(a) {
   const p = me();
   const left = p.gems - a.gemMana - a.gandr;
-  const why = a.blocked ? '2nd Strike ใช้ไม่ได้' : p.gems <= 0 ? 'อัญมณีหมด' : '';
-  const chip1 = (k, t) => `<button class="ctag" data-act="gemoff" data-g="${k}" title="แตะเพื่อเอาออก">${t} ✕</button>`;
-  const chips = (a.gemMana ? chip1('gemMana', `มานา +${a.gemMana}`) : '') + (a.gandr ? chip1('gandr', `Gandr Shot ${a.gandr} ใบ`) : '');
-  return `<div class="pickcol"><button class="card tM sp has-src gem${why ? ' lock' : ''}" data-act="copen" data-k="gem"${why ? ' disabled' : ''} title="อัญมณีของริน: มานา +1 · Gandr Shot · ทิ้งแล้วจั่ว">
-    <b class="src ms">สกิล<span class="who"> Master</span></b><span class="ty">อัญมณี</span><span class="pw">◈</span><span><span class="nm">Gem</span><span class="fx">${why || `เหลือ ${left} · แตะเลือก`}</span></span></button>${chips}</div>`;
+  const why = a.blocked ? T("2nd Strike ใช้ไม่ได้") : p.gems <= 0 ? T("อัญมณีหมด") : '';
+  const chip1 = (k, t) => `<button class="ctag" data-act="gemoff" data-g="${k}" title="${T("แตะเพื่อเอาออก")}">${t} ✕</button>`;
+  const chips = (a.gemMana ? chip1('gemMana', T("มานา +{0}", a.gemMana)) : '') + (a.gandr ? chip1('gandr', T("Gandr Shot {0} ใบ", a.gandr)) : '');
+  return `<div class="pickcol"><button class="card tM sp has-src gem${why ? ' lock' : ''}" data-act="copen" data-k="gem"${why ? ' disabled' : ''} title="${T("อัญมณีของริน: มานา +1 · Gandr Shot · ทิ้งแล้วจั่ว")}">
+    <b class="src ms">${T("สกิล")}<span class="who"> Master</span></b><span class="ty">${T("อัญมณี")}</span><span class="pw">◈</span><span><span class="nm">Gem</span><span class="fx">${why || T("เหลือ {0} · แตะเลือก", left)}</span></span></button>${chips}</div>`;
 }
 const foesAt = (k) => {
   const qs = g.here(k).filter((q) => q !== me());
-  return `${qs.length ? `อยู่ ${qs.length} คน: ${qs.map((q) => esc(q.name)).join(', ')}` : 'ยังไม่มีใคร'} · ${esc(prizeText(k))}`;
+  return `${qs.length ? T("อยู่ {0} คน: {1}", qs.length, qs.map((q) => esc(q.name)).join(', ')) : T("ยังไม่มีใคร")} · ${esc(prizeText(k))}`;
 };
 
 function openChoice(k, uid = null, re = false) {
@@ -1212,9 +1229,9 @@ function choiceBody() {
 function copt(v, label, sub, o = {}) {
   const on = o.on ?? String(choice.sel) === String(v);
   return `<button class="copt${on ? ' on' : ''}${o.multi ? ' multi' : ''}" data-act="${o.act || 'cpick'}" data-v="${esc(v)}"${o.g ? ` data-g="${o.g}"` : ''} aria-pressed="${on}"${o.dis ? ' disabled' : ''}>
-    <b>${label}${o.rec ? '<em class="rec">แนะนำ</em>' : ''}</b>${sub ? `<span>${sub}</span>` : ''}${o.dis ? `<span class="why">${esc(o.dis)}</span>` : ''}</button>`;
+    <b>${label}${o.rec ? `<em class="rec">${T("แนะนำ")}</em>` : ''}</b>${sub ? `<span>${sub}</span>` : ''}${o.dis ? `<span class="why">${esc(o.dis)}</span>` : ''}</button>`;
 }
-const cFoot = (ok, no = 'ยกเลิก · เอาการ์ดออก', okDis = false) => `${no ? `<button class="btn ghost" data-act="cno">${no}</button>` : ''}<button class="btn primary" data-act="cok"${okDis ? ' disabled' : ''}>${ok}</button>`;
+const cFoot = (ok, no = T("ยกเลิก · เอาการ์ดออก"), okDis = false) => `${no ? `<button class="btn ghost" data-act="cno">${no}</button>` : ''}<button class="btn primary" data-act="cok"${okDis ? ' disabled' : ''}>${ok}</button>`;
 
 // Lancer Class, Bellerophon (may stay to take the advantage) and Surveil (the next area only)
 function cardMoveOpts(c) {
@@ -1222,7 +1239,7 @@ function cardMoveOpts(c) {
   const reach = new Set(g.cardDests(p, c));
   const next = PATH[PATH.indexOf(p.at) + 1];
   const named = c.fx.move === 'next' ? [next].filter(Boolean) : PATH.slice(1).filter((k) => k !== p.at || (c.fx.bell && AREAS[k].field));
-  const opts = named.map((k) => ({ v: k, r: preview({ ...draft, moveTo: k, mover: c.uid }), dis: reach.has(k) ? '' : k === 'recon' ? 'มีคนอยู่ลาดตระเวนแล้ว (รับ 1 คน)' : 'ไปไม่ได้' }));
+  const opts = named.map((k) => ({ v: k, r: preview({ ...draft, moveTo: k, mover: c.uid }), dis: reach.has(k) ? '' : k === 'recon' ? T("มีคนอยู่ลาดตระเวนแล้ว (รับ 1 คน)") : T("ไปไม่ได้") }));
   // Bellerophon staying in a battlefield seizes the terrain, so it needs no "don't move" as well
   if (!(c.fx.bell && reach.has(p.at))) opts.push({ v: '', r: preview({ ...draft, moveTo: null, mover: null }) });
   return opts;
@@ -1246,21 +1263,21 @@ function moveChoice(c) {
     const { r } = o;
     let label, sub;
     if (!o.v) {
-      label = 'ไม่ย้าย';
-      sub = AREAS[r.f].field ? `สู้ที่${esc(AREAS[r.f].name)} · ${foesAt(r.f)} · พลังรวม ${r.pw.total}` : `อยู่${esc(AREAS[r.f].name)} · ไม่คิดพลัง`;
+      label = T("ไม่ย้าย");
+      sub = AREAS[r.f].field ? T("สู้ที่{0} · {1} · พลังรวม {2}", esc(AREAS[r.f].name), foesAt(r.f), r.pw.total) : T("อยู่{0} · ไม่คิดพลัง", esc(AREAS[r.f].name));
     } else if (o.v === p.at) {
-      label = `อยู่${esc(AREAS[o.v].name)} · ยึดได้เปรียบพื้นที่`;
-      sub = `${foesAt(o.v)} · ยึดทั้ง 2 ช่อง +${TERRAIN.reduce((s2, t) => s2 + t, 0)} · คนอื่นที่นี่เสียได้เปรียบ · พลังรวม ${r.pw.total}`;
+      label = T("อยู่{0} · ยึดได้เปรียบพื้นที่", esc(AREAS[o.v].name));
+      sub = T("{0} · ยึดทั้ง 2 ช่อง +{1} · คนอื่นที่นี่เสียได้เปรียบ · พลังรวม {2}", foesAt(o.v), TERRAIN.reduce((s2, t) => s2 + t, 0), r.pw.total);
     } else if (!AREAS[o.v].field) {
-      label = `ย้ายไป${esc(AREAS[o.v].name)}`;
-      sub = `ได้ ${RECON_VP} VP ทันที · ไม่ได้สู้ การ์ดลงกองทิ้ง`;
+      label = T("ย้ายไป{0}", esc(AREAS[o.v].name));
+      sub = T("ได้ {0} VP ทันที · ไม่ได้สู้ การ์ดลงกองทิ้ง", RECON_VP);
     } else {
-      label = `ย้ายไป${esc(AREAS[o.v].name)}`;
-      sub = `${foesAt(o.v)} · พลังรวม ${r.pw.total}${r.stolen ? ` · ยึดได้เปรียบ +${r.stolen}` : ''}${p.terrain && AREAS[p.at].field ? ` · ได้เปรียบเดิม +${p.terrain} หายไป` : ''}`;
+      label = T("ย้ายไป{0}", esc(AREAS[o.v].name));
+      sub = T("{0} · พลังรวม {1}{2}{3}", foesAt(o.v), r.pw.total, r.stolen ? T(" · ยึดได้เปรียบ +{0}", r.stolen) : '', p.terrain && AREAS[p.at].field ? T(" · ได้เปรียบเดิม +{0} หายไป", p.terrain) : '');
     }
     return copt(o.v, label, sub, { dis: o.dis, rec: !o.dis && o.v === rec });
   }).join('');
-  return { title: c.name, sub: esc(cardText(c)), html: `<div class="copts">${rows}</div>`, foot: cFoot('ยืนยัน') };
+  return { title: c.name, sub: esc(cardText(c)), html: `<div class="copts">${rows}</div>`, foot: cFoot(T("ยืนยัน")) };
 }
 
 // Gate of Babylon: the types it counts as besides NP (not Special), X mana = how many [FD]
@@ -1282,18 +1299,18 @@ function gateChoice(c) {
     // what the type brings: situation or event cards for it, or the same-type bonus
     const row = withT.pw.rows?.find((x) => x.k === 'card' && x.uid === c.uid);
     const why = (row?.mods || []).filter((m) => m.n > 0 && m.t.includes(TYPES[t])).map((m) => m.t);
-    const uni = (r) => r.pw.rows?.find((x) => x.k === 'part' && x.label === 'การ์ดชนิดเดียวกัน');
-    if (uni(withT) && !uni(without)) why.push(`การ์ดชนิดเดียวกัน +${uni(withT).n}`);
-    const sub = `${now.off ? 'ไม่ได้อยู่สนามรบ ไม่คิดพลัง' : gain ? `พลังรวม +${gain}` : 'พลังรวมไม่เปลี่ยน'}${why.length ? ` · ${esc(why.join(' · '))}` : ''} · มานา +1`;
-    return copt(t, `นับเป็น${typeHtml({ type: t })}`, sub, { act: 'ctog', multi: true, on, rec: rec.has(t), dis: on || gateFits([...sel, t]) ? '' : 'มานาไม่พอ' });
+    const uni = (r) => r.pw.rows?.find((x) => x.k === 'part' && x.label === T('การ์ดชนิดเดียวกัน'));
+    if (uni(withT) && !uni(without)) why.push(T("การ์ดชนิดเดียวกัน +{0}", uni(withT).n));
+    const sub = T("{0}{1} · มานา +1", now.off ? T("ไม่ได้อยู่สนามรบ ไม่คิดพลัง") : gain ? T("พลังรวม +{0}", gain) : T("พลังรวมไม่เปลี่ยน"), why.length ? ` · ${esc(why.join(' · '))}` : '');
+    return copt(t, T("นับเป็น{0}", typeHtml({ type: t })), sub, { act: 'ctog', multi: true, on, rec: rec.has(t), dis: on || gateFits([...sel, t]) ? '' : T("มานาไม่พอ") });
   }).join('');
-  const left = now.a.budget === Infinity ? 'ไม่จำกัด' : now.a.budget - now.a.cost;
+  const left = now.a.budget === Infinity ? T("ไม่จำกัด") : now.a.budget - now.a.cost;
   return {
     title: c.name,
     sub: esc(cardText(c)),
-    html: `<p class="p-text">เลือกได้หลายชนิด หรือไม่เลือกเลย · มานา X = จำนวนชนิดที่เลือก</p><div class="copts">${rows}</div>
-      <p class="cnow">มานา X = <b>${sel.length}</b> · มานาเหลือหลังจ่าย ${left}${now.off ? '' : ` · พลังรวม ${now.pw.total}`}</p>`,
-    foot: cFoot('ยืนยัน'),
+    html: `<p class="p-text">${T("เลือกได้หลายชนิด หรือไม่เลือกเลย · มานา X = จำนวนชนิดที่เลือก")}</p><div class="copts">${rows}</div>
+      <p class="cnow">${T("มานา X =")} <b>${sel.length}</b> ${T("· มานาเหลือหลังจ่าย")} ${left}${now.off ? '' : T(" · พลังรวม {0}", now.pw.total)}</p>`,
+    foot: cFoot(T("ยืนยัน")),
   };
 }
 
@@ -1301,9 +1318,9 @@ function rbChoice(c) {
   const a = g.cleanCards(me(), draft);
   const qs = rbTargets(a);
   const rec = g.rbAuto(qs);
-  const what = (q) => (q.cs >= 2 ? `เสีย Command Spell 1 ดวง (เหลือ ${q.cs - 1})` : q.cs === 1 ? 'เสีย Command Spell ดวงสุดท้าย · เขา [แพ้] · คุณพลังรวม +10' : 'ไม่มี Command Spell · เขา [แพ้] · คุณพลังรวม +10');
-  const rows = qs.map((q) => copt(q.id, `${esc(q.name)} · ◆ ${q.cs}`, `${what(q)} · ${q.play ? `พลัง ${q.play.pre}` : 'ยังไม่ลงการ์ด'} · ${q.vp} VP`, { rec: q === rec })).join('');
-  return { title: c.name, sub: esc(cardText(c)), html: `<p class="p-text">เลือก Master 1 คนใน${esc(AREAS[rbF(a)].name)}</p><div class="copts">${rows}</div>`, foot: cFoot('ยืนยัน') };
+  const what = (q) => (q.cs >= 2 ? T("เสีย Command Spell 1 ดวง (เหลือ {0})", q.cs - 1) : q.cs === 1 ? T("เสีย Command Spell ดวงสุดท้าย · เขา [แพ้] · คุณพลังรวม +10") : T("ไม่มี Command Spell · เขา [แพ้] · คุณพลังรวม +10"));
+  const rows = qs.map((q) => copt(q.id, `${esc(q.name)} · ◆ ${q.cs}`, `${what(q)} · ${q.play ? T("พลัง {0}", q.play.pre) : T("ยังไม่ลงการ์ด")} · ${q.vp} VP`, { rec: q === rec })).join('');
+  return { title: c.name, sub: esc(cardText(c)), html: `<p class="p-text">${T("เลือก Master 1 คนใน")}${esc(AREAS[rbF(a)].name)}</p><div class="copts">${rows}</div>`, foot: cFoot(T("ยืนยัน")) };
 }
 
 // Rin's gem [FD]: one gem for one of mana +1, Gandr Shot, or discard 1–3 and draw; each once a round
@@ -1312,12 +1329,12 @@ function gemState(a) {
   const p = me();
   const lim = g.gemLimit();
   const left = p.gems - a.gemMana - a.gandr;
-  const block = a.blocked ? '2nd Strike: ใช้อัญมณีที่นี่ไม่ได้' : left <= 0 ? 'อัญมณีหมด' : '';
-  const used = lim > 1 ? `ครบ ${lim} ครั้งแล้วรอบนี้` : 'เลือกแล้วรอบนี้';
+  const block = a.blocked ? T("2nd Strike: ใช้อัญมณีที่นี่ไม่ได้") : left <= 0 ? T("อัญมณีหมด") : '';
+  const used = lim > 1 ? T("ครบ {0} ครั้งแล้วรอบนี้", lim) : T("เลือกแล้วรอบนี้");
   return {
-    mana: block || (a.gemMana >= lim ? used : a.budget >= MANA_MAX ? 'มานาเต็มแล้ว' : ''),
+    mana: block || (a.gemMana >= lim ? used : a.budget >= MANA_MAX ? T("มานาเต็มแล้ว") : ''),
     gandr: block || (a.gandr >= lim ? used : ''),
-    swap: (a.blocked ? block : p.gems <= 0 ? 'อัญมณีหมด' : '') || ((p.roundUse.swaps || 0) >= lim ? used : g.ubwOn(p) ? 'Unlimited Blade Works: ทิ้งจั่วไม่ได้' : !p.hand.length ? 'ไม่มีการ์ดในมือ' : ''),
+    swap: (a.blocked ? block : p.gems <= 0 ? T("อัญมณีหมด") : '') || ((p.roundUse.swaps || 0) >= lim ? used : g.ubwOn(p) ? T("Unlimited Blade Works: ทิ้งจั่วไม่ได้") : !p.hand.length ? T("ไม่มีการ์ดในมือ") : ''),
   };
 }
 function gemRec(a) {
@@ -1334,16 +1351,16 @@ function gemChoice() {
   const rec = gemRec(a);
   const g1 = !r.off && !st.gandr ? preview({ ...draft, gandr: a.gandr + 1 }) : null;
   const lim = g.gemLimit();
-  const rows = copt('mana', 'มานา +1', `มานา ${a.budget === Infinity ? 'ไม่จำกัด' : `${a.budget} → ${Math.min(MANA_MAX, a.budget + 1)}`}${forcedDown(a).size ? ' · หงายการ์ดที่มานาไม่พอได้' : ''}`, { dis: st.mana, rec: rec === 'mana' })
-    + copt('gandr', 'Gandr Shot', `การ์ดเวทพลัง ${GANDR.power} ลงเพิ่มนอก ${PLAY} ใบ · ${r.off ? 'ไม่ได้อยู่สนามรบ ไม่คิดพลัง' : g1 ? `พลังรวม ${r.pw.total} → ${g1.pw.total}` : 'ใช้รอบเดียว'}`, { dis: st.gandr, rec: rec === 'gandr' })
-    + copt('swap', 'ทิ้ง 1–3 ใบแล้วจั่วใหม่', 'การ์ดที่ทิ้งลงกองทิ้งแบบคว่ำ แล้วจั่วเท่ากัน · หน้าลงการ์ดเริ่มชุดแนะนำใหม่', { dis: st.swap, rec: rec === 'swap' });
-  const hand = sel === 'swap' ? `<div class="pop-sec"><p class="row-lab">เลือกการ์ดที่จะทิ้ง 1–3 ใบ</p><div class="cards">${p.hand.map((c) => tile(c, { btn: true, act: 'swappick', mini: true, sel: swapSel.has(c.uid) })).join('')}</div></div>` : '';
-  const ok = sel === 'swap' ? (swapSel.size ? `ทิ้ง ${swapSel.size} ใบแล้วจั่วใหม่` : 'เลือกใบที่จะทิ้ง') : 'ยืนยัน · ใช้อัญมณี 1 ใบ';
+  const rows = copt('mana', T("มานา +1"), T("มานา {0}{1}", a.budget === Infinity ? T("ไม่จำกัด") : `${a.budget} → ${Math.min(MANA_MAX, a.budget + 1)}`, forcedDown(a).size ? T(" · หงายการ์ดที่มานาไม่พอได้") : ''), { dis: st.mana, rec: rec === 'mana' })
+    + copt('gandr', 'Gandr Shot', T("การ์ดเวทพลัง {0} ลงเพิ่มนอก {1} ใบ · {2}", GANDR.power, PLAY, r.off ? T("ไม่ได้อยู่สนามรบ ไม่คิดพลัง") : g1 ? T("พลังรวม {0} → {1}", r.pw.total, g1.pw.total) : T("ใช้รอบเดียว")), { dis: st.gandr, rec: rec === 'gandr' })
+    + copt('swap', T("ทิ้ง 1–3 ใบแล้วจั่วใหม่"), T("การ์ดที่ทิ้งลงกองทิ้งแบบคว่ำ แล้วจั่วเท่ากัน · หน้าลงการ์ดเริ่มชุดแนะนำใหม่"), { dis: st.swap, rec: rec === 'swap' });
+  const hand = sel === 'swap' ? `<div class="pop-sec"><p class="row-lab">${T("เลือกการ์ดที่จะทิ้ง 1–3 ใบ")}</p><div class="cards">${p.hand.map((c) => tile(c, { btn: true, act: 'swappick', mini: true, sel: swapSel.has(c.uid) })).join('')}</div></div>` : '';
+  const ok = sel === 'swap' ? (swapSel.size ? T("ทิ้ง {0} ใบแล้วจั่วใหม่", swapSel.size) : T("เลือกใบที่จะทิ้ง")) : T("ยืนยัน · ใช้อัญมณี 1 ใบ");
   return {
-    title: 'Gem · อัญมณีของริน',
-    sub: `เหลือ ${p.gems - a.gemMana - a.gandr} ใบ · 1 ใบต่อ 1 อย่าง · ${lim > 1 ? `ไคลแมกซ์เลือกอย่างเดิมได้ถึง ${lim} ครั้ง` : 'แต่ละอย่างรอบละครั้ง'}`,
+    title: T("Gem · อัญมณีของริน"),
+    sub: T("เหลือ {0} ใบ · 1 ใบต่อ 1 อย่าง · {1}", p.gems - a.gemMana - a.gandr, lim > 1 ? T("ไคลแมกซ์เลือกอย่างเดิมได้ถึง {0} ครั้ง", lim) : T("แต่ละอย่างรอบละครั้ง")),
     html: `<div class="copts">${rows}</div>${hand}`,
-    foot: cFoot(ok, 'ยกเลิก', !sel || !!st[sel] || (sel === 'swap' && !swapSel.size)),
+    foot: cFoot(ok, T("ยกเลิก"), !sel || !!st[sel] || (sel === 'swap' && !swapSel.size)),
   };
 }
 
@@ -1356,13 +1373,13 @@ function temperChoice() {
   const base = r.pw.total - (a.temper === 'power' ? CS_POWER : 0);
   const fieldOk = AREAS[r.f].field && !g.blocked(p, r.f);
   const csDests = PATH.slice(1).filter((k) => k !== p.at && (k !== 'recon' || g.reconFree(p)));
-  const rows = copt('power', `◆ พลัง +${CS_POWER}`, fieldOk ? `พลังรวม ${base} → ${base + CS_POWER} · ชนะได้ VP +${CS_VP}` : '', { dis: fieldOk ? '' : 'ไม่ได้อยู่สนามรบ', rec: a.temper === 'power' })
-    + copt('mana', `◆ มานา +${CS_MANA}`, `ได้มานาตอนนี้ · หลังต่อสู้เสียมานา ${CS_MANA} (Short Temper)`, { rec: a.temper === 'mana' })
+  const rows = copt('power', T("◆ พลัง +{0}", CS_POWER), fieldOk ? T("พลังรวม {0} → {1} · ชนะได้ VP +{2}", base, base + CS_POWER, CS_VP) : '', { dis: fieldOk ? '' : T("ไม่ได้อยู่สนามรบ"), rec: a.temper === 'power' })
+    + copt('mana', T("◆ มานา +{0}", CS_MANA), T("ได้มานาตอนนี้ · หลังต่อสู้เสียมานา {0} (Short Temper)", CS_MANA), { rec: a.temper === 'mana' })
     + csDests.map((k) => {
       const m = preview({ ...draft, csMove: k });
-      return copt(`move:${k}`, `◆ ย้ายไป${esc(AREAS[k].name)}หลังลงการ์ด`, AREAS[k].field ? `การ์ดตามไป · ${foesAt(k)} · พลังรวม ${m.pw.total}` : `ได้ ${RECON_VP} VP ทันที · การ์ดลงกองทิ้ง`, { dis: a.moveTo ? 'การ์ดย้ายแล้ว' : '' });
+      return copt(`move:${k}`, T("◆ ย้ายไป{0}หลังลงการ์ด", esc(AREAS[k].name)), AREAS[k].field ? T("การ์ดตามไป · {0} · พลังรวม {1}", foesAt(k), m.pw.total) : T("ได้ {0} VP ทันที · การ์ดลงกองทิ้ง", RECON_VP), { dis: a.moveTo ? T("การ์ดย้ายแล้ว") : '' });
     }).join('');
-  return { title: 'Short Temper · ริน', sub: `รอบ 1 ต้องใช้ Command Spell 1 ดวง (เหลือ ${p.cs}) · เลือกว่าใช้แบบไหน แล้วลงการ์ด`, html: `<div class="copts">${rows}</div>`, foot: cFoot('ยืนยันแล้วลงการ์ด', 'ยกเลิก') };
+  return { title: T("Short Temper · ริน"), sub: T("รอบ 1 ต้องใช้ Command Spell 1 ดวง (เหลือ {0}) · เลือกว่าใช้แบบไหน แล้วลงการ์ด", p.cs), html: `<div class="copts">${rows}</div>`, foot: cFoot(T("ยืนยันแล้วลงการ์ด"), T("ยกเลิก")) };
 }
 
 // 1st Strike in the fight (step 4.1): the Strength card it lays from the hand, and the foe's card it turns off
@@ -1374,14 +1391,14 @@ function strikeChoice() {
   const sel = choice.sel;
   const my = mine.map((uid) => p.hand.find((c) => c.uid === uid)).filter(Boolean).map((c) => ({ ...c, down: false })); // laid face up
   const theirs = foes.map(({ id, uid }) => ({ q: g.players[id], c: g.players[id].play?.cards.find((x) => x.uid === uid) })).filter((x) => x.c);
-  const a = my.map((c, i) => copt(c.uid, `${bcard(c, p)}<span>${esc(cardName(c))} · พลัง ${pw(p, c)}</span>`, '', { g: 'mine', on: sel.mine === c.uid, rec: i === 0 })).join('');
-  const b = theirs.map(({ q, c }, i) => copt(c.uid, `${bcard(c, q)}<span>${esc(q.name)}: ${esc(cardName(c))} · พลัง ${pw(q, c)}</span>`, '', { g: 'foe', on: sel.foe === c.uid, rec: i === 0 })).join('');
+  const a = my.map((c, i) => copt(c.uid, `${bcard(c, p)}<span>${esc(cardName(c))} ${T("· พลัง")} ${pw(p, c)}</span>`, '', { g: 'mine', on: sel.mine === c.uid, rec: i === 0 })).join('');
+  const b = theirs.map(({ q, c }, i) => copt(c.uid, `${bcard(c, q)}<span>${esc(q.name)}${T(": {0} · พลัง", esc(cardName(c)))} ${pw(q, c)}</span>`, '', { g: 'foe', on: sel.foe === c.uid, rec: i === 0 })).join('');
   return {
-    title: '1st Strike · ตอนปะทะ',
-    sub: `${esc(AREAS[f].name)} · ขั้น 4.1 · ใบนี้ปิดตัวเอง ลงการ์ดกำลังพื้นฐานจากมือ 1 ใบโดยไม่จ่ายมานา · ได้มานา +${s1?.fx?.strike1 ?? 2}`,
-    html: `<div class="pop-sec"><p class="row-lab">ลงการ์ดกำลังพื้นฐานจากมือ</p><div class="copts">${a}</div></div>
-      ${b ? `<div class="pop-sec"><p class="row-lab">ปิดการ์ดพื้นฐานของคู่ต่อสู้ 1 ใบ (พลังเป็น 0 และไม่มีผล)</p><div class="copts">${b}</div></div>` : '<p class="p-text">คู่ต่อสู้ไม่มีการ์ดพื้นฐานหงายอยู่ ไม่มีใบที่ถูกปิด</p>'}`,
-    foot: cFoot('ยืนยัน', ''),
+    title: T("1st Strike · ตอนปะทะ"),
+    sub: T("{0} · ขั้น 4.1 · ใบนี้ปิดตัวเอง ลงการ์ดกำลังพื้นฐานจากมือ 1 ใบโดยไม่จ่ายมานา · ได้มานา +{1}", esc(AREAS[f].name), s1?.fx?.strike1 ?? 2),
+    html: `<div class="pop-sec"><p class="row-lab">${T("ลงการ์ดกำลังพื้นฐานจากมือ")}</p><div class="copts">${a}</div></div>
+      ${b ? `<div class="pop-sec"><p class="row-lab">${T("ปิดการ์ดพื้นฐานของคู่ต่อสู้ 1 ใบ (พลังเป็น 0 และไม่มีผล)")}</p><div class="copts">${b}</div></div>` : `<p class="p-text">${T("คู่ต่อสู้ไม่มีการ์ดพื้นฐานหงายอยู่ ไม่มีใบที่ถูกปิด")}</p>`}`,
+    foot: cFoot(T("ยืนยัน"), ''),
   };
 }
 
@@ -1478,23 +1495,23 @@ function drawChoice() {
 // One line per card and bonus, then the total. Gains are green, losses red, on-clash lines tagged.
 // Someone else's face-down card shows only "การ์ดคว่ำ 0" (paper 4.3).
 function pwTable(pw, q) {
-  const CL = '<em class="clash">ตอนปะทะ</em>';
+  const CL = `<em class="clash">${T("ตอนปะทะ")}</em>`;
   const mod = (m) => `<span class="pm">${m.mul ? `<b class="up">×${m.mul}</b>` : m.zero ? '<b class="dn">→ 0</b>' : `<b class="${m.n < 0 ? 'dn' : m.n ? 'up' : ''}">${m.n ? sgn(m.n) : '·'}</b>`} ${esc(m.t)}${m.clash ? CL : ''}</span>`;
   const tr = (cls, lab, mods, v) => `<tr class="${cls}"><th scope="row">${lab}</th><td>${mods}</td><td class="v">${v}</td></tr>`;
   const rows = (pw.rows || []).map((r) => {
     if (r.k === 'card') {
-      if (r.down && !q.isHuman) return tr('down', 'การ์ดคว่ำ', '', 0);
-      const lab = `${r.perm ? `<em class="permr">${svg('perm')} ถาวร</em> ` : ''}${r.down ? 'คว่ำ · ' : ''}${r.name ? `${esc(r.name)} · ` : ''}${typeHtml(r)} ${r.base}${r.clashIn ? CL : ''}`;
-      return tr(r.down ? 'down' : '', lab, r.down ? '<span class="pm dim">ลงคว่ำ พลัง 0</span>' : r.mods.map(mod).join(''), r.val);
+      if (r.down && !q.isHuman) return tr('down', T("การ์ดคว่ำ"), '', 0);
+      const lab = `${r.perm ? `<em class="permr">${svg('perm')} ${T("ถาวร")}</em> ` : ''}${r.down ? T("คว่ำ · ") : ''}${r.name ? `${esc(r.name)} · ` : ''}${typeHtml(r)} ${r.base}${r.clashIn ? CL : ''}`;
+      return tr(r.down ? 'down' : '', lab, r.down ? `<span class="pm dim">${T("ลงคว่ำ พลัง 0")}</span>` : r.mods.map(mod).join(''), r.val);
     }
-    if (r.k === 'terrain') return tr('ter', r.base ? `ได้เปรียบพื้นที่ +${r.base}` : 'ได้เปรียบพื้นที่', r.base ? r.mods.map(mod).join('') : `<span class="pm dim">${esc(r.none)}</span>`, sgn(r.val));
+    if (r.k === 'terrain') return tr('ter', r.base ? T("ได้เปรียบพื้นที่ +{0}", r.base) : T("ได้เปรียบพื้นที่"), r.base ? r.mods.map(mod).join('') : `<span class="pm dim">${esc(r.none)}</span>`, sgn(r.val));
     return tr(r.clash ? 'pw-clash' : '', `${esc(r.label)}${r.clash ? CL : ''}`, r.note ? `<span class="pm dim">${esc(r.note)}</span>` : '', sgn(r.n));
   }).join('');
-  return `<table class="pwt"><tbody>${rows}${tr('pw-total', 'พลังรวม', '', pw.total)}</tbody></table>`;
+  return `<table class="pwt"><tbody>${rows}${tr('pw-total', T("พลังรวม"), '', pw.total)}</tbody></table>`;
 }
 // the table folded into a dropdown: one short line ("การ์ด 6 · พื้นที่ +3 ▾"), a tap opens the table
 // (B 30 ต.ค. 2026: "ข้อมูลเยอะไปให้ทำดรอปดาว"); dk names it so a redraw keeps it open
-function pwDrop(pw, q, { label = 'ที่มาของพลัง', dk = '' } = {}) {
+function pwDrop(pw, q, { label = T("ที่มาของพลัง"), dk = '' } = {}) {
   const open = dk && openDrops.has(dk);
   return `<details class="pwd"${dk ? ` data-dk="${esc(dk)}"` : ''}${open ? ' open' : ''}><summary><span class="pwd-l">${label}</span><span class="pwd-s">${partsHtml(pw.parts || [])}</span></summary>${pwTable(pw, q)}</details>`;
 }
@@ -1508,14 +1525,14 @@ function pwPop(f, id) {
   const e = res?.ents.find((x) => x.id === id);
   const pw = e ? { rows: e.rows || [], total: e.power } : g.powerOf(q, q.play, { detail: true });
   const cards = (e?.cards || q.play.cards).map((c) => (c.down && !q.isHuman ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
-  const what = !e ? 'ก่อนต่อสู้ · ผล "ตอนปะทะ" ยังไม่ทำงาน' : e.defeated ? '[แพ้]' : e.won ? `ชนะ ${pm(e.gain)} VP` : `แพ้${e.gain ? ` ${pm(e.gain)} VP` : ''}`;
+  const what = !e ? T("ก่อนต่อสู้ · ผล \"ตอนปะทะ\" ยังไม่ทำงาน") : e.defeated ? T("[แพ้]") : e.won ? T("ชนะ {0} VP", pm(e.gain)) : T("แพ้{0}", e.gain ? ` ${pm(e.gain)} VP` : '');
   const step = (dd, label) => { const n = people[(i + dd + people.length) % people.length]; return `<button class="btn" data-act="pwrow" data-id="${n.id}" aria-label="${label}">${dd < 0 ? '‹' : '›'}</button>`; };
   return {
-    title: `พลังของ ${q.name}${q.isHuman ? ' (คุณ)' : ''}`,
+    title: T("พลังของ {0}{1}", q.name, q.isHuman ? T(" (คุณ)") : ''),
     sub: `${esc(AREAS[f].name)} · ${esc(what)}`,
     mini: `${esc(q.name)} ${ic('power', pw.total)}`,
     html: `<div class="foe">${chip(q)}<div class="cards">${cards}</div></div>${pwTable(pw, q)}${e?.notes?.length ? `<p class="p-text pw-notes">${e.notes.map(esc).join(' · ')}</p>` : ''}`,
-    foot: people.length > 1 ? `<div class="acts cv-nav">${step(-1, 'คนก่อนหน้า')}<span class="dim">${i + 1} / ${people.length}</span>${step(1, 'คนถัดไป')}</div>` : '',
+    foot: people.length > 1 ? `<div class="acts cv-nav">${step(-1, T("คนก่อนหน้า"))}<span class="dim">${i + 1} / ${people.length}</span>${step(1, T("คนถัดไป"))}</div>` : '',
   };
 }
 
@@ -1527,20 +1544,20 @@ function winPop() {
   const rows = cards.map((c) => {
     const u = g.useLine(p, c, wait.ctx.w);
     return `<div class="dk wuse">${tile({ ...c, down: false }, { note: '' })}<div class="dk-tx"><b>${esc(cardName(c))}</b>
-      <span class="dk-meta"><span class="when w-${u.when}">${esc(lineText({ when: u.when, where: u.where || 'any', cond: u.cond }))}</span> ${typeHtml(c)} · พลัง ${c.power} · มานา ${g.costOf(p, c)}</span>
-      <span>${esc(cardText(c))}</span><span class="acts"><button class="btn sm primary" data-act="winuse" data-uid="${c.uid}">ใช้ใบนี้${g.costOf(p, c) ? ` · มานา ${g.costOf(p, c)}` : ''}</button></span></div></div>`;
+      <span class="dk-meta"><span class="when w-${u.when}">${esc(lineText({ when: u.when, where: u.where || 'any', cond: u.cond }))}</span> ${typeHtml(c)} ${T("· พลัง {0} · มานา", c.power)} ${g.costOf(p, c)}</span>
+      <span>${esc(cardText(c))}</span><span class="acts"><button class="btn sm primary" data-act="winuse" data-uid="${c.uid}">${T("ใช้ใบนี้")}${g.costOf(p, c) ? T(" · มานา {0}", g.costOf(p, c)) : ''}</button></span></div></div>`;
   }).join('');
   return {
-    title: `ช่วง${w.name} · ขั้น ${w.code}`,
-    sub: `การ์ดที่ใช้ในช่วงนี้ไม่นับเป็น ${PLAY} ใบที่ลงตอนลงการ์ด · จ่ายมานาตามการ์ด · มานาคุณ ${p.mana}`,
-    mini: `ช่วง${w.name} · ใช้ได้ ${cards.length} ใบ`,
-    html: `<div class="dkl">${rows}</div><p class="p-text">ใช้แล้วหงายให้ทุกคนเห็น · การ์ดโจมตีลงกองทิ้ง · การ์ด NP/สกิลหงายกลับข้างไพ่ทาโรต์ · Black Shadow ใช้แล้วหายไป · ใช้หลายใบติดกันได้ถ้ามานาพอ</p>`,
-    foot: `<span class="dim">ไม่ใช้ก็ผ่านได้</span><button class="btn" data-act="winpass">ผ่าน</button>`,
+    title: T("ช่วง{0} · ขั้น {1}", w.name, w.code),
+    sub: T("การ์ดที่ใช้ในช่วงนี้ไม่นับเป็น {0} ใบที่ลงตอนลงการ์ด · จ่ายมานาตามการ์ด · มานาคุณ {1}", PLAY, p.mana),
+    mini: T("ช่วง{0} · ใช้ได้ {1} ใบ", w.name, cards.length),
+    html: `<div class="dkl">${rows}</div><p class="p-text">${T("ใช้แล้วหงายให้ทุกคนเห็น · การ์ดโจมตีลงกองทิ้ง · การ์ด NP/สกิลหงายกลับข้างไพ่ทาโรต์ · Black Shadow ใช้แล้วหายไป · ใช้หลายใบติดกันได้ถ้ามานาพอ")}</p>`,
+    foot: `<span class="dim">${T("ไม่ใช้ก็ผ่านได้")}</span><button class="btn" data-act="winpass">${T("ผ่าน")}</button>`,
   };
 }
 
 function stepper(key, label, v, max) {
-  return `<span class="stepper"><span>${label}</span><button data-act="step" data-key="${key}" data-d="-1" aria-label="ลด"${v <= 0 ? ' disabled' : ''}>−</button><b>${v}</b><button data-act="step" data-key="${key}" data-d="1" aria-label="เพิ่ม"${v >= max ? ' disabled' : ''}>+</button></span>`;
+  return `<span class="stepper"><span>${label}</span><button data-act="step" data-key="${key}" data-d="-1" aria-label="${T("ลด")}"${v <= 0 ? ' disabled' : ''}>−</button><b>${v}</b><button data-act="step" data-key="${key}" data-d="1" aria-label="${T("เพิ่ม")}"${v >= max ? ' disabled' : ''}>+</button></span>`;
 }
 
 // my Master board in full: tarot, abilities, resources, cards, piles (paper section 4.2)
@@ -1548,17 +1565,17 @@ function mePop() {
   const p = me();
   const hand = p.hand.map((c) => tile(c)).join('') + p.specials.map((c) => tile(c, { note: specialNote(c) })).join('');
   const skills = p.skills.map((c) => tile(c, { note: skillNote(c), lock: skillLocked(c), cost: costNow(c) })).join('');
-  const trash = p.trash.slice(-5).map((c) => tile(c, { mini: true })).join('') || '<span class="dim">ว่าง</span>';
+  const trash = p.trash.slice(-5).map((c) => tile(c, { mini: true })).join('') || `<span class="dim">${T("ว่าง")}</span>`;
   return {
-    title: 'กระดาน Master ของคุณ',
+    title: T("กระดาน Master ของคุณ"),
     wide: true,
     html: `${meHead(p)}${meStats(p)}
-      <div class="me-row"><span class="p-text">สำรับ ${p.deck.length} ใบ · กองทิ้ง ${p.trash.length} ใบ</span><button class="btn sm" data-act="pop" data-k="deck">ดูเดค · รายละเอียดการ์ดทุกใบ</button></div>
-      <div class="cgroups"><div class="cg"><p class="row-lab">การ์ดในมือ ${p.hand.length}${p.specials.length ? ' + สกิล Master' : ''}</p><div class="cards">${hand || '<span class="dim">ยังไม่มีการ์ด</span>'}</div></div>
-        <div class="cg"><p class="row-lab">การ์ด NP/สกิล · คว่ำจนกว่าจะใช้ · ถาวรอยู่ในสนามจนกว่าจะปิด</p><div class="cards">${skills}</div></div></div>
-      <div class="pop-sec"><p class="row-lab">ความสามารถ Master</p><ul class="abil">${p.m.abil.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`).join('')}</ul></div>
-      <div class="pop-sec"><p class="row-lab">กองทิ้ง ${p.trash.length} ใบ · 5 ใบล่าสุด · วางตามด้านที่ลง คนอื่นเห็นแค่ใบหงาย · สำรับเหลือ ${p.deck.length} ใบ</p><div class="cards">${trash}</div></div>
-      <p class="p-text">${p.revealed ? 'ไพ่ทาโรต์หงายแล้ว ทุกคนเห็นว่าคุณเป็นใคร' : 'ไพ่ทาโรต์คว่ำ คู่แข่งไม่รู้ว่าคุณเป็นใคร'}</p>`,
+      <div class="me-row"><span class="p-text">${T("สำรับ {0} ใบ · กองทิ้ง {1} ใบ", p.deck.length, p.trash.length)}</span><button class="btn sm" data-act="pop" data-k="deck">${T("ดูเดค · รายละเอียดการ์ดทุกใบ")}</button></div>
+      <div class="cgroups"><div class="cg"><p class="row-lab">${T("การ์ดในมือ")} ${p.hand.length}${p.specials.length ? T(" + สกิล Master") : ''}</p><div class="cards">${hand || `<span class="dim">${T("ยังไม่มีการ์ด")}</span>`}</div></div>
+        <div class="cg"><p class="row-lab">${T("การ์ด NP/สกิล · คว่ำจนกว่าจะใช้ · ถาวรอยู่ในสนามจนกว่าจะปิด")}</p><div class="cards">${skills}</div></div></div>
+      <div class="pop-sec"><p class="row-lab">${T("ความสามารถ Master")}</p><ul class="abil">${p.m.abil.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`).join('')}</ul></div>
+      <div class="pop-sec"><p class="row-lab">${T("กองทิ้ง {0} ใบ · 5 ใบล่าสุด · วางตามด้านที่ลง คนอื่นเห็นแค่ใบหงาย · สำรับเหลือ {1} ใบ", p.trash.length, p.deck.length)}</p><div class="cards">${trash}</div></div>
+      <p class="p-text">${p.revealed ? T("ไพ่ทาโรต์หงายแล้ว ทุกคนเห็นว่าคุณเป็นใคร") : T("ไพ่ทาโรต์คว่ำ คู่แข่งไม่รู้ว่าคุณเป็นใคร")}</p>`,
   };
 }
 
@@ -1574,36 +1591,36 @@ function deckItem(c, note, o = {}) {
   const cost = o.owner ? (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana) : costNow(c, p);
   const t = tile({ ...c, down: false }, { note, lock: o.lock, cost, ...(o.key ? { btn: true, act: 'pcard', key: o.key } : {}) });
   return `<div class="dk${o.dim ? ' dim-card' : ''}">${t}<div class="dk-tx"><b>${esc(cardName(c))}</b>
-    <span class="dk-meta">${pills(c)}${src ? `<em class="${srcOf(c) || 'np'}">${esc(src)}</em> · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${cost}${c.down ? ' · <span class="dn">ลงคว่ำ</span>' : ''}</span>
-    <span>${esc(fx || 'ไม่มีผลพิเศษ')}</span></div></div>`;
+    <span class="dk-meta">${pills(c)}${src ? `<em class="${srcOf(c) || 'np'}">${esc(src)}</em> · ` : ''}${typeHtml(c)} ${T("· พลัง {0} · มานา", c.power)} ${cost}${c.down ? ` · <span class="dn">${T("ลงคว่ำ")}</span>` : ''}</span>
+    <span>${esc(fx || T("ไม่มีผลพิเศษ"))}</span></div></div>`;
 }
 function deckPop() {
   const p = me();
   const onField = (p.play?.cards || []).filter((c) => !c.skill && !c.keep);
   const all = p.hand.length + p.deck.length + p.trash.length + onField.length;
-  const grp = (lab, items) => `<div class="pop-sec"><p class="row-lab">${lab}</p>${items ? `<div class="dkl">${items}</div>` : '<p class="p-text">ไม่มี</p>'}</div>`;
+  const grp = (lab, items) => `<div class="pop-sec"><p class="row-lab">${lab}</p>${items ? `<div class="dkl">${items}</div>` : `<p class="p-text">${T("ไม่มี")}</p>`}</div>`;
   return {
-    title: `เดคของคุณ · ${p.sv.cls}`,
-    sub: `${esc(p.sv.name)} · สำรับโจมตี ${all} ใบ: ในมือ ${p.hand.length} · ยังอยู่ในสำรับ ${p.deck.length} · กองทิ้ง ${p.trash.length}${onField.length ? ` · ลงอยู่ ${onField.length}` : ''}`,
-    mini: `สำรับ ${p.deck.length} · ในมือ ${p.hand.length} · กองทิ้ง ${p.trash.length}`,
+    title: T("เดคของคุณ · {0}", p.sv.cls),
+    sub: T("{0} · สำรับโจมตี {1} ใบ: ในมือ {2} · ยังอยู่ในสำรับ {3} · กองทิ้ง {4}{5}", esc(p.sv.name), all, p.hand.length, p.deck.length, p.trash.length, onField.length ? T(" · ลงอยู่ {0}", onField.length) : ''),
+    mini: T("สำรับ {0} · ในมือ {1} · กองทิ้ง {2}", p.deck.length, p.hand.length, p.trash.length),
     wide: true,
-    html: grp(`ในมือ ${p.hand.length} ใบ${p.specials.length ? ' + สกิล Master' : ''}`, [...p.hand.map((c) => deckItem(c)), ...p.specials.map((c) => deckItem(c, specialNote(c)))].join(''))
-      + (onField.length ? grp(`ลงอยู่ในสนามรบรอบนี้ ${onField.length} ใบ`, onField.map((c) => deckItem(c, c.down ? 'ลงคว่ำ' : 'ลงหงาย')).join('')) : '')
-      + grp(`การ์ด NP/สกิล · ${esc(p.sv.cls)} · คว่ำไว้ข้างไพ่ทาโรต์`, p.skills.map((c) => deckItem(c, skillNote(c), { lock: skillLocked(c), dim: c.gone })).join(''))
-      + grp(`ยังอยู่ในสำรับ ${p.deck.length} ใบ · เรียงตามชนิด ไม่บอกลำดับ`, byType(p.deck).map((c) => deckItem(c)).join(''))
-      + grp(`กองทิ้ง ${p.trash.length} ใบ · ล่าสุดก่อน`, [...p.trash].reverse().map((c) => deckItem(c, c.down ? 'ลงคว่ำ' : 'ลงหงาย')).join('')),
+    html: grp(T("ในมือ {0} ใบ{1}", p.hand.length, p.specials.length ? T(" + สกิล Master") : ''), [...p.hand.map((c) => deckItem(c)), ...p.specials.map((c) => deckItem(c, specialNote(c)))].join(''))
+      + (onField.length ? grp(T("ลงอยู่ในสนามรบรอบนี้ {0} ใบ", onField.length), onField.map((c) => deckItem(c, c.down ? T("ลงคว่ำ") : T("ลงหงาย"))).join('')) : '')
+      + grp(T("การ์ด NP/สกิล · {0} · คว่ำไว้ข้างไพ่ทาโรต์", esc(p.sv.cls)), p.skills.map((c) => deckItem(c, skillNote(c), { lock: skillLocked(c), dim: c.gone })).join(''))
+      + grp(T("ยังอยู่ในสำรับ {0} ใบ · เรียงตามชนิด ไม่บอกลำดับ", p.deck.length), byType(p.deck).map((c) => deckItem(c)).join(''))
+      + grp(T("กองทิ้ง {0} ใบ · ล่าสุดก่อน", p.trash.length), [...p.trash].reverse().map((c) => deckItem(c, c.down ? T("ลงคว่ำ") : T("ลงหงาย"))).join('')),
   };
 }
 
 // one card of your hand bar in full, read only; ‹ › step along the bar (paper 4.6 item 5)
 const barCards = (p) => [...p.hand, ...p.specials, ...p.skills];
 function cardState(c, p) {
-  if (winCan().has(c.uid)) return `ใช้ได้ตอนนี้ · ช่วง${WINDOWS[wait.ctx.w].name}`;
+  if (winCan().has(c.uid)) return T("ใช้ได้ตอนนี้ · ช่วง{0}", WINDOWS[wait.ctx.w].name);
   if (c.skill) return skillNote(c);
   if (c.keep) return specialNote(c);
-  if (!g.round || g.over) return 'อยู่ในมือ';
-  if (c.fx?.luck && p.roundUse.defeated) return 'อยู่ในมือ · แพ้ไปแล้ว ลง Luck ไม่ได้รอบนี้';
-  return g.infinite(p) || p.mana >= c.mana ? `อยู่ในมือ · มานาพอลงหงาย (มี ${g.infinite(p) ? 'ไม่จำกัด' : p.mana})` : `อยู่ในมือ · มานาไม่พอลงหงาย (มี ${p.mana}) ลงคว่ำได้`;
+  if (!g.round || g.over) return T("อยู่ในมือ");
+  if (c.fx?.luck && p.roundUse.defeated) return T("อยู่ในมือ · แพ้ไปแล้ว ลง Luck ไม่ได้รอบนี้");
+  return g.infinite(p) || p.mana >= c.mana ? T("อยู่ในมือ · มานาพอลงหงาย (มี {0})", g.infinite(p) ? T("ไม่จำกัด") : p.mana) : T("อยู่ในมือ · มานาไม่พอลงหงาย (มี {0}) ลงคว่ำได้", p.mana);
 }
 function cardPop(uid) {
   const p = me();
@@ -1614,14 +1631,14 @@ function cardPop(uid) {
   const fx = c.text ? clean(c.text) : tags(c).join(' · ');
   const src = srcText(c, p);
   const step = (d, label) => { const n = list[(i + d + list.length) % list.length]; return `<button class="btn" data-act="cardinfo" data-uid="${n.uid}" aria-label="${label}">${d < 0 ? '‹' : '›'}</button>`; };
-  const use = winCan().has(c.uid) ? `<button class="btn primary" data-act="winuse" data-uid="${c.uid}">ใช้ใบนี้${c.mana ? ` · มานา ${c.mana}` : ''}</button>` : '';
+  const use = winCan().has(c.uid) ? `<button class="btn primary" data-act="winuse" data-uid="${c.uid}">${T("ใช้ใบนี้")}${c.mana ? T(" · มานา {0}", c.mana) : ''}</button>` : '';
   return {
     title: cardName(c),
-    sub: `${src ? `${esc(src)} · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${costNow(c)}`,
-    mini: `${esc(cardName(c))} · ใบที่ ${i + 1}/${list.length}`,
-    html: cardView(c, cardState(c, p), `${c.skill ? `<p class="p-text">${c.fx?.no8 ? 'ใบนี้ไม่ต้องมีมานา 8' : `การ์ด NP/สกิลใช้ได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป`} แล้วจ่ายมานาตามการ์ด</p>` : c.consume ? '<p class="p-text">ใช้ช่วงเตรียมการ (ขั้น 1.4) ใช้แล้วหายไป</p>' : c.keep ? '<p class="p-text">สกิล Master อยู่ในช่องสกิล ลงเพิ่มนอกเหนือการ์ด 2 ใบ ใช้แล้วกลับที่เดิม</p>' : ''}
-      <p class="p-text">${use ? 'ใช้ได้ในช่วงนี้ หรือเก็บไว้ลงตอนลงการ์ด' : 'อ่านอย่างเดียว · เลือกลงการ์ดในหน้าลงการ์ด'}</p>`),
-    foot: `<div class="acts cv-nav">${step(-1, 'ใบก่อนหน้า')}<span class="dim">${i + 1} / ${list.length}</span>${step(1, 'ใบถัดไป')}</div>${use}<button class="btn" data-act="pop" data-k="deck">ดูเดค</button>`,
+    sub: T("{0}{1} · พลัง {2} · มานา {3}", src ? `${esc(src)} · ` : '', typeHtml(c), c.power, costNow(c)),
+    mini: T("{0} · ใบที่ {1}/{2}", esc(cardName(c)), i + 1, list.length),
+    html: cardView(c, cardState(c, p), `${c.skill ? `<p class="p-text">${c.fx?.no8 ? T("ใบนี้ไม่ต้องมีมานา 8") : T("การ์ด NP/สกิลใช้ได้เมื่อมีมานา {0} ขึ้นไป", SKILL_MANA)} ${T("แล้วจ่ายมานาตามการ์ด")}</p>` : c.consume ? `<p class="p-text">${T("ใช้ช่วงเตรียมการ (ขั้น 1.4) ใช้แล้วหายไป")}</p>` : c.keep ? `<p class="p-text">${T("สกิล Master อยู่ในช่องสกิล ลงเพิ่มนอกเหนือการ์ด 2 ใบ ใช้แล้วกลับที่เดิม")}</p>` : ''}
+      <p class="p-text">${use ? T("ใช้ได้ในช่วงนี้ หรือเก็บไว้ลงตอนลงการ์ด") : T("อ่านอย่างเดียว · เลือกลงการ์ดในหน้าลงการ์ด")}</p>`),
+    foot: `<div class="acts cv-nav">${step(-1, T("ใบก่อนหน้า"))}<span class="dim">${i + 1} / ${list.length}</span>${step(1, T("ใบถัดไป"))}</div>${use}<button class="btn" data-act="pop" data-k="deck">${T("ดูเดค")}</button>`,
   };
 }
 // a card in full: big tile, state, timing labels and text (paper 4.6 item 5, labels paper 9)
@@ -1630,15 +1647,15 @@ function cardView(c, state, extra = '') {
   const when = pills(c);
   const face = tile({ ...c, down: false }, { note: '' });
   const art = CARD_ART[c.name]; // the whole card in English beside the Thai text (paper 4.6 item 16)
-  const big = art ? `<button class="cv-art" data-act="bigart" data-src="${art.full}" aria-label="ดูรูปการ์ด ${esc(c.name)} ใหญ่"><img src="${art.full}" alt="${esc(c.name)} (รูปการ์ดจริง)"><small>แตะดูใหญ่</small></button>` : '';
+  const big = art ? `<button class="cv-art" data-act="bigart" data-src="${art.full}" aria-label="${T("ดูรูปการ์ด {0} ใหญ่", esc(c.name))}"><img src="${art.full}" alt="${esc(c.name)} ${T("(รูปการ์ดจริง)")}"><small>${T("แตะดูใหญ่")}</small></button>` : '';
   return `<div class="cardview${art ? ' has-art' : ''}">${face}${big}
-    <div class="cv-tx">${state ? `<p class="cv-state">${fxHtml(state)}</p>` : ''}${when ? `<p class="cv-when">${when}</p>` : ''}<p class="cv-fx">${esc(fx || 'ไม่มีผลพิเศษ')}</p>${legend(c, `${fxHtml(state || '')}${when}`)}${extra}</div></div>`;
+    <div class="cv-tx">${state ? `<p class="cv-state">${fxHtml(state)}</p>` : ''}${when ? `<p class="cv-when">${when}</p>` : ''}<p class="cv-fx">${esc(fx || T("ไม่มีผลพิเศษ"))}</p>${legend(c, `${fxHtml(state || '')}${when}`)}${extra}</div></div>`;
 }
 // one line on what the crests and icons of this card mean (paper 4.6 item 14)
 function legend(c, html) {
   const keys = [...new Set([...html.matchAll(/data-ic="(\w+)"/g)].map((m) => m[1]))].filter((k) => ICONS[k]);
   const types = (c.types || [c.type]).filter((t) => t !== 'N').map((t) => `<span>${typeIc(t)} ${TYPES[t]}</span>`);
-  const items = [...types, ...keys.map((k) => `<span><span class="ic c-${ICONS[k][3]}">${svg(k)}</span> ${ICONS[k][1]}</span>`), '<span>เลขใหญ่ = พลัง · เม็ดฟ้า = มานา</span>'];
+  const items = [...types, ...keys.map((k) => `<span><span class="ic c-${ICONS[k][3]}">${svg(k)}</span> ${ICONS[k][1]}</span>`), `<span>${T("เลขใหญ่ = พลัง · เม็ดฟ้า = มานา")}</span>`];
   return `<p class="cv-legend">${items.join('')}</p>`;
 }
 
@@ -1649,15 +1666,15 @@ function legend(c, html) {
 const rankList = () => [...[...g.alive()].sort((a, b) => b.vp - a.vp), ...g.players.filter((p) => p.out).sort((a, b) => b.outRound - a.outRound || b.vp - a.vp)];
 function abilState(q, t) {
   const S = {
-    Avalon: () => (q.avalonUsed ? 'ใช้แล้ว' : 'ยังไม่ใช้'),
-    Gem: () => `อัญมณีเหลือ ${q.gems}`,
-    'Short Temper': () => (g.round > 1 ? 'หมดช่วงแล้ว' : 'รอบนี้'),
-    'Broken Vessel': () => (q.grail ? 'หมดช่วงแล้ว' : `Black Shadow ${q.specials.filter((c) => c.consume).length} ใบ`),
-    'The Tainted Grail': () => (q.grail ? 'ได้แล้ว' : g.round > REGULAR ? 'ไม่ได้' : `รอจบรอบ ${REGULAR}`),
-    'Dress of Heaven': () => (g.round >= REGULAR ? 'ทำงานอยู่' : `เริ่มรอบ ${REGULAR}`),
-    Unworthy: () => (q.bookUsed ? 'เปลี่ยน Servant แล้ว' : `Command Spell เหลือ ${q.cs}`),
-    Supervisor: () => (q.revealed ? 'ไม่ทำงาน ชื่อจริงเปิดแล้ว' : 'ทำงานอยู่'),
-    Executor: () => (q.revealed ? 'ทำงานอยู่' : 'รอเปิดชื่อจริง'),
+    Avalon: () => (q.avalonUsed ? T("ใช้แล้ว") : T("ยังไม่ใช้")),
+    Gem: () => T("อัญมณีเหลือ {0}", q.gems),
+    'Short Temper': () => (g.round > 1 ? T("หมดช่วงแล้ว") : T("รอบนี้")),
+    'Broken Vessel': () => (q.grail ? T("หมดช่วงแล้ว") : T("Black Shadow {0} ใบ", q.specials.filter((c) => c.consume).length)),
+    'The Tainted Grail': () => (q.grail ? T("ได้แล้ว") : g.round > REGULAR ? T("ไม่ได้") : T("รอจบรอบ {0}", REGULAR)),
+    'Dress of Heaven': () => (g.round >= REGULAR ? T("ทำงานอยู่") : T("เริ่มรอบ {0}", REGULAR)),
+    Unworthy: () => (q.bookUsed ? T("เปลี่ยน Servant แล้ว") : T("Command Spell เหลือ {0}", q.cs)),
+    Supervisor: () => (q.revealed ? T("ไม่ทำงาน ชื่อจริงเปิดแล้ว") : T("ทำงานอยู่")),
+    Executor: () => (q.revealed ? T("ทำงานอยู่") : T("รอเปิดชื่อจริง")),
   };
   return g.round && S[t] ? S[t]() : '';
 }
@@ -1665,11 +1682,11 @@ function abilState(q, t) {
 function pubCards(q) {
   const open = seen(q);
   const out = [];
-  for (const c of q.skills) if (open || q.uses[c.name]) out.push({ key: `s${c.uid}`, c, state: c.gone ? (c.fx?.godHand ? 'ออกจากเกมแล้ว' : 'ใช้แล้ว · ครั้งเดียวต่อเกม') : c.resident ? 'ใช้แล้ว · ถาวรอยู่ในสนาม' : q.uses[c.name] ? 'ใช้แล้ว · หงายไว้' : 'ยังไม่ใช้' });
-  q.shown.forEach((c, i) => { if (!c.down) out.push({ key: `h${i}`, c, state: `ลงหงายรอบ ${c.round}${c.w !== 'onUse' ? ` · ใช้ช่วง${WINDOWS[c.w].name}` : ''}` }); });
+  for (const c of q.skills) if (open || q.uses[c.name]) out.push({ key: `s${c.uid}`, c, state: c.gone ? (c.fx?.godHand ? T("ออกจากเกมแล้ว") : T("ใช้แล้ว · ครั้งเดียวต่อเกม")) : c.resident ? T("ใช้แล้ว · ถาวรอยู่ในสนาม") : q.uses[c.name] ? T("ใช้แล้ว · หงายไว้") : T("ยังไม่ใช้") });
+  q.shown.forEach((c, i) => { if (!c.down) out.push({ key: `h${i}`, c, state: T("ลงหงายรอบ {0}{1}", c.round, c.w !== 'onUse' ? T(" · ใช้ช่วง{0}", WINDOWS[c.w].name) : '') }); });
   if (open) {
     const deck = [...q.sv.deck, ...(q.m.key === 'kuzuki' ? SNAKE : []), ...(g.sample ? SAMPLE : [])];
-    byType(deck).forEach((c, i) => out.push({ key: `d${i}`, c, state: 'การ์ดในสำรับ Servant (ไม่บอกว่าอยู่ในมือหรือในสำรับ)' }));
+    byType(deck).forEach((c, i) => out.push({ key: `d${i}`, c, state: T("การ์ดในสำรับ Servant (ไม่บอกว่าอยู่ในมือหรือในสำรับ)") }));
   }
   return out;
 }
@@ -1681,35 +1698,35 @@ function playerPop(id) {
   const open = seen(q);
   const pub = pubCards(q);
   const sun = g.order()[0];
-  const where = q.out ? `ตกรอบหลังรอบ ${q.outRound}` : q.at ? AREAS[q.at].name : 'ยังไม่วางหมาก';
-  const seat = q.out || !g.round ? '' : ` · ที่นั่ง ${g.order().indexOf(q) + 1}${q === sun ? ` ${SUN} ผู้เริ่มรอบ` : ''}`;
+  const where = q.out ? T("ตกรอบหลังรอบ {0}", q.outRound) : q.at ? AREAS[q.at].name : T("ยังไม่วางหมาก");
+  const seat = q.out || !g.round ? '' : T(" · ที่นั่ง {0}{1}", g.order().indexOf(q) + 1, q === sun ? T(" {0} ผู้เริ่มรอบ", SUN) : '');
   const cardTile = (x, o = {}) => tile({ ...x.c, down: false }, { sm: true, btn: true, act: 'pcard', key: x.key, note: o.note ?? '' });
-  const back = (label, sk = false) => `<div class="card back${sk ? ' sk' : ''} sm" title="${esc(label)}"><span class="ty">คว่ำ</span><span class="pw">?</span></div>`; // sk: the Skill back
+  const back = (label, sk = false) => `<div class="card back${sk ? ' sk' : ''} sm" title="${esc(label)}"><span class="ty">${T("คว่ำ")}</span><span class="pw">?</span></div>`; // sk: the Skill back
   const svHead = open
-    ? `<div class="pl-sv">${svArt(q.sv)}<div class="nm"><b>${esc(q.sv.cls)} · ${esc(q.sv.name)}</b><small>${q.revealed ? 'ไพ่ทาโรต์หงายแล้ว' : 'จบเกมแล้ว เปิดทุกอย่าง'}</small><p class="p-text">${esc(q.sv.note || '')}</p></div></div>`
-    : kireiSees() ? `<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>คลาส ${esc(q.sv.cls)} · ยังไม่เปิดชื่อจริง</b><small>คุณเห็นคลาสเพราะ Supervisor · ไม่รู้ชื่อ รูป หรือการ์ด</small></div></div>`
-    : '<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>ยังไม่เปิดชื่อจริง</b><small>ไพ่ทาโรต์คว่ำอยู่ ไม่รู้คลาส ชื่อ หรือรูป</small></div></div>';
+    ? `<div class="pl-sv">${svArt(q.sv)}<div class="nm"><b>${esc(q.sv.cls)} · ${esc(q.sv.name)}</b><small>${q.revealed ? T("ไพ่ทาโรต์หงายแล้ว") : T("จบเกมแล้ว เปิดทุกอย่าง")}</small><p class="p-text">${esc(q.sv.note || '')}</p></div></div>`
+    : kireiSees() ? `<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>${T("คลาส {0} · ยังไม่เปิดชื่อจริง", esc(q.sv.cls))}</b><small>${T("คุณเห็นคลาสเพราะ Supervisor · ไม่รู้ชื่อ รูป หรือการ์ด")}</small></div></div>`
+    : `<div class="pl-sv hidden"><span class="tarot" aria-hidden="true">?</span><div class="nm"><b>${T("ยังไม่เปิดชื่อจริง")}</b><small>${T("ไพ่ทาโรต์คว่ำอยู่ ไม่รู้คลาส ชื่อ หรือรูป")}</small></div></div>`;
   // NP/skill cards: used ones lie face up by the tarot card; all three show once the name is open
   const skills = q.skills.map((c) => {
     const x = pub.find((y) => y.key === `s${c.uid}`);
-    return x ? `<div class="pl-h">${cardTile(x)}<small class="${q.uses[c.name] ? 'used' : ''}">${esc(x.state.split(' · ')[0])}</small></div>` : `<div class="pl-h">${back('การ์ด NP/สกิลที่ยังไม่ใช้', true)}<small>คว่ำอยู่</small></div>`;
+    return x ? `<div class="pl-h">${cardTile(x)}<small class="${q.uses[c.name] ? 'used' : ''}">${esc(x.state.split(' · ')[0])}</small></div>` : `<div class="pl-h">${back(T("การ์ด NP/สกิลที่ยังไม่ใช้"), true)}<small>${T("คว่ำอยู่")}</small></div>`;
   }).join('');
-  const hist = [...q.shown.map((c, i) => ({ c, i }))].reverse().slice(0, 16).map(({ c, i }) => `<div class="pl-h">${c.down ? back('ลงคว่ำ') : cardTile({ key: `h${i}`, c })}<small>รอบ ${c.round}${c.w !== 'onUse' ? ` · ช่วง${esc(WINDOWS[c.w].name)}` : c.down ? ' · คว่ำ' : ''}</small></div>`).join('');
+  const hist = [...q.shown.map((c, i) => ({ c, i }))].reverse().slice(0, 16).map(({ c, i }) => `<div class="pl-h">${c.down ? back(T("ลงคว่ำ")) : cardTile({ key: `h${i}`, c })}<small>${T("รอบ")} ${c.round}${c.w !== 'onUse' ? T(" · ช่วง{0}", esc(WINDOWS[c.w].name)) : c.down ? T(" · คว่ำ") : ''}</small></div>`).join('');
   const deck = open ? pub.filter((x) => x.key[0] === 'd').map((x) => deckItem(x.c, '', { owner: q, key: x.key })).join('') : '';
   const step = (d, label) => { const n = list[(i + d + list.length) % list.length]; return `<button class="btn" data-act="player" data-id="${n.id}" aria-label="${label}">${d < 0 ? '‹' : '›'}</button>`; };
   return {
     title: `${q.m.name}`,
-    sub: `อันดับ ${q.out ? '✖' : g.rank(q)}${crown(q)} · ${esc(where)}${seat} · ${esc(svLabel(q))}`,
+    sub: T("อันดับ {0}{1} · {2}{3} · {4}", q.out ? '✖' : g.rank(q), crown(q), esc(where), seat, esc(svLabel(q))),
     mini: `${esc(q.name)} · ${q.vp} VP`,
     wide: true,
-    html: `<div class="me-stats">${ic('mana', `${q.mana}<small>/${MANA_MAX}</small>`, { v: `${q.mana}/${MANA_MAX}`, cls: 'm' })}${csIc(q.cs)}${ic('vp', q.vp, { v: `${q.vp} VP`, cls: 'v' })}${crown(q)}${q.m.key === 'rin' ? ic('gem', q.gems, { v: `เหลือ ${q.gems}`, cls: 'gm' }) : ''}</div>
-      <p class="p-text">${ic('hand', q.hand.length, { v: `ในมือ ${q.hand.length} ใบ (บอกแค่จำนวน)` })} ${ic('deck', q.deck.length, { v: `${q.deck.length} ใบ` })} ${ic('trash', q.trash.length, { v: `${q.trash.length} ใบ` })} · บอกแค่จำนวน</p>
-      <div class="pop-sec"><p class="row-lab">Master · ระดับ${esc(q.m.level)}</p><ul class="abil">${q.m.abil.map(([t, d]) => { const st = abilState(q, t); return `<li><b>${esc(t)}${st ? ` <em class="ab-st">${esc(st)}</em>` : ''}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`; }).join('')}</ul></div>
+    html: `<div class="me-stats">${ic('mana', `${q.mana}<small>/${MANA_MAX}</small>`, { v: `${q.mana}/${MANA_MAX}`, cls: 'm' })}${csIc(q.cs)}${ic('vp', q.vp, { v: `${q.vp} VP`, cls: 'v' })}${crown(q)}${q.m.key === 'rin' ? ic('gem', q.gems, { v: T("เหลือ {0}", q.gems), cls: 'gm' }) : ''}</div>
+      <p class="p-text">${ic('hand', q.hand.length, { v: T("ในมือ {0} ใบ (บอกแค่จำนวน)", q.hand.length) })} ${ic('deck', q.deck.length, { v: T("{0} ใบ", q.deck.length) })} ${ic('trash', q.trash.length, { v: T("{0} ใบ", q.trash.length) })} ${T("· บอกแค่จำนวน")}</p>
+      <div class="pop-sec"><p class="row-lab">${T("Master · ระดับ")}${esc(q.m.level)}</p><ul class="abil">${q.m.abil.map(([t, d]) => { const st = abilState(q, t); return `<li><b>${esc(t)}${st ? ` <em class="ab-st">${esc(st)}</em>` : ''}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`; }).join('')}</ul></div>
       <div class="pop-sec"><p class="row-lab">Servant</p>${svHead}</div>
-      <div class="pop-sec"><p class="row-lab">การ์ด NP/สกิล · ${open ? 'เปิดชื่อจริงแล้ว อ่านได้ทุกใบ' : 'ใบที่ใช้แล้วหงายไว้ ใบที่ยังไม่ใช้คว่ำ'}</p><div class="pl-hist">${skills}</div></div>
-      <div class="pop-sec"><p class="row-lab">การ์ดที่ลงในเกมนี้ · ล่าสุดก่อน${q.shown.length > 16 ? ' · 16 ใบล่าสุด' : ''} · ใบคว่ำไม่รู้ว่าเป็นอะไร</p>${hist ? `<div class="pl-hist">${hist}</div>` : '<p class="p-text">ยังไม่ได้ลงการ์ด</p>'}</div>
-      ${open ? `<div class="pop-sec"><p class="row-lab">การ์ดในสำรับ Servant ตามไพ่ทาโรต์ · เรียงตามชนิด · ไม่บอกว่าใบไหนอยู่ในมือหรือในสำรับ</p><div class="dkl">${deck}</div></div>` : ''}`,
-    foot: `<div class="acts cv-nav">${step(-1, 'คนก่อนหน้า')}<span class="dim">${i + 1} / ${list.length}</span>${step(1, 'คนถัดไป')}</div>`,
+      <div class="pop-sec"><p class="row-lab">${T("การ์ด NP/สกิล ·")} ${open ? T("เปิดชื่อจริงแล้ว อ่านได้ทุกใบ") : T("ใบที่ใช้แล้วหงายไว้ ใบที่ยังไม่ใช้คว่ำ")}</p><div class="pl-hist">${skills}</div></div>
+      <div class="pop-sec"><p class="row-lab">${T("การ์ดที่ลงในเกมนี้ · ล่าสุดก่อน{0} · ใบคว่ำไม่รู้ว่าเป็นอะไร", q.shown.length > 16 ? T(" · 16 ใบล่าสุด") : '')}</p>${hist ? `<div class="pl-hist">${hist}</div>` : `<p class="p-text">${T("ยังไม่ได้ลงการ์ด")}</p>`}</div>
+      ${open ? `<div class="pop-sec"><p class="row-lab">${T("การ์ดในสำรับ Servant ตามไพ่ทาโรต์ · เรียงตามชนิด · ไม่บอกว่าใบไหนอยู่ในมือหรือในสำรับ")}</p><div class="dkl">${deck}</div></div>` : ''}`,
+    foot: `<div class="acts cv-nav">${step(-1, T("คนก่อนหน้า"))}<span class="dim">${i + 1} / ${list.length}</span>${step(1, T("คนถัดไป"))}</div>`,
   };
 }
 // one public card of another Master; ‹ › step through that Master's public cards
@@ -1723,10 +1740,10 @@ function pcardPop(id, key) {
   const step = (d, label) => { const n = list[(i + d + list.length) % list.length]; return `<button class="btn" data-act="pcard" data-uid="${n.key}" aria-label="${label}">${d < 0 ? '‹' : '›'}</button>`; };
   return {
     title: cardName(c),
-    sub: `${esc(q.name)} · ${src ? `${esc(src)} · ` : ''}${typeHtml(c)} · พลัง ${c.power} · มานา ${c.mana}`,
+    sub: T("{0} · {1}{2} · พลัง {3} · มานา {4}", esc(q.name), src ? `${esc(src)} · ` : '', typeHtml(c), c.power, c.mana),
     mini: `${esc(cardName(c))} · ${esc(q.name)}`,
-    html: cardView(c, state, '<p class="p-text">ข้อมูลเปิด ทุกคนเห็น · อ่านอย่างเดียว</p>'),
-    foot: `<div class="acts cv-nav">${step(-1, 'ใบก่อนหน้า')}<span class="dim">${i + 1} / ${list.length}</span>${step(1, 'ใบถัดไป')}</div><button class="btn" data-act="player" data-id="${q.id}">กลับไปที่ ${esc(q.name)}</button>`,
+    html: cardView(c, state, `<p class="p-text">${T("ข้อมูลเปิด ทุกคนเห็น · อ่านอย่างเดียว")}</p>`),
+    foot: `<div class="acts cv-nav">${step(-1, T("ใบก่อนหน้า"))}<span class="dim">${i + 1} / ${list.length}</span>${step(1, T("ใบถัดไป"))}</div><button class="btn" data-act="player" data-id="${q.id}">${T("กลับไปที่")} ${esc(q.name)}</button>`,
   };
 }
 
@@ -1738,19 +1755,19 @@ function closeSheet() { $('#sheet').hidden = true; $('#sheet').innerHTML = ''; }
 function showStart() {
   // the Servant for playtesting (B, 2 Nov 2026 · paper 4.6 item 18): one of the 9, or at random as in the real game
   const sOpt = (key, inner, label) => `<button class="scard${setup.servant === key ? ' sel' : ''}${key === 'random' ? ' rnd' : ''}" data-act="servant" data-s="${key}" aria-pressed="${setup.servant === key}" aria-label="${esc(label)}">${inner}</button>`;
-  const ss = sOpt('random', '<span class="svart sm dice" aria-hidden="true"><b>🎲</b></span><span class="nm"><b>สุ่ม</b><span class="en">RANDOM</span></span>', 'สุ่ม Servant แบบเกมจริง')
+  const ss = sOpt('random', `<span class="svart sm dice" aria-hidden="true"><b>🎲</b></span><span class="nm"><b>${T("สุ่ม")}</b><span class="en">RANDOM</span></span>`, T("สุ่ม Servant แบบเกมจริง"))
     + SERVANTS.map((sv) => sOpt(sv.key, `${svArt(sv, 'sm')}<span class="nm"><b>${esc(sv.name)}</b><span class="en">${esc(sv.cls.toUpperCase())}</span></span>`, `${sv.cls} · ${sv.name}`)).join('');
   const ms = MASTERS.map((m) => `<button class="mcard${setup.master === m.key ? ' sel' : ''}" style="--c:${m.color}" data-act="master" data-m="${m.key}" aria-pressed="${setup.master === m.key}">
-      <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b><span class="st2">มานาเริ่ม ${m.mana} · Command Spell ${m.cs}${m.gems ? ` · อัญมณี ${m.gems}` : ''}</span>
+      <span class="en">${esc(m.en.toUpperCase())} ${T("· ระดับ")}${esc(m.level)}</span><b>${esc(m.name)}</b><span class="st2">${T("มานาเริ่ม {0} · Command Spell", m.mana)} ${m.cs}${m.gems ? T(" · อัญมณี {0}", m.gems) : ''}</span>
       <ul>${m.abil.map(([t, d]) => `<li>${esc(t)}${d ? `: ${esc(d)}` : ''}</li>`).join('')}</ul></button>`).join('');
-  openModal(`<div class="dlg"><button class="btn sm ghost dlg-set" data-act="settings" data-back="start">⚙ ตั้งค่า</button><span class="eyebrow">เดโม 1 ด่าน · เมืองฟุยุกิ · กติกาตามคู่มือ · Master และ Servant ตาม Fate/Domination</span><div class="title-crest">DOMINATE GRAIL WAR</div>
-    <p class="lede">สงครามจอกศักดิ์สิทธิ์ 7 Master ของ Fate/stay night · Servant ${SERVANTS.length} ตน สุ่มให้คนละตน อีก ${SERVANTS.length - MASTERS.length} ตนไม่ได้ใช้ · เก็บ VP 8 รอบ แล้วเข้าไคลแมกซ์ คนที่ VP น้อยถูกคัดออก 4 → 2 → 1 · คนสุดท้ายที่เหลือชนะ</p>
-    <ol class="how"><li>ตั้งมั่น: วางหมากที่โรงฝึกเวทเพื่อเก็บมานา หรือที่สนามรบเพื่อรับได้เปรียบพื้นที่</li><li>ปฏิบัติการ: ย้ายตามลูกศร แล้วลงการ์ด 2 ใบ หงายเพื่อสู้ คว่ำเพื่อหลอก · ผล "ตอนใช้" ทำงานทุกที่</li><li>มีมานา ${SKILL_MANA} ขึ้นไปใช้การ์ด NP/สกิลได้ · มานาสูงสุด ${MANA_MAX}</li><li>Command Spell 3 ดวง ใช้ในตาของตัวเอง: มานา +${CS_MANA} · พลัง +${CS_POWER} · ย้ายไม่สนติดพัน</li><li>การ์ด "ถาวร" อยู่ในสนามต่อ มีผลและให้พลังทุกรอบ · การ์ด "ปิด" พลัง 0 ไม่มีผล</li><li>ไอคอนบนหน้าจอแตะดูความหมายได้ · รวมทุกตัวอยู่ใน "ไอคอนทั้งหมด" ของกติกา</li></ol>
-    <h2>เลือก Master ของคุณ</h2><div class="masters">${ms}</div>
-    <h2>เลือก Servant <small class="dim">เลือกเองเพื่อทดลองเล่น หรือ 🎲 สุ่มแบบเกมจริง</small></h2><div class="servants">${ss}</div>
-    <p class="lede">Servant เป็นความลับจนกว่าจะเปิดชื่อจริง · คนอื่นสุ่มจาก Servant ที่เหลือ · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p>
-    <label class="check opt-sample"><input type="checkbox" id="opt-sample"${setup.sample ? ' checked' : ''}> ใส่การ์ดตัวอย่าง ${SAMPLE.length + 1} ใบให้ทุกคน (ทดลองช่วงใช้การ์ดของกระดาษข้อ 9 · ไม่ใช่การ์ดจริง)</label>
-    <div class="acts">${started && !g.over ? '<button class="btn ghost" data-act="close">กลับไปเล่นต่อ</button>' : ''}<button class="btn" data-act="online">🌐 เล่นออนไลน์</button><button class="btn" data-act="rules">อ่านกติกา</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น">สอนเล่น</button><button class="btn primary" data-act="start">${started ? 'เริ่มเกมใหม่' : 'เริ่มสงคราม'}</button></div></div>`);
+  openModal(`<div class="dlg"><button class="btn sm ghost dlg-set" data-act="settings" data-back="start">${T("⚙ ตั้งค่า")}</button>${langSeg(' dlg-lang')}<span class="eyebrow">${T("เดโม 1 ด่าน · เมืองฟุยุกิ · กติกาตามคู่มือ · Master และ Servant ตาม Fate/Domination")}</span><div class="title-crest">DOMINATE GRAIL WAR</div>
+    <p class="lede">${T("สงครามจอกศักดิ์สิทธิ์ 7 Master ของ Fate/stay night · Servant {0} ตน สุ่มให้คนละตน อีก {1} ตนไม่ได้ใช้ · เก็บ VP 8 รอบ แล้วเข้าไคลแมกซ์ คนที่ VP น้อยถูกคัดออก 4 → 2 → 1 · คนสุดท้ายที่เหลือชนะ", SERVANTS.length, SERVANTS.length - MASTERS.length)}</p>
+    <ol class="how"><li>${T("ตั้งมั่น: วางหมากที่โรงฝึกเวทเพื่อเก็บมานา หรือที่สนามรบเพื่อรับได้เปรียบพื้นที่")}</li><li>${T("ปฏิบัติการ: ย้ายตามลูกศร แล้วลงการ์ด 2 ใบ หงายเพื่อสู้ คว่ำเพื่อหลอก · ผล \"ตอนใช้\" ทำงานทุกที่")}</li><li>${T("มีมานา {0} ขึ้นไปใช้การ์ด NP/สกิลได้ · มานาสูงสุด", SKILL_MANA)} ${MANA_MAX}</li><li>${T("Command Spell 3 ดวง ใช้ในตาของตัวเอง: มานา +{0} · พลัง +{1} · ย้ายไม่สนติดพัน", CS_MANA, CS_POWER)}</li><li>${T("การ์ด \"ถาวร\" อยู่ในสนามต่อ มีผลและให้พลังทุกรอบ · การ์ด \"ปิด\" พลัง 0 ไม่มีผล")}</li><li>${T("ไอคอนบนหน้าจอแตะดูความหมายได้ · รวมทุกตัวอยู่ใน \"ไอคอนทั้งหมด\" ของกติกา")}</li></ol>
+    <h2>${T("เลือก Master ของคุณ")}</h2><div class="masters">${ms}</div>
+    <h2>${T("เลือก Servant")} <small class="dim">${T("เลือกเองเพื่อทดลองเล่น หรือ 🎲 สุ่มแบบเกมจริง")}</small></h2><div class="servants">${ss}</div>
+    <p class="lede">${T("Servant เป็นความลับจนกว่าจะเปิดชื่อจริง · คนอื่นสุ่มจาก Servant ที่เหลือ · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน")}</p>
+    <label class="check opt-sample"><input type="checkbox" id="opt-sample"${setup.sample ? ' checked' : ''}> ${T("ใส่การ์ดตัวอย่าง {0} ใบให้ทุกคน (ทดลองช่วงใช้การ์ดของกระดาษข้อ 9 · ไม่ใช่การ์ดจริง)", SAMPLE.length + 1)}</label>
+    <div class="acts">${started && !g.over ? `<button class="btn ghost" data-act="close">${T("กลับไปเล่นต่อ")}</button>` : ''}<button class="btn" data-act="online">${T("🌐 เล่นออนไลน์")}</button><button class="btn" data-act="rules">${T("อ่านกติกา")}</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="${T("เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น")}">${T("สอนเล่น")}</button><button class="btn primary" data-act="start">${started ? T("เริ่มเกมใหม่") : T("เริ่มสงคราม")}</button></div></div>`);
 }
 
 let summonGo = null;
@@ -1758,56 +1775,56 @@ function showSummon(go) {
   summonGo = go;
   const p = me();
   const sk = p.skills.map((c) => `<li><b>${esc(c.name)}</b>${esc(cardText(c))}</li>`).join('');
-  const sp = p.specials.map((c) => `<li class="sp"><b>${esc(c.name)} · สกิล Master</b>${esc(cardText(c))}</li>`).join('')
-    + (p.m.key === 'rin' ? `<li class="sp"><b>Gem ×${p.gems} · สกิล Master</b>${esc(cardText(GANDR))}</li>` : '');
+  const sp = p.specials.map((c) => `<li class="sp"><b>${esc(c.name)} ${T("· สกิล Master")}</b>${esc(cardText(c))}</li>`).join('')
+    + (p.m.key === 'rin' ? `<li class="sp"><b>${T("Gem ×{0} · สกิล Master", p.gems)}</b>${esc(cardText(GANDR))}</li>` : '');
   const deck = p.deck; // the whole attack deck before the first draw, Snake and example cards included
   const byType = Object.keys(TYPES).map((t) => [t, deck.filter((c) => c.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${TYPES[t]} ${n}`).join(' · ');
-  openModal(`<div class="dlg"><span class="eyebrow">${tut ? 'สอนเล่น · ' : ''}การอัญเชิญสำเร็จ</span><div class="summon">${svArt(p.sv, 'big')}
+  openModal(`<div class="dlg"><span class="eyebrow">${tut ? T("สอนเล่น · ") : ''}${T("การอัญเชิญสำเร็จ")}</span><div class="summon">${svArt(p.sv, 'big')}
     <div style="display:grid;gap:12px;min-width:0"><span class="cls">${esc(p.sv.cls.toUpperCase())}</span><h2>${esc(p.sv.name)}</h2>
-    <p class="lede">Master ${esc(p.m.name)} · ไพ่ทาโรต์คว่ำไว้ คู่แข่งไม่รู้ว่าคุณเป็นใครจนกว่าจะเปิดชื่อจริง</p>
-    ${tut ? '<p class="lede tut-lede">สอนเล่นจัดเหมือนกันทุกครั้ง: คุณเป็นชิโร่กับ Saber · ผู้สอนจะพาเล่นรอบที่ 1 ทีละขั้น · กด "ข้ามการสอน" ได้ตลอด</p>' : ''}
-    <p class="row-lab">การ์ด NP/สกิล</p><ul class="skills">${sk}${sp}</ul>
-    <p class="dim" style="margin:0;font-size:13px">สำรับโจมตี ${deck.length} ใบ: ${byType}${p.m.key === 'kuzuki' ? ' (รวม Snake 2)' : ''}${g.sample ? ` (รวมการ์ดตัวอย่าง ${SAMPLE.length})` : ''}</p></div></div>
-    <div class="acts"><button class="btn primary" data-act="go">เริ่มรอบ 1</button></div></div>`);
+    <p class="lede">${T("Master {0} · ไพ่ทาโรต์คว่ำไว้ คู่แข่งไม่รู้ว่าคุณเป็นใครจนกว่าจะเปิดชื่อจริง", esc(p.m.name))}</p>
+    ${tut ? `<p class="lede tut-lede">${T("สอนเล่นจัดเหมือนกันทุกครั้ง: คุณเป็นชิโร่กับ Saber · ผู้สอนจะพาเล่นรอบที่ 1 ทีละขั้น · กด \"ข้ามการสอน\" ได้ตลอด")}</p>` : ''}
+    <p class="row-lab">${T("การ์ด NP/สกิล")}</p><ul class="skills">${sk}${sp}</ul>
+    <p class="dim" style="margin:0;font-size:13px">${T("สำรับโจมตี {0} ใบ:", deck.length)} ${byType}${p.m.key === 'kuzuki' ? T(" (รวม Snake 2)") : ''}${g.sample ? T(" (รวมการ์ดตัวอย่าง {0})", SAMPLE.length) : ''}</p></div></div>
+    <div class="acts"><button class="btn primary" data-act="go">${T("เริ่มรอบ 1")}</button></div></div>`);
 }
 
 // every icon and status label with what it means (paper 4.6 item 14)
 const ICON_GROUPS = [
-  ['ค่า (ตามด้วยตัวเลข)', ['mana', 'cs', 'vp', 'power', 'hand', 'deck', 'trash', 'gem', 'terrain', 'round', 'alone', 'duel', 'seat', 'enter', 'sit', 'event']],
-  ['ป้ายสถานะ', ['here', 'fight', 'engaged', 'wait', 'late', 'first', 'crown', 'hidden', 'open', 'cut', 'out', 'dead', 'ready', 'lock', 'used', 'perm', 'once', 'extra', 'down']],
-  ['ช่วงเวลาบนการ์ด', ['onUse', 'clash', 'always', 'stay']],
-  ['ปุ่ม', ['rules', 'more']],
+  [T("ค่า (ตามด้วยตัวเลข)"), ['mana', 'cs', 'vp', 'power', 'hand', 'deck', 'trash', 'gem', 'terrain', 'round', 'alone', 'duel', 'seat', 'enter', 'sit', 'event']],
+  [T("ป้ายสถานะ"), ['here', 'fight', 'engaged', 'wait', 'late', 'first', 'crown', 'hidden', 'open', 'cut', 'out', 'dead', 'ready', 'lock', 'used', 'perm', 'once', 'extra', 'down']],
+  [T("ช่วงเวลาบนการ์ด"), ['onUse', 'clash', 'always', 'stay']],
+  [T("ปุ่ม"), ['rules', 'more']],
 ];
 function iconPage() {
   const row = (k) => `<li><span class="ic c-${ICONS[k][3]}">${svg(k)}</span><b>${ICONS[k][1]}</b><span>${iconize(esc(ICONS[k][2]), [[/(💧|⚡|🏆|⛰|☠)/g, (m) => ic({ '💧': 'mana', '⚡': 'power', '🏆': 'vp', '⛰': 'terrain', '☠': 'dead' }[m])]])}</span></li>`;
-  const types = ['S', 'A', 'M', 'X', 'Z'].map((t) => `<li><span class="ic">${typeIc(t)}</span><b>${TYPES[t]}</b><span>ชนิดการ์ด สีเดียวกับตราบนการ์ด</span></li>`).join('')
-    + '<li><span class="ic"><b class="tw tw-N">NP</b></span><b>NP</b><span>การ์ด NP ของ Servant · NP ที่มีชนิดอื่นด้วยมีตราชนิดนั้นต่อท้าย</span></li>';
-  return `<div id="icons"><h3>ไอคอนทั้งหมด</h3><p>แตะไอคอนบนหน้าจอเพื่อดูความหมายและค่าตอนนี้ (บนคอมชี้เมาส์ก็ขึ้น) · ไอคอนบนการ์ดดูความหมายได้ที่หน้ารายละเอียดการ์ด · ฟองไม่บอกข้อมูลลับ</p>
+  const types = ['S', 'A', 'M', 'X', 'Z'].map((t) => `<li><span class="ic">${typeIc(t)}</span><b>${TYPES[t]}</b><span>${T("ชนิดการ์ด สีเดียวกับตราบนการ์ด")}</span></li>`).join('')
+    + `<li><span class="ic"><b class="tw tw-N">NP</b></span><b>NP</b><span>${T("การ์ด NP ของ Servant · NP ที่มีชนิดอื่นด้วยมีตราชนิดนั้นต่อท้าย")}</span></li>`;
+  return `<div id="icons"><h3>${T("ไอคอนทั้งหมด")}</h3><p>${T("แตะไอคอนบนหน้าจอเพื่อดูความหมายและค่าตอนนี้ (บนคอมชี้เมาส์ก็ขึ้น) · ไอคอนบนการ์ดดูความหมายได้ที่หน้ารายละเอียดการ์ด · ฟองไม่บอกข้อมูลลับ")}</p>
     ${ICON_GROUPS.map(([t, ks]) => `<p class="row-lab">${t}</p><ul class="iconlist">${ks.map(row).join('')}</ul>`).join('')}
-    <p class="row-lab">ชนิดการ์ด</p><ul class="iconlist">${types}</ul>
-    <p class="row-lab">ขั้นของรอบ</p><ul class="iconlist"><li><span class="ic pn"><b>3</b></span><b>เฟส</b><span>เลข 1–5 บนแถบบน แตะดูชื่อ · เฟสตอนนี้มีชื่อและเลขขั้น เช่น 3.4</span></li><li><span class="ic c-grail stc"><b>3.1</b></span><b>ช่วงใช้การ์ด</b><span>บนการ์ดที่ใช้นอกการลงการ์ด เลขคือขั้นของรอบ (ข้อ 8.0)</span></li></ul></div>`;
+    <p class="row-lab">${T("ชนิดการ์ด")}</p><ul class="iconlist">${types}</ul>
+    <p class="row-lab">${T("ขั้นของรอบ")}</p><ul class="iconlist"><li><span class="ic pn"><b>3</b></span><b>${T("เฟส")}</b><span>${T("เลข 1–5 บนแถบบน แตะดูชื่อ · เฟสตอนนี้มีชื่อและเลขขั้น เช่น 3.4")}</span></li><li><span class="ic c-grail stc"><b>3.1</b></span><b>${T("ช่วงใช้การ์ด")}</b><span>${T("บนการ์ดที่ใช้นอกการลงการ์ด เลขคือขั้นของรอบ (ข้อ 8.0)")}</span></li></ul></div>`;
 }
 function showRules(at) {
   const back = !started ? 'back-start' : summonGo ? 'go-summon' : 'close';
-  openModal(`<div class="dlg narrow"><span class="eyebrow">กติกาแบบย่อ · ตามคู่มือ</span><h2>วิธีเล่น</h2><div class="rules">
-    <div><h3>เป้าหมาย</h3><p>เก็บ VP จากการชนะในสนามรบและการลาดตระเวน · รอบปกติ ${REGULAR} รอบ แล้วเล่นรอบไคลแมกซ์จนเหลือคนเดียว · จบรอบ ${REGULAR} เหลือ 4 คน · จบไคลแมกซ์แรกเหลือ 2 คน · จบไคลแมกซ์ "เหลือ 2 คน" เหลือ 1 คน = ผู้ชนะ · <b>แต้มเท่ากันที่เส้นตัด ออกทุกคน</b></p></div>
-    <div><h3>หนึ่งรอบ</h3><ol>
-      <li><b>เตรียมการ:</b> จั่วให้ครบ 3 ใบ · เปิดการ์ดสถานการณ์ ทุกคนได้มานาตาม "จ่าย" และมีกฎเพิ่มทั้งรอบ · วางการ์ดอีเวนต์ที่มิยามะแบบหงาย และที่ชินโตะแบบคว่ำ</li>
-      <li><b>ตั้งมั่น:</b> วางหมากที่โรงฝึกเวท (มานา ${WORKSHOP.join(' / ')} ตามลำดับ รับ 4 คน) หรือสนามรบ (คนแรกได้เปรียบพื้นที่ +${TERRAIN[0]} คนที่สอง +${TERRAIN[1]}) · ลาดตระเวนวางไม่ได้</li>
-      <li><b>ปฏิบัติการ:</b> เปิดอีเวนต์ชินโตะ แล้วทีละคน ① ย้ายตามลูกศรทางเดียว (มานา ${STEP_COST.join(' / ')}) · สนามรบที่มี 2 คนขึ้นไปติดพัน เดินออกไม่ได้ · เข้าลาดตระเวน (รับ 1 คน) ได้ ${RECON_VP} VP ทันที ② ทุกคนลงการ์ด 2 ใบ หงายหรือคว่ำทีละใบ · หงาย = ใช้ค่าบนการ์ด · คว่ำ = พลัง 0 มานา 0 ไม่มีผล · ผล "ตอนใช้" ทำงานทุกที่ รวมถึงโรงฝึกเวทและลาดตระเวน แต่คิดพลังแค่ในสนามรบ · การ์ดย้าย (Bellerophon · Lancer Class · Surveil) พาเข้าสนามรบได้ ไม่สนการติดพัน · Surveil ไปได้แค่ช่องถัดไป</li>
-      <li><b>ต่อสู้:</b> ผล "ตอนปะทะ" ทำตามลำดับที่นั่ง · พลังรวมสูงสุดที่ไม่ [แพ้] ชนะ ได้ VP การ์ดอีเวนต์ + ${AREAS.miyama.bonus} (มิยามะ) หรือ + ${AREAS.shinto.bonus} (ชินโตะ) · เสมอแบ่งกันปัดขึ้น · อยู่คนเดียวได้แค่ VP การ์ดอีเวนต์ · แพ้ไม่เสียอะไร</li>
-      <li><b>จบรอบ:</b> การ์ดลงกองทิ้งตามด้านที่ลง · การ์ด NP/สกิลกลับข้างไพ่ทาโรต์แบบหงาย · ผู้เริ่ม (${SUN}) เลื่อนไปคนถัดไป</li></ol></div>
-    <div><h3>ผังเฟส · ขั้นและช่วงใช้การ์ด</h3><p>ขั้นที่ตัวหนาคือช่วงใช้การ์ด · การ์ดที่มีป้ายช่วงนั้นใช้จากมือได้ ไม่นับเป็น 2 ใบที่ลง · หน้าจอถามเฉพาะตอนคุณมีการ์ดที่ใช้ได้ · Command Spell ใช้ได้ช่วง 3.1 3.3 และ 3.5 (อยู่ในหน้าย้ายและหน้าลงการ์ด)</p>
+  openModal(`<div class="dlg narrow"><span class="eyebrow">${T("กติกาแบบย่อ · ตามคู่มือ")}</span><h2>${T("วิธีเล่น")}</h2><div class="rules">
+    <div><h3>${T("เป้าหมาย")}</h3><p>${T("เก็บ VP จากการชนะในสนามรบและการลาดตระเวน · รอบปกติ {0} รอบ แล้วเล่นรอบไคลแมกซ์จนเหลือคนเดียว · จบรอบ {1} เหลือ 4 คน · จบไคลแมกซ์แรกเหลือ 2 คน · จบไคลแมกซ์ \"เหลือ 2 คน\" เหลือ 1 คน = ผู้ชนะ ·", REGULAR, REGULAR)} <b>${T("แต้มเท่ากันที่เส้นตัด ออกทุกคน")}</b></p></div>
+    <div><h3>${T("หนึ่งรอบ")}</h3><ol>
+      <li><b>${T("เตรียมการ:")}</b> ${T("จั่วให้ครบ 3 ใบ · เปิดการ์ดสถานการณ์ ทุกคนได้มานาตาม \"จ่าย\" และมีกฎเพิ่มทั้งรอบ · วางการ์ดอีเวนต์ที่มิยามะแบบหงาย และที่ชินโตะแบบคว่ำ")}</li>
+      <li><b>${T("ตั้งมั่น:")}</b> ${T("วางหมากที่โรงฝึกเวท (มานา {0} ตามลำดับ รับ 4 คน) หรือสนามรบ (คนแรกได้เปรียบพื้นที่ +{1} คนที่สอง +{2}) · ลาดตระเวนวางไม่ได้", WORKSHOP.join(' / '), TERRAIN[0], TERRAIN[1])}</li>
+      <li><b>${T("ปฏิบัติการ:")}</b> ${T("เปิดอีเวนต์ชินโตะ แล้วทีละคน ① ย้ายตามลูกศรทางเดียว (มานา {0}) · สนามรบที่มี 2 คนขึ้นไปติดพัน เดินออกไม่ได้ · เข้าลาดตระเวน (รับ 1 คน) ได้ {1} VP ทันที ② ทุกคนลงการ์ด 2 ใบ หงายหรือคว่ำทีละใบ · หงาย = ใช้ค่าบนการ์ด · คว่ำ = พลัง 0 มานา 0 ไม่มีผล · ผล \"ตอนใช้\" ทำงานทุกที่ รวมถึงโรงฝึกเวทและลาดตระเวน แต่คิดพลังแค่ในสนามรบ · การ์ดย้าย (Bellerophon · Lancer Class · Surveil) พาเข้าสนามรบได้ ไม่สนการติดพัน · Surveil ไปได้แค่ช่องถัดไป", STEP_COST.join(' / '), RECON_VP)}</li>
+      <li><b>${T("ต่อสู้:")}</b> ${T("ผล \"ตอนปะทะ\" ทำตามลำดับที่นั่ง · พลังรวมสูงสุดที่ไม่ [แพ้] ชนะ ได้ VP การ์ดอีเวนต์ + {0} (มิยามะ) หรือ + {1} (ชินโตะ) · เสมอแบ่งกันปัดขึ้น · อยู่คนเดียวได้แค่ VP การ์ดอีเวนต์ · แพ้ไม่เสียอะไร", AREAS.miyama.bonus, AREAS.shinto.bonus)}</li>
+      <li><b>${T("จบรอบ:")}</b> ${T("การ์ดลงกองทิ้งตามด้านที่ลง · การ์ด NP/สกิลกลับข้างไพ่ทาโรต์แบบหงาย · ผู้เริ่ม ({0}) เลื่อนไปคนถัดไป", SUN)}</li></ol></div>
+    <div><h3>${T("ผังเฟส · ขั้นและช่วงใช้การ์ด")}</h3><p>${T("ขั้นที่ตัวหนาคือช่วงใช้การ์ด · การ์ดที่มีป้ายช่วงนั้นใช้จากมือได้ ไม่นับเป็น 2 ใบที่ลง · หน้าจอถามเฉพาะตอนคุณมีการ์ดที่ใช้ได้ · Command Spell ใช้ได้ช่วง 3.1 3.3 และ 3.5 (อยู่ในหน้าย้ายและหน้าลงการ์ด)")}</p>
       <ol class="phases">${Object.entries(STEPS).map(([k, t]) => `<li${Object.values(WINDOWS).some((w) => w.code === k) ? ' class="win"' : ''}><b>${k}</b> ${esc(t)}</li>`).join('')}</ol>
-      <p>ป้ายบนการ์ดเขียนว่าใช้ช่วงไหน ที่ไหน และเงื่อนไข เช่น "ตอนใช้ · ทุกที่" "ตอนปะทะ · สนามรบ" "ก่อนย้าย · สนามรบ · ติดพัน" · ยังไม่มีการ์ดจริงที่ใช้ช่วงใหม่ ติ๊ก "ใส่การ์ดตัวอย่าง" ที่หน้าเริ่มเกมเพื่อลองระบบนี้</p></div>
-    <div><h3>มานาและการ์ด NP/สกิล</h3><p>มานา 0–${MANA_MAX} · การ์ด NP/สกิลเลือกได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป แล้วจ่ายตามการ์ด · ใช้แล้วใช้ซ้ำได้ ยกเว้น "ครั้งเดียวต่อเกม" · การ์ดที่มี "เปิดชื่อจริง" หงายไพ่ทาโรต์ของคุณ · การ์ด "ถาวร" ไม่ถูกปิดตอนจบรอบ อยู่ในสนามต่อ ผลทำงานและให้พลังทุกรอบตั้งแต่รอบที่ลง · "ปิด" = การ์ด NP/สกิลกลับช่องสกิล การ์ดอื่นพลัง 0 ไม่มีผล · บางใบลงเพิ่มนอกเหนือ 2 ใบได้ เช่น Kanshou & Bakuya · Gandr Shot · 3rd Strike</p>
-      <p>ผล "ตอนใช้" และ "ตอนปะทะ" คือความสามารถ Action และ Combat ของ Fate/Domination: 2nd Strike ปิดได้ในสนามรบของเขา · ผลตอนลง (On Play) เช่น Metamorphosis จั่วของ Rider Class ชนิดของ Gate of Babylon และข้อความที่ไม่มีป้าย เช่น God Hand ปิดไม่ได้</p></div>
-    <div><h3>Command Spell</h3><p>ใช้ได้เฉพาะในตาปฏิบัติการของตัวเอง ก่อนย้าย ระหว่างย้ายกับลงการ์ด หรือหลังลงการ์ด · 1 ดวงต่อ 1 ผล: มานา +${CS_MANA} · พลังรวม +${CS_POWER} และถ้าชนะได้ VP +${CS_VP} · ย้ายไปที่ไหนก็ได้ยกเว้นโรงฝึกเวท ไม่สนการติดพัน</p></div>
-    <div><h3>ข้อยกเว้นของ Master</h3><p>ชิโร่ครั้งแรกที่จะตกรอบเสียมานาทั้งหมดแทน (Avalon) · ซากุระจบรอบ ${REGULAR} ถ้าไม่ได้อันดับ 1 มานาไม่จำกัดและลงเพิ่มได้ 1 ใบจนจบเกม (The Tainted Grail) · ชินจิ Command Spell หมดครั้งแรก เปลี่ยนเป็น Servant ที่ไม่มีใครได้ ชื่อจริงซ่อน (Unworthy) · Excalibur ชนะในรอบไคลแมกซ์ "เหลือ 2 คน" = ชนะเกมทันที · ความสามารถทั้งหมดอยู่ในกระดาน Master</p></div>
-    <div><h3>หน้าจอ</h3><p>แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่นที่นั่น · ตอนลงการ์ดหน้าลงการ์ดจะเปิดเอง กด ▾ พับหน้าต่างเพื่อดูกระดาน · ตอนสู้ พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้ที่บอกว่าใครอยู่ ลงการ์ดอะไร และพลังเท่าไร · การ์ดในมืออยู่ใต้กระดานเสมอ ปุ่ม "ดูเดค" ท้ายแถบเปิดรายละเอียดการ์ดทุกใบ · แตะชื่อในอันดับ VP เพื่อดูข้อมูลเปิดของคนนั้น เปิดชื่อจริงแล้วเห็นความสามารถและการ์ดในสำรับ Servant ทั้งหมด · ป้าย "สกิล Servant" และ "สกิล Master" บอกว่าการ์ดมาจากช่องสกิลของใคร · ข้อความที่ยาวเกินกระดานกด ▸ · 👑 คืออันดับ 1 (VP มากสุดตอนนี้) อยู่บนหมาก ชื่อพื้นที่ และอันดับ · บนมือถือการ์ดของคุณ อันดับ และบันทึกอยู่ที่ปุ่มด้านล่าง</p></div>
+      <p>${T("ป้ายบนการ์ดเขียนว่าใช้ช่วงไหน ที่ไหน และเงื่อนไข เช่น \"ตอนใช้ · ทุกที่\" \"ตอนปะทะ · สนามรบ\" \"ก่อนย้าย · สนามรบ · ติดพัน\" · ยังไม่มีการ์ดจริงที่ใช้ช่วงใหม่ ติ๊ก \"ใส่การ์ดตัวอย่าง\" ที่หน้าเริ่มเกมเพื่อลองระบบนี้")}</p></div>
+    <div><h3>${T("มานาและการ์ด NP/สกิล")}</h3><p>${T("มานา 0–{0} · การ์ด NP/สกิลเลือกได้เมื่อมีมานา {1} ขึ้นไป แล้วจ่ายตามการ์ด · ใช้แล้วใช้ซ้ำได้ ยกเว้น \"ครั้งเดียวต่อเกม\" · การ์ดที่มี \"เปิดชื่อจริง\" หงายไพ่ทาโรต์ของคุณ · การ์ด \"ถาวร\" ไม่ถูกปิดตอนจบรอบ อยู่ในสนามต่อ ผลทำงานและให้พลังทุกรอบตั้งแต่รอบที่ลง · \"ปิด\" = การ์ด NP/สกิลกลับช่องสกิล การ์ดอื่นพลัง 0 ไม่มีผล · บางใบลงเพิ่มนอกเหนือ 2 ใบได้ เช่น Kanshou & Bakuya · Gandr Shot · 3rd Strike", MANA_MAX, SKILL_MANA)}</p>
+      <p>${T("ผล \"ตอนใช้\" และ \"ตอนปะทะ\" คือความสามารถ Action และ Combat ของ Fate/Domination: 2nd Strike ปิดได้ในสนามรบของเขา · ผลตอนลง (On Play) เช่น Metamorphosis จั่วของ Rider Class ชนิดของ Gate of Babylon และข้อความที่ไม่มีป้าย เช่น God Hand ปิดไม่ได้")}</p></div>
+    <div><h3>Command Spell</h3><p>${T("ใช้ได้เฉพาะในตาปฏิบัติการของตัวเอง ก่อนย้าย ระหว่างย้ายกับลงการ์ด หรือหลังลงการ์ด · 1 ดวงต่อ 1 ผล: มานา +{0} · พลังรวม +{1} และถ้าชนะได้ VP +{2} · ย้ายไปที่ไหนก็ได้ยกเว้นโรงฝึกเวท ไม่สนการติดพัน", CS_MANA, CS_POWER, CS_VP)}</p></div>
+    <div><h3>${T("ข้อยกเว้นของ Master")}</h3><p>${T("ชิโร่ครั้งแรกที่จะตกรอบเสียมานาทั้งหมดแทน (Avalon) · ซากุระจบรอบ {0} ถ้าไม่ได้อันดับ 1 มานาไม่จำกัดและลงเพิ่มได้ 1 ใบจนจบเกม (The Tainted Grail) · ชินจิ Command Spell หมดครั้งแรก เปลี่ยนเป็น Servant ที่ไม่มีใครได้ ชื่อจริงซ่อน (Unworthy) · Excalibur ชนะในรอบไคลแมกซ์ \"เหลือ 2 คน\" = ชนะเกมทันที · ความสามารถทั้งหมดอยู่ในกระดาน Master", REGULAR)}</p></div>
+    <div><h3>${T("หน้าจอ")}</h3><p>${T("แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่นที่นั่น · ตอนลงการ์ดหน้าลงการ์ดจะเปิดเอง กด ▾ พับหน้าต่างเพื่อดูกระดาน · ตอนสู้ พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้ที่บอกว่าใครอยู่ ลงการ์ดอะไร และพลังเท่าไร · การ์ดในมืออยู่ใต้กระดานเสมอ ปุ่ม \"ดูเดค\" ท้ายแถบเปิดรายละเอียดการ์ดทุกใบ · แตะชื่อในอันดับ VP เพื่อดูข้อมูลเปิดของคนนั้น เปิดชื่อจริงแล้วเห็นความสามารถและการ์ดในสำรับ Servant ทั้งหมด · ป้าย \"สกิล Servant\" และ \"สกิล Master\" บอกว่าการ์ดมาจากช่องสกิลของใคร · ข้อความที่ยาวเกินกระดานกด ▸ · 👑 คืออันดับ 1 (VP มากสุดตอนนี้) อยู่บนหมาก ชื่อพื้นที่ และอันดับ · บนมือถือการ์ดของคุณ อันดับ และบันทึกอยู่ที่ปุ่มด้านล่าง")}</p></div>
     ${iconPage()}
-    <p class="dim">อ้างอิงกระดาษออกแบบ v5.2 · ความสามารถ Master และการ์ด Servant ตาม Fate/Domination · ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน</p></div>
-    <div class="acts"><button class="btn primary" data-act="${back}">ปิด</button></div></div>`);
+    <p class="dim">${T("อ้างอิงกระดาษออกแบบ v5.2 · ความสามารถ Master และการ์ด Servant ตาม Fate/Domination · ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน")}</p></div>
+    <div class="acts"><button class="btn primary" data-act="${back}">${T("ปิด")}</button></div></div>`);
   if (at) requestAnimationFrame(() => $(`#modal #${at}`)?.scrollIntoView({ block: 'start' }));
 }
 
@@ -1818,7 +1835,7 @@ function showResults(results) {
       const p = g.players[e.id];
       const cards = (e.cards || []).map((c) => (c.down ? tile(c, { back: true, mini: true }) : tile(c, { mini: true }))).join('');
       const vpg = ic('vp', pm(e.gain), { cls: 'r', v: `${pm(e.gain)} VP` });
-      const res = r.alone ? `${ic('alone')} ${vpg}` : e.defeated ? ic('dead', '', { w: 'แพ้' }) : e.won ? `ชนะ ${vpg}` : e.gain ? `แพ้ ${vpg}` : 'แพ้';
+      const res = r.alone ? `${ic('alone')} ${vpg}` : e.defeated ? ic('dead', '', { w: T("แพ้") }) : e.won ? T("ชนะ {0}", vpg) : e.gain ? T("แพ้ {0}", vpg) : T("แพ้");
       const table = r.alone ? '' : `<div class="bpwt">${pwDrop({ rows: e.rows || [], total: e.power, parts: e.parts || [] }, p, { dk: `r:${g.round}:${r.f}:${e.id}` })}</div>`; // paper 4.6 item 9, folded
       return `<div class="ent${e.won ? ' won' : ' lost'}" style="animation-delay:${i * 120}ms"><div class="who">${crown(p)}${chip(p)}<div class="cards">${cards}</div></div>
         <div><div class="tot">${r.alone ? '–' : e.power}</div><div class="res${e.defeated ? ' def' : ''}">${res}</div></div>
@@ -1827,30 +1844,30 @@ function showResults(results) {
   };
   const cut = g.round >= REGULAR ? cutInfo() : null;
   const body = results.length
-    ? results.map((r) => `<section class="bt"><h3>${esc(AREAS[r.f].name)}<small>${r.alone ? `การ์ดอีเวนต์ ${r.pool} VP` : `ผู้ชนะได้ ${r.pool} VP`}</small></h3>${ents(r)}</section>`).join('')
-    : '<p class="lede">รอบนี้ไม่มีใครอยู่ในสนามรบ</p>';
-  const cutTxt = cut ? (cut.allOut ? 'จบรอบนี้ทุกคนเสมอกันที่เส้นตัด ไม่มีใครออก' : `จบรอบนี้คัดออก เหลือไม่เกิน ${cut.target} คน`) : '';
-  $('#sheet').innerHTML = `<div class="dlg"><span class="eyebrow">${esc(roundLabel())} · ${esc(g.sit.name)}</span><h2>ผลการต่อสู้</h2>${body}
+    ? results.map((r) => `<section class="bt"><h3>${esc(AREAS[r.f].name)}<small>${r.alone ? T("การ์ดอีเวนต์ {0} VP", r.pool) : T("ผู้ชนะได้ {0} VP", r.pool)}</small></h3>${ents(r)}</section>`).join('')
+    : `<p class="lede">${T("รอบนี้ไม่มีใครอยู่ในสนามรบ")}</p>`;
+  const cutTxt = cut ? (cut.allOut ? T("จบรอบนี้ทุกคนเสมอกันที่เส้นตัด ไม่มีใครออก") : T("จบรอบนี้คัดออก เหลือไม่เกิน {0} คน", cut.target)) : '';
+  $('#sheet').innerHTML = `<div class="dlg"><span class="eyebrow">${esc(roundLabel())} · ${esc(g.sit.name)}</span><h2>${T("ผลการต่อสู้")}</h2>${body}
     ${cutTxt ? `<p class="lede" style="color:var(--seal)">${cutTxt}</p>` : ''}
-    <div class="acts">${tut ? '' : '<button class="btn ghost" data-act="skipall">ข้ามผลการต่อสู้ที่เหลือ</button>'}<button class="btn primary" data-act="cont">จบรอบ</button></div></div>`;
+    <div class="acts">${tut ? '' : `<button class="btn ghost" data-act="skipall">${T("ข้ามผลการต่อสู้ที่เหลือ")}</button>`}<button class="btn primary" data-act="cont">${T("จบรอบ")}</button></div></div>`;
   $('#sheet').hidden = false;
   $('#sheet').scrollTop = 0;
 }
 
 function showOut() {
-  openModal(`<div class="dlg narrow"><span class="eyebrow">ถูกคัดออก</span><h2>${esc(me().name)} ตกรอบหลังรอบ ${me().outRound}</h2>
-    <p class="lede">คุณมี ${me().vp} VP อยู่ใต้เส้นตัด · บอทจะเล่นต่อจนเหลือคนสุดท้าย</p>
-    <div class="acts"><button class="btn" data-act="close">ดูต่อ</button><button class="btn primary" data-act="skip">ข้ามไปผลสุดท้าย</button></div></div>`);
+  openModal(`<div class="dlg narrow"><span class="eyebrow">${T("ถูกคัดออก")}</span><h2>${esc(me().name)} ${T("ตกรอบหลังรอบ")} ${me().outRound}</h2>
+    <p class="lede">${T("คุณมี {0} VP อยู่ใต้เส้นตัด · บอทจะเล่นต่อจนเหลือคนสุดท้าย", me().vp)}</p>
+    <div class="acts"><button class="btn" data-act="close">${T("ดูต่อ")}</button><button class="btn primary" data-act="skip">${T("ข้ามไปผลสุดท้าย")}</button></div></div>`);
 }
 
 function showOver() {
-  const rows = g.standing().map((p, i) => `<li class="${p.isHuman ? 'me' : ''}"><span class="rk">${p === g.winner ? ic('crown', '', { t: 'ผู้ชนะ' }) : i + 1}</span><span class="who">${chip(p)}</span>
-    <span class="vp">${p.vp}</span><span class="pub">${p.out ? `ตกรอบหลังรอบ ${p.outRound}` : p === g.winner ? 'ผู้ชนะ' : 'อยู่ถึงจบ'} · ${esc(`${p.sv.cls} · ${p.sv.name}`)}</span></li>`).join('');
+  const rows = g.standing().map((p, i) => `<li class="${p.isHuman ? 'me' : ''}"><span class="rk">${p === g.winner ? ic('crown', '', { t: T("ผู้ชนะ") }) : i + 1}</span><span class="who">${chip(p)}</span>
+    <span class="vp">${p.vp}</span><span class="pub">${p.out ? T("ตกรอบหลังรอบ {0}", p.outRound) : p === g.winner ? T("ผู้ชนะ") : T("อยู่ถึงจบ")} · ${esc(`${p.sv.cls} · ${p.sv.name}`)}</span></li>`).join('');
   const meWon = g.winner === me();
-  openModal(`<div class="dlg narrow"><span class="eyebrow">Heaven's Feel · จบเกม</span>
-    <h2>${meWon ? 'คุณชนะสงครามจอกศักดิ์สิทธิ์' : `${esc(g.winner ? g.winner.name : 'ไม่มีใคร')} ชนะ`}</h2>
+  openModal(`<div class="dlg narrow"><span class="eyebrow">${T("Heaven's Feel · จบเกม")}</span>
+    <h2>${meWon ? T("คุณชนะสงครามจอกศักดิ์สิทธิ์") : T("{0} ชนะ", esc(g.winner ? g.winner.name : T("ไม่มีใคร")))}</h2>
     <p class="lede">${esc(g.how)}</p><ol class="st">${rows}</ol>
-    <div class="acts"><button class="btn" data-act="pickmaster">เปลี่ยน Master</button><button class="btn" data-act="close">ดูกระดาน</button><button class="btn primary" data-act="again">เล่นอีกครั้ง</button></div></div>`);
+    <div class="acts"><button class="btn" data-act="pickmaster">${T("เปลี่ยน Master")}</button><button class="btn" data-act="close">${T("ดูกระดาน")}</button><button class="btn primary" data-act="again">${T("เล่นอีกครั้ง")}</button></div></div>`);
 }
 
 // ---------- the tutorial (paper 4.6 item 12) ----------
@@ -1889,35 +1906,35 @@ const RANK = '#standings | .strip | #nav [data-k="rank"]';
 // lit: what is lit ("a | b" takes the first one on screen); on a step to try, that is all you can tap.
 // ring: what glows (default lit). only: the one answer a step to try takes.
 const TUT_STEPS = [
-  { at: 'place', t: 'เป้าหมาย', lit: [RANK], x: () => `เก็บ VP ให้มากที่สุด · จบรอบ ${REGULAR} เหลือ 4 คน แล้วรอบไคลแมกซ์คัดออกจนเหลือ 2 และ 1 · คนสุดท้ายชนะสงคราม · อันดับ VP ของทุกคนอยู่ตรงที่เรืองแสง` },
-  { at: 'place', t: 'Master ของคุณ', lit: ['#dock | #hud .mystat'],
-    x: () => `คุณคือชิโร่ · {mana} มานาตอนนี้ ${me().mana} ใช้เดินและจ่ายค่าการ์ด · {cs} Command Spell ${me().cs} ดวง · {vp} VP · Servant ของคุณคือ Saber แต่คนอื่นไม่รู้จนกว่าคุณจะเปิดชื่อจริง {hidden} · ลองแตะไอคอน {mana} ในกล่องนี้ ไอคอนทุกตัวบนหน้าจอแตะดูความหมายได้แบบนี้${wide() ? '' : ' · กระดาน Master เต็มเปิดจากปุ่ม "การ์ดของคุณ"'}` },
-  { at: 'place', t: 'การ์ดในมือ', lit: ['.hand'], x: () => `การ์ดโจมตี ${me().hand.length} ใบ สีบอกชนิด (กำลัง · ว่องไว · เวท) เลขใหญ่คือพลัง เลขในเม็ดมุมการ์ดคือมานา · ท้ายแถบคือการ์ด NP/สกิลของ Saber ใช้ได้เมื่อมีมานา ${SKILL_MANA} ขึ้นไป · แตะการ์ดเพื่ออ่านรายละเอียดได้ทุกเมื่อ` },
-  { at: 'place', t: 'เตรียมการ', lit: ['.sit', '.area.f-miyama .evs | .area.f-miyama', '.area.f-shinto .evs | .area.f-shinto'],
-    x: () => `ต้นรอบเปิดการ์ดสถานการณ์ รอบนี้ "${g.sit.name}" ทุกคนได้มานา +${g.sit.mana} · ${g.sit.text} · การ์ดอีเวนต์บอก VP ของสนามรบ มิยามะเปิดให้เห็น ชินโตะคว่ำไว้จนถึงปฏิบัติการ` },
-  { at: 'place', t: 'ตั้งมั่น', try: true, lit: () => (pop ? ['#pop .pop-dlg'] : ['.area.f-miyama']), ring: ['#pop [data-act="place"][data-to="miyama"] | .area.f-miyama'],
-    only: (t) => t.dataset.act !== 'place' || t.dataset.to === 'miyama', no: 'ลองวางที่มิยามะก่อน',
-    x: 'ทีละคนวางหมาก Master เพื่อเลือกว่ารอบนี้เริ่มที่ไหน · ลองแตะมิยามะ แล้วกด "วางหมากที่นี่"' },
-  { at: 'placed', t: 'ได้เปรียบพื้นที่', hold: true, lit: ['.area.f-miyama'],
-    x: () => `${me().terrain ? `คุณวางที่มิยามะเป็นคนแรกจึงได้เปรียบพื้นที่ +${me().terrain}` : `คนแรกที่วางในสนามรบได้เปรียบพื้นที่ +${TERRAIN[0]}`} บวกพลังตอนต่อสู้ (คนที่สอง +${TERRAIN[1]}) · ย้ายออกแล้วหาย · โรงฝึกเวทให้มานาแทน · ลาดตระเวนวางตอนนี้ไม่ได้ ต้องเดินเข้าไป · กด ต่อไป แล้วดูคนอื่นวางหมาก` },
-  { at: 'move', t: 'ปฏิบัติการ', try: true, lit: () => (pop ? ['#pop .pop-dlg'] : ['.area.f-miyama', '.map .arrow']), ring: ['#pop [data-act="move"][data-how="stay"] | .area.f-miyama'],
-    only: (t) => t.dataset.act !== 'move' || t.dataset.how === 'stay', no: 'รอบนี้ลองกด "อยู่ที่นี่" ก่อน',
-    x: () => `ทีละคน ย้ายตามลูกศรทางเดียว เลขบนลูกศรคือมานาที่ใช้เดิน · สนามรบที่มี 2 คนขึ้นไปติดพัน เดินออกตามปกติไม่ได้${g.engagedAt(me().at) ? ' (มิยามะติดพันแล้ว)' : ''} · รอบนี้ลองอยู่ที่เดิม: แตะมิยามะ แล้วกด "อยู่ที่นี่"` },
-  { at: 'cards', t: 'ลงการ์ด', try: true, lit: () => (pop?.k === 'act' ? ['#pop .pop-dlg'] : ['#bar [data-act="openact"]']), ring: ['#pop [data-act="play"] | #pop .pop-dlg | #bar [data-act="openact"]'],
-    x: () => (pop?.k === 'act' && pop.min ? 'แตะแถบที่พับไว้เพื่อเปิดหน้าลงการ์ดอีกครั้ง' : pop?.k === 'act' ? `เลือกการ์ด ${PLAY} ใบ ลงหงายเพื่อสู้ (จ่ายมานาตามการ์ด) หรือคว่ำเพื่อหลอกคู่แข่ง (พลัง 0 ไม่เสียมานา) · หน้านี้เลือกชุดที่แนะนำไว้แล้ว ลองกด "ลงการ์ด"` : 'กด "เปิดหน้าลงการ์ด" ตรงที่เรืองแสง') },
-  { at: 'battle', t: 'หน้าต่างต่อสู้', hold: true, lit: ['.area.fighting'],
-    x: 'ลงการ์ดแล้ว พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้: ใครอยู่ด้วย การ์ดที่ลง และพลังรวม · การ์ดคว่ำของคนอื่นเห็นเป็น ? · คนที่ยังไม่เล่นจะลงการ์ดตามลำดับ · กด ต่อไป แล้วดูต่อ' },
-  { at: 'combatEnd', t: 'ต่อสู้', try: true, lit: ['.area.fighting .brow.me'],
-    x: 'ผล "ตอนปะทะ" ขึ้นทีละคนตามลำดับที่นั่ง แล้วพลังรวมสูงสุดที่ไม่ [แพ้] ชนะ · ลองแตะแถวของคุณเพื่อดูว่าพลังมาจากอะไรบ้าง',
-    after: { on: () => pop?.k === 'pw', lit: ['#pop .pop-dlg'], x: 'แต่ละบรรทัดคือที่มาของพลัง ค่าบวกสีเขียว ค่าลบสีแดง ผลตอนปะทะมีป้ายบอก · กด ต่อไป เพื่อดูผลทุกสนามรบ' } },
-  { at: 'combatEnd', t: 'ผลการต่อสู้', try: true, lit: ['#bar [data-act="allres"]'],
-    x: () => { const e = myEnt(); return `${e ? (e.defeated ? 'คุณ [แพ้] · ' : e.won ? `คุณชนะ ได้ ${e.gain} VP · ` : 'คุณแพ้รอบนี้ · ') : ''}ผู้ชนะได้ VP ของการ์ดอีเวนต์ + โบนัสสนามรบ แพ้ปกติไม่เสียอะไร · ลองกด "ดูผลทุกสนามรบ"`; } },
-  { at: 'sheet', t: 'จบรอบ', free: true, lit: [], ring: ['#sheet [data-act="cont"]'],
-    x: 'การ์ดที่ลงไปกองทิ้ง · รอบใหม่จั่วจนมี 3 ใบ · ผู้เริ่ม (★) เลื่อนไปคนถัดไป · ตั้งแต่รอบ 6 อันดับมีเส้นตัดบอกว่าใครจะตกรอบ · กด "จบรอบ" เพื่อไปรอบ 2' },
-  { at: 'round2', t: 'รอบต่อไป', hold: true, lit: ['.hand > div.cards:last-of-type', '#hud .mystat'],
-    x: `มีมานา ${SKILL_MANA} ขึ้นไปลงการ์ด NP/สกิลได้ (ท้ายแถบการ์ด) · NP ที่มีป้าย "เปิดชื่อจริง" ทำให้ทุกคนรู้ว่า Servant ของคุณคือใคร · Command Spell (◆) ใช้ในตาของคุณ: มานา +${CS_MANA} · พลัง +${CS_POWER} · ย้ายแม้ติดพัน` },
-  { at: 'round2', t: 'จบการสอน', hold: true, end: true, lit: [],
-    x: 'คุณเล่นครบ 1 รอบแล้ว · เล่นเกมนี้ต่อได้เลย มีคำแนะนำสั้นๆ ตอนเจอสิ่งใหม่ครั้งแรก · หรือเลือก Master เองแล้วเริ่มเกมใหม่ · กติกาเต็มอยู่ที่ปุ่มกติกา (บนมือถืออยู่ในเมนู)' },
+  { at: 'place', t: T("เป้าหมาย"), lit: [RANK], x: () => T("เก็บ VP ให้มากที่สุด · จบรอบ {0} เหลือ 4 คน แล้วรอบไคลแมกซ์คัดออกจนเหลือ 2 และ 1 · คนสุดท้ายชนะสงคราม · อันดับ VP ของทุกคนอยู่ตรงที่เรืองแสง", REGULAR) },
+  { at: 'place', t: T("Master ของคุณ"), lit: ['#dock | #hud .mystat'],
+    x: () => T("คุณคือชิโร่ · {mana} มานาตอนนี้ {0} ใช้เดินและจ่ายค่าการ์ด · {cs} Command Spell {1} ดวง · {vp} VP · Servant ของคุณคือ Saber แต่คนอื่นไม่รู้จนกว่าคุณจะเปิดชื่อจริง {hidden} · ลองแตะไอคอน {mana} ในกล่องนี้ ไอคอนทุกตัวบนหน้าจอแตะดูความหมายได้แบบนี้{2}", me().mana, me().cs, wide() ? '' : T(" · กระดาน Master เต็มเปิดจากปุ่ม \"การ์ดของคุณ\"")) },
+  { at: 'place', t: T("การ์ดในมือ"), lit: ['.hand'], x: () => T("การ์ดโจมตี {0} ใบ สีบอกชนิด (กำลัง · ว่องไว · เวท) เลขใหญ่คือพลัง เลขในเม็ดมุมการ์ดคือมานา · ท้ายแถบคือการ์ด NP/สกิลของ Saber ใช้ได้เมื่อมีมานา {1} ขึ้นไป · แตะการ์ดเพื่ออ่านรายละเอียดได้ทุกเมื่อ", me().hand.length, SKILL_MANA) },
+  { at: 'place', t: T("เตรียมการ"), lit: ['.sit', '.area.f-miyama .evs | .area.f-miyama', '.area.f-shinto .evs | .area.f-shinto'],
+    x: () => T("ต้นรอบเปิดการ์ดสถานการณ์ รอบนี้ \"{0}\" ทุกคนได้มานา +{1} · {2} · การ์ดอีเวนต์บอก VP ของสนามรบ มิยามะเปิดให้เห็น ชินโตะคว่ำไว้จนถึงปฏิบัติการ", g.sit.name, g.sit.mana, g.sit.text) },
+  { at: 'place', t: T("ตั้งมั่น"), try: true, lit: () => (pop ? ['#pop .pop-dlg'] : ['.area.f-miyama']), ring: ['#pop [data-act="place"][data-to="miyama"] | .area.f-miyama'],
+    only: (t) => t.dataset.act !== 'place' || t.dataset.to === 'miyama', no: T("ลองวางที่มิยามะก่อน"),
+    x: T("ทีละคนวางหมาก Master เพื่อเลือกว่ารอบนี้เริ่มที่ไหน · ลองแตะมิยามะ แล้วกด \"วางหมากที่นี่\"") },
+  { at: 'placed', t: T("ได้เปรียบพื้นที่"), hold: true, lit: ['.area.f-miyama'],
+    x: () => T("{0} บวกพลังตอนต่อสู้ (คนที่สอง +{1}) · ย้ายออกแล้วหาย · โรงฝึกเวทให้มานาแทน · ลาดตระเวนวางตอนนี้ไม่ได้ ต้องเดินเข้าไป · กด ต่อไป แล้วดูคนอื่นวางหมาก", me().terrain ? T("คุณวางที่มิยามะเป็นคนแรกจึงได้เปรียบพื้นที่ +{0}", me().terrain) : T("คนแรกที่วางในสนามรบได้เปรียบพื้นที่ +{0}", TERRAIN[0]), TERRAIN[1]) },
+  { at: 'move', t: T("ปฏิบัติการ"), try: true, lit: () => (pop ? ['#pop .pop-dlg'] : ['.area.f-miyama', '.map .arrow']), ring: ['#pop [data-act="move"][data-how="stay"] | .area.f-miyama'],
+    only: (t) => t.dataset.act !== 'move' || t.dataset.how === 'stay', no: T("รอบนี้ลองกด \"อยู่ที่นี่\" ก่อน"),
+    x: () => T("ทีละคน ย้ายตามลูกศรทางเดียว เลขบนลูกศรคือมานาที่ใช้เดิน · สนามรบที่มี 2 คนขึ้นไปติดพัน เดินออกตามปกติไม่ได้{0} · รอบนี้ลองอยู่ที่เดิม: แตะมิยามะ แล้วกด \"อยู่ที่นี่\"", g.engagedAt(me().at) ? T(" (มิยามะติดพันแล้ว)") : '') },
+  { at: 'cards', t: T("ลงการ์ด"), try: true, lit: () => (pop?.k === 'act' ? ['#pop .pop-dlg'] : ['#bar [data-act="openact"]']), ring: ['#pop [data-act="play"] | #pop .pop-dlg | #bar [data-act="openact"]'],
+    x: () => (pop?.k === 'act' && pop.min ? T("แตะแถบที่พับไว้เพื่อเปิดหน้าลงการ์ดอีกครั้ง") : pop?.k === 'act' ? T("เลือกการ์ด {0} ใบ ลงหงายเพื่อสู้ (จ่ายมานาตามการ์ด) หรือคว่ำเพื่อหลอกคู่แข่ง (พลัง 0 ไม่เสียมานา) · หน้านี้เลือกชุดที่แนะนำไว้แล้ว ลองกด \"ลงการ์ด\"", PLAY) : T("กด \"เปิดหน้าลงการ์ด\" ตรงที่เรืองแสง")) },
+  { at: 'battle', t: T("หน้าต่างต่อสู้"), hold: true, lit: ['.area.fighting'],
+    x: T("ลงการ์ดแล้ว พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้: ใครอยู่ด้วย การ์ดที่ลง และพลังรวม · การ์ดคว่ำของคนอื่นเห็นเป็น ? · คนที่ยังไม่เล่นจะลงการ์ดตามลำดับ · กด ต่อไป แล้วดูต่อ") },
+  { at: 'combatEnd', t: T("ต่อสู้"), try: true, lit: ['.area.fighting .brow.me'],
+    x: T("ผล \"ตอนปะทะ\" ขึ้นทีละคนตามลำดับที่นั่ง แล้วพลังรวมสูงสุดที่ไม่ [แพ้] ชนะ · ลองแตะแถวของคุณเพื่อดูว่าพลังมาจากอะไรบ้าง"),
+    after: { on: () => pop?.k === 'pw', lit: ['#pop .pop-dlg'], x: T("แต่ละบรรทัดคือที่มาของพลัง ค่าบวกสีเขียว ค่าลบสีแดง ผลตอนปะทะมีป้ายบอก · กด ต่อไป เพื่อดูผลทุกสนามรบ") } },
+  { at: 'combatEnd', t: T("ผลการต่อสู้"), try: true, lit: ['#bar [data-act="allres"]'],
+    x: () => { const e = myEnt(); return T("{0}ผู้ชนะได้ VP ของการ์ดอีเวนต์ + โบนัสสนามรบ แพ้ปกติไม่เสียอะไร · ลองกด \"ดูผลทุกสนามรบ\"", e ? (e.defeated ? T("คุณ [แพ้] · ") : e.won ? T("คุณชนะ ได้ {0} VP · ", e.gain) : T("คุณแพ้รอบนี้ · ")) : ''); } },
+  { at: 'sheet', t: T("จบรอบ"), free: true, lit: [], ring: ['#sheet [data-act="cont"]'],
+    x: T("การ์ดที่ลงไปกองทิ้ง · รอบใหม่จั่วจนมี 3 ใบ · ผู้เริ่ม (★) เลื่อนไปคนถัดไป · ตั้งแต่รอบ 6 อันดับมีเส้นตัดบอกว่าใครจะตกรอบ · กด \"จบรอบ\" เพื่อไปรอบ 2") },
+  { at: 'round2', t: T("รอบต่อไป"), hold: true, lit: ['.hand > div.cards:last-of-type', '#hud .mystat'],
+    x: T("มีมานา {0} ขึ้นไปลงการ์ด NP/สกิลได้ (ท้ายแถบการ์ด) · NP ที่มีป้าย \"เปิดชื่อจริง\" ทำให้ทุกคนรู้ว่า Servant ของคุณคือใคร · Command Spell (◆) ใช้ในตาของคุณ: มานา +{1} · พลัง +{2} · ย้ายแม้ติดพัน", SKILL_MANA, CS_MANA, CS_POWER) },
+  { at: 'round2', t: T("จบการสอน"), hold: true, end: true, lit: [],
+    x: T("คุณเล่นครบ 1 รอบแล้ว · เล่นเกมนี้ต่อได้เลย มีคำแนะนำสั้นๆ ตอนเจอสิ่งใหม่ครั้งแรก · หรือเลือก Master เองแล้วเริ่มเกมใหม่ · กติกาเต็มอยู่ที่ปุ่มกติกา (บนมือถืออยู่ในเมนู)") },
 ];
 
 // the step to show now, after moving on past any step whose moment has gone (you did it, or it never came)
@@ -1959,14 +1976,14 @@ function tutStop({ done = false, play = false } = {}) {
 
 // one-time hints when you play on (paper 4.6 item 12)
 const HINTS = {
-  np: { t: `มานาถึง ${SKILL_MANA} แล้ว`, lit: ['#pop .cg:last-child | .hand > div.cards:last-of-type'], live: () => wait?.kind === 'cards',
-    x: () => 'การ์ด NP/สกิลเลือกลงได้แล้ว จ่ายมานาตามการ์ด · NP ที่มีป้าย "เปิดชื่อจริง" ทำให้ทุกคนรู้ว่า Servant ของคุณคือใคร' },
-  win: { t: 'ช่วงใช้การ์ด', lit: ['#pop .pop-dlg | #bar [data-act="openwin"]'], live: () => wait?.kind === 'window',
-    x: () => 'ตอนนี้มีการ์ดที่ใช้ได้ในช่วงนี้ (เรืองแสงในแถบการ์ด) · ใช้จากมือได้ ไม่นับเป็น 2 ใบที่ลง · ไม่ใช้ก็กด "ผ่าน"' },
-  reveal: { t: 'มีคนเปิดชื่อจริง', lit: [RANK], live: () => g.round === hints.round,
-    x: () => { const q = hints.who; return q.isHuman ? `ชื่อจริงของคุณเปิดแล้ว ทุกคนรู้ว่า Servant ของคุณคือ ${q.sv.name}` : `${q.name} เปิดชื่อจริงแล้ว: ${q.sv.cls} · ${q.sv.name} · แตะชื่อในอันดับเพื่อดูความสามารถและการ์ดของเขา`; } },
-  cut: { t: `รอบ ${REGULAR} รอบปกติสุดท้าย`, lit: [RANK], live: () => g.round === hints.round,
-    x: () => 'จบรอบนี้คนที่อยู่ใต้เส้นตัดในอันดับตกรอบ เหลือ 4 คน · ต่อจากนั้นเป็นรอบไคลแมกซ์ คัดออกจนเหลือ 2 และ 1 · คนสุดท้ายชนะ' },
+  np: { t: T("มานาถึง {0} แล้ว", SKILL_MANA), lit: ['#pop .cg:last-child | .hand > div.cards:last-of-type'], live: () => wait?.kind === 'cards',
+    x: () => T("การ์ด NP/สกิลเลือกลงได้แล้ว จ่ายมานาตามการ์ด · NP ที่มีป้าย \"เปิดชื่อจริง\" ทำให้ทุกคนรู้ว่า Servant ของคุณคือใคร") },
+  win: { t: T("ช่วงใช้การ์ด"), lit: ['#pop .pop-dlg | #bar [data-act="openwin"]'], live: () => wait?.kind === 'window',
+    x: () => T("ตอนนี้มีการ์ดที่ใช้ได้ในช่วงนี้ (เรืองแสงในแถบการ์ด) · ใช้จากมือได้ ไม่นับเป็น 2 ใบที่ลง · ไม่ใช้ก็กด \"ผ่าน\"") },
+  reveal: { t: T("มีคนเปิดชื่อจริง"), lit: [RANK], live: () => g.round === hints.round,
+    x: () => { const q = hints.who; return q.isHuman ? T("ชื่อจริงของคุณเปิดแล้ว ทุกคนรู้ว่า Servant ของคุณคือ {0}", q.sv.name) : T("{0} เปิดชื่อจริงแล้ว: {1} · {2} · แตะชื่อในอันดับเพื่อดูความสามารถและการ์ดของเขา", q.name, q.sv.cls, q.sv.name); } },
+  cut: { t: T("รอบ {0} รอบปกติสุดท้าย", REGULAR), lit: [RANK], live: () => g.round === hints.round,
+    x: () => T("จบรอบนี้คนที่อยู่ใต้เส้นตัดในอันดับตกรอบ เหลือ 4 คน · ต่อจากนั้นเป็นรอบไคลแมกซ์ คัดออกจนเหลือ 2 และ 1 · คนสุดท้ายชนะ") },
 };
 function hintCheck() {
   if (!hints || g.over || me().out) return;
@@ -2046,11 +2063,11 @@ function tutDraw() {
   // the box: what it says, then where it goes
   const box = el.querySelector('.tut-box');
   const text = typeof src.x === 'function' ? src.x() : src.x;
-  const n = h ? '' : `<span class="tut-n">สอนเล่น · ${tut.i + 1} / ${TUT_STEPS.length}</span>${s.try && !after ? '<span class="tut-kind">ลองทำ</span>' : ''}`;
-  const acts = h ? '<button class="btn sm ghost" data-act="hintoff">ปิดคำแนะนำ</button><button class="btn sm primary" data-act="hintok">เข้าใจแล้ว</button>'
-    : s.end ? '<button class="btn sm ghost" data-act="tutnew">เลือก Master แล้วเริ่มเกมใหม่</button><button class="btn sm primary" data-act="tutplay">เล่นเกมนี้ต่อ</button>'
-    : mode === 'read' || mode === 'after' ? '<button class="btn sm primary" data-act="tutnext">ต่อไป</button>' : '';
-  const html = `<div class="tut-top">${h ? '<span class="tut-n">คำแนะนำ</span>' : n}${h || s.end ? '' : '<button class="tut-skip" data-act="tutskip">ข้ามการสอน</button>'}</div>
+  const n = h ? '' : `<span class="tut-n">${T("สอนเล่น · {0} /", tut.i + 1)} ${TUT_STEPS.length}</span>${s.try && !after ? `<span class="tut-kind">${T("ลองทำ")}</span>` : ''}`;
+  const acts = h ? `<button class="btn sm ghost" data-act="hintoff">${T("ปิดคำแนะนำ")}</button><button class="btn sm primary" data-act="hintok">${T("เข้าใจแล้ว")}</button>`
+    : s.end ? `<button class="btn sm ghost" data-act="tutnew">${T("เลือก Master แล้วเริ่มเกมใหม่")}</button><button class="btn sm primary" data-act="tutplay">${T("เล่นเกมนี้ต่อ")}</button>`
+    : mode === 'read' || mode === 'after' ? `<button class="btn sm primary" data-act="tutnext">${T("ต่อไป")}</button>` : '';
+  const html = `<div class="tut-top">${h ? `<span class="tut-n">${T("คำแนะนำ")}</span>` : n}${h || s.end ? '' : `<button class="tut-skip" data-act="tutskip">${T("ข้ามการสอน")}</button>`}</div>
     <h3>${esc(src.t || s.t)}</h3><p>${esc(text).replace(/\{(\w+)\}/g, (m, k) => (ICONS[k] ? ic(k) : m))}</p>${acts ? `<div class="tut-acts">${acts}</div>` : ''}`;
   const key = h ? `h:${hints.now}` : `${tut.i}:${mode}`;
   if (box.dataset.k !== key) { // a new step comes in with a small rise
@@ -2154,7 +2171,7 @@ for (const e of ['wheel', 'touchmove']) document.addEventListener(e, () => { if 
 function showBig(src, alt) {
   let el = $('#big');
   if (!el) { el = document.createElement('div'); el.id = 'big'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); document.body.append(el); }
-  el.innerHTML = `<img src="${src}" alt="${esc(alt || '')}"><button class="x" aria-label="ปิด">✕</button>`;
+  el.innerHTML = `<img src="${src}" alt="${esc(alt || '')}"><button class="x" aria-label="${T("ปิด")}">✕</button>`;
   el.hidden = false;
 }
 
@@ -2207,6 +2224,7 @@ document.addEventListener('click', (ev) => {
     case 'pop': openPop({ k: t.dataset.k }); break;
     case 'settings': pop = null; popBack = null; drawPop(); showSettings(t.dataset.back || null); break;
     case 'set': setSetting(t.dataset.k, t.dataset.v); break;
+    case 'lang': if (t.dataset.l !== lang()) setLang(t.dataset.l); break;
     case 'sndtest': unlockSound(); sfx('test'); break;
     case 'setdone': if (settingsBack === 'start') showStart(); else closeModal(); break;
     case 'popclose': closePop(); break;
@@ -2264,8 +2282,8 @@ document.addEventListener('click', (ev) => {
         const test = g.cleanCards(p, add);
         // an attack card the mana cannot pay for goes in face down, never by turning another card over
         const flips = test.down.some((id) => add.ids.includes(id) && !add.down.includes(id) && !before.has(id));
-        if (!test.ids.includes(uid)) toast(`ลง ${cardName(info)} เพิ่มไม่ได้ · เต็มจำนวนหรือมานาไม่พอ เอาใบอื่นออกก่อน`, '');
-        else if (flips && g.canFlip(info)) { d.ids = add.ids; d.down = [...d.down, uid]; toast(`มานาไม่พอลง ${cardName(info)} แบบหงาย · ลงแบบคว่ำแทน`, ''); }
+        if (!test.ids.includes(uid)) toast(T("ลง {0} เพิ่มไม่ได้ · เต็มจำนวนหรือมานาไม่พอ เอาใบอื่นออกก่อน", cardName(info)), '');
+        else if (flips && g.canFlip(info)) { d.ids = add.ids; d.down = [...d.down, uid]; toast(T("มานาไม่พอลง {0} แบบหงาย · ลงแบบคว่ำแทน", cardName(info)), ''); }
         else d.ids = add.ids;
         if (d.ids.includes(uid)) autoChoice(uid); // a skill that needs a choice asks it now (paper 4.6 item 8)
       }
@@ -2284,7 +2302,7 @@ document.addEventListener('click', (ev) => {
       const before = forcedDown(g.cleanCards(p, d));
       const up = { ...d, down: d.down.filter((x) => x !== uid) };
       const test = g.cleanCards(p, up);
-      if (test.down.some((id) => up.ids.includes(id) && !up.down.includes(id) && !before.has(id))) toast('มานาไม่พอลงแบบหงาย · คว่ำใบอื่นหรือเอาออกก่อน', '');
+      if (test.down.some((id) => up.ids.includes(id) && !up.down.includes(id) && !before.has(id))) toast(T("มานาไม่พอลงแบบหงาย · คว่ำใบอื่นหรือเอาออกก่อน"), '');
       else { d.down = up.down; autoChoice(uid); }
       render();
       break;
@@ -2306,7 +2324,7 @@ document.addEventListener('click', (ev) => {
     case 'cok': choiceOk(); break;
     case 'cno': choiceNo(); break;
     case 'gemoff': if (wait?.kind === 'cards') { const k = t.dataset.g; d[k] = Math.max(0, (d[k] || 0) - 1); render(); } break;
-    case 'swappick': { const uid = +t.dataset.uid; if (swapSel.has(uid)) swapSel.delete(uid); else if (swapSel.size < 3) swapSel.add(uid); else toast('ทิ้งได้ครั้งละ 1–3 ใบ', ''); render(); break; }
+    case 'swappick': { const uid = +t.dataset.uid; if (swapSel.has(uid)) swapSel.delete(uid); else if (swapSel.size < 3) swapSel.add(uid); else toast(T("ทิ้งได้ครั้งละ 1–3 ใบ"), ''); render(); break; }
     case 'play':
       if (wait?.kind !== 'cards') break;
       if (g.cleanCards(me(), d).temper) { openChoice('temper'); break; } // Short Temper: Rin picks how to use the Command Spell

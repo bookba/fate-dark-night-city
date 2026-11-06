@@ -47,50 +47,87 @@ const look = (k) => STRINGS[cur]?.[k] ?? STRINGS.th[k] ?? k;
 export const T = (k, ...a) => fill(look(k), a);
 
 // ---------- finished Thai texts (the rules' texts, also from the server) ----------
-const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// A text is matched against every template of PATTERNS; where values sit side by side ("{1}{2}")
+// or a template is loose ("{0} {1} VP"), every way to cut the text is tried, and the one that
+// leaves the least Thai wins. Values are turned the same way, so names and areas inside change too.
+const THAI = /[฀-๿]/g;
+const thaiCount = (s) => (s.match(THAI) || []).length;
 let compiled = null;
 function compile() {
-  // the longest fixed text first, so a narrow template wins over a loose one
-  compiled = PATTERNS.map((k) => {
+  const trim = (t) => t.replace(/^[\s·]+|[\s·]+$/g, '');
+  const one = (k, src, cut) => {
     const parts = k.split(/\{\d+\}/);
     const ids = [...k.matchAll(/\{(\d+)\}/g)].map((m) => +m[1]);
-    return { k, ids, len: parts.join('').length, re: new RegExp(`^${parts.map(reEsc).join('([\\s\\S]*?)')}$`) };
-  }).filter((p) => p.ids.length).sort((a, b) => b.len - a.len);
+    return { k: src, cut, parts, ids, len: parts.join('').length };
+  };
+  // a piece written after " · " also comes alone, once the pieces are split
+  compiled = PATTERNS.flatMap((k) => (trim(k) !== k ? [one(k, k, false), one(trim(k), k, true)] : [one(k, k, false)]))
+    .filter((p) => p.ids.length && p.len).sort((a, b) => b.len - a.len);
 }
-const THAI = /[฀-๿]/;
+// every way to cut s into the values of p (at most 40)
+function cuts(p, s) {
+  const out = [];
+  if (!s.startsWith(p.parts[0])) return out;
+  const last = p.parts[p.parts.length - 1];
+  if (!s.endsWith(last) || s.length < p.parts[0].length + last.length) return out;
+  const go = (pos, i, vals) => {
+    if (out.length >= 40) return;
+    const next = p.parts[i + 1];
+    if (i === p.ids.length - 1) { const end = s.length - last.length; if (end >= pos) out.push([...vals, s.slice(pos, end)]); return; }
+    for (let j = pos; j <= s.length; j++) {
+      if (next && !s.startsWith(next, j)) continue;
+      go(j + next.length, i + 1, [...vals, s.slice(pos, j)]);
+      if (out.length >= 40) return;
+    }
+  };
+  go(p.parts[0].length, 0, []);
+  return out;
+}
+// the cost of a way: Thai left counts most, then empty values and loose templates ("{0} {1}")
 const cache = new Map();
-export function TX(s, depth = 0) {
-  if (s == null) return s;
-  s = String(s);
-  if (cur === 'th' && !Object.keys(STRINGS.th).length) return s;
-  if (!THAI.test(s) || depth > 6) return s;
+function tx(s, depth) {
+  if (!thaiCount(s)) return [s, 0];
+  if (depth > 5) return [s, thaiCount(s) * 100 + 1]; // too deep: not kept, a shallower try may do better
   const ck = `${cur}\u0001${s}`;
-  if (depth === 0 && cache.has(ck)) return cache.get(ck);
-  let out = null;
-  if (STRINGS[cur]?.[s] != null || STRINGS.th[s] != null) out = look(s);
-  if (out == null) {
+  if (cache.has(ck)) return cache.get(ck);
+  let best = [s, thaiCount(s) * 100 + 1];
+  if (STRINGS[cur]?.[s] != null || STRINGS.th[s] != null) best = [look(s), 0];
+  else {
     if (!compiled) compile();
     for (const p of compiled) {
-      const m = p.re.exec(s);
-      if (!m) continue;
-      const a = [];
-      p.ids.forEach((id, i) => { a[id] = TX(m[i + 1], depth + 1); });
-      out = fill(look(p.k), a);
+      for (const vals of cuts(p, s)) {
+        const a = [];
+        let c = p.len <= 2 ? 6 : 1;
+        p.ids.forEach((id, i) => { const [o, k] = vals[i] === '' ? ['', 3] : tx(vals[i], depth + 1); a[id] = o; c += k; });
+        if (c < best[1]) best = [fill(p.cut ? look(p.k).replace(/^[\s·]+|[\s·]+$/g, '') : look(p.k), a), c];
+      }
+      if (best[1] <= 1) break;
+    }
+    // joined pieces: "a · b", "a, b", "a + b"
+    for (const sep of [' · ', ', ', ' + ', ' → ']) {
+      if (!s.includes(sep)) continue;
+      let c = 2;
+      const j = s.split(sep).map((x) => { const [o, k] = tx(x, depth + 1); c += k; return o; }).join(sep);
+      if (c < best[1]) best = [j, c];
       break;
     }
   }
-  if (out == null) {
-    // joined pieces: "a · b", "a, b"
-    for (const sep of [' · ', ', ', ' + ']) {
-      if (s.includes(sep)) { out = s.split(sep).map((x) => TX(x, depth + 1)).join(sep); break; }
-    }
-  }
-  if (out == null) {
-    // leading/trailing spaces and marks around a known text
-    const m = /^([\s✸✖📖🏆⚔─·:(]*)([\s\S]*?)([\s)·:─]*)$/.exec(s);
-    if (m && (m[1] || m[3]) && m[2] && (STRINGS[cur]?.[m[2]] != null)) out = m[1] + look(m[2]) + m[3];
-  }
-  if (out == null) out = s;
-  if (depth === 0) { if (cache.size > 4000) cache.clear(); cache.set(ck, out); }
-  return out;
+  if (cache.size > 8000) cache.clear();
+  cache.set(ck, best);
+  return best;
 }
+export function TX(s) {
+  if (s == null) return s;
+  s = String(s);
+  if (cur === 'th' && !Object.keys(STRINGS.th).length) return s;
+  if (!thaiCount(s)) return s;
+  return tx(s, 0)[0];
+}
+
+// ---------- texts turned into icons (icons.js, main.js) ----------
+export const rxEsc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// a regular expression from the current language's text of a template: {0} becomes group,
+// a space may be left out (Chinese and Japanese often write none), letters in any case
+export const tplRe = (key, group = '', flags = 'g') => new RegExp(T(key).split(/\{0\}/).map((x) => rxEsc(x).replace(/ /g, '\\s?')).join(group), cur === 'en' ? `${flags}i` : flags);
+// the texts in the current language, the longest first, as one alternation
+export const anyRe = (keys, flags = 'g') => new RegExp([...new Set(keys.map((k) => T(k)))].sort((a, b) => b.length - a.length).map(rxEsc).join('|'), cur === 'en' ? `${flags}i` : flags);

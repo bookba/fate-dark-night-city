@@ -2,6 +2,9 @@
 // real game; this page keeps a copy (net.js) and main.js draws it as it draws a game against bots.
 // A room has up to 7 people, one per Master; seats nobody takes are bots. Questions the game asks
 // you arrive here and go to main.js's decide(), and your answer goes back to the server.
+import { T, TX } from './i18n.js';
+// the server's texts come in Thai (errors, default names, the war log of the events): shown in the page's language
+const txDeep = (v) => (typeof v === 'string' ? TX(v) : Array.isArray(v) ? v.map(txDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, txDeep(x)])) : v);
 import { MASTERS } from './game.js';
 import { Mirror } from './net.js';
 
@@ -37,14 +40,14 @@ function connect(first) {
     if (online.ws !== ws) return;
     online.ws = null;
     if (online.on && online.token) { // try again: 1, 2, 4… seconds, the seat waits on the server
-      online.note = 'หลุดจากเซิร์ฟเวอร์ กำลังต่อใหม่…';
+      online.note = T("หลุดจากเซิร์ฟเวอร์ กำลังต่อใหม่…");
       badge();
       setTimeout(() => connect(() => send({ t: 'resume', code: online.code, token: online.token })), Math.min(8000, 1000 * 2 ** online.tries++));
     } else if (!online.on) fail();
   });
 }
 function fail() {
-  online.note = 'ต่อเซิร์ฟเวอร์เกมไม่ได้ · เล่นออนไลน์ได้เมื่อเปิดเกมจากเว็บของเซิร์ฟเวอร์ (ดู server/README.md)';
+  online.note = T("ต่อเซิร์ฟเวอร์เกมไม่ได้ · เล่นออนไลน์ได้เมื่อเปิดเกมจากเว็บของเซิร์ฟเวอร์ (ดู server/README.md)");
   if (!$m().hidden && $m().querySelector('.online')) lobby();
 }
 const $m = () => document.querySelector('#modal');
@@ -56,6 +59,7 @@ function setUrl(code) {
 }
 
 function onMsg(m) {
+  if (m.t === 'error' || m.t === 'lobby') m = txDeep(m);
   if (m.t === 'error') {
     online.note = m.msg;
     // a room that is gone (closed, or the server restarted): forget it
@@ -85,7 +89,7 @@ function onState(m) {
   const root = online.mirror.apply(m.data, m.full);
   online.me = m.me; online.turn = m.turn; online.turnAt = Date.now(); online.people = m.people || {};
   if (fresh) H().begin(root.g); else H().render();
-  for (const e of m.events || []) H().event(e.type === 'book' ? { type: 'book', p: root.g.players[e.pid] } : e);
+  for (const e of m.events || []) H().event(e.type === 'book' ? { type: 'book', p: root.g.players[e.pid] } : txDeep(e));
   // a question for you: main.js asks it; one you were answering that the server closed (time ran out) goes away
   if (online.asked && online.asked.id !== m.ask?.id) { H().drop(); online.asked = null; }
   if (m.ask && !online.asked) {
@@ -111,7 +115,7 @@ export function openOnline() {
   const s = load();
   const code = new URLSearchParams(location.search).get('room');
   if (online.on) { lobby(); return; }
-  if (s.code && s.token && (!code || code.toUpperCase() === s.code)) { lobby('กำลังกลับเข้าห้อง…'); connect(() => send({ t: 'resume', code: s.code, token: s.token })); return; }
+  if (s.code && s.token && (!code || code.toUpperCase() === s.code)) { lobby(T("กำลังกลับเข้าห้อง…")); connect(() => send({ t: 'resume', code: s.code, token: s.token })); return; }
   lobby();
 }
 function lobby(wait = '') {
@@ -120,11 +124,11 @@ function lobby(wait = '') {
   let body;
   if (!online.on || !r) {
     const code = new URLSearchParams(location.search).get('room') || '';
-    body = `<h2>เล่นออนไลน์</h2>
-      <p class="lede">ห้องละไม่เกิน 7 คน คนละ 1 Master · ที่นั่งที่ไม่มีคนเป็นบอท · เวลาคิด 30 วินาทีทุกคำถาม (หมดเวลาเกมเลือกแบบปลอดภัยให้ตามกระดาษข้อ 21) · ดูผลการต่อสู้ 15 วินาที</p>
-      <label class="onf">ชื่อของคุณ <input id="on-name" maxlength="16" value="${esc(s.name || '')}" placeholder="เช่น B"></label>
-      <div class="onrow"><button class="btn primary" data-act="on-create">สร้างห้องใหม่</button></div>
-      <div class="onrow"><label class="onf">รหัสห้อง <input id="on-code" maxlength="4" value="${esc(code.toUpperCase())}" placeholder="ABCD" style="text-transform:uppercase"></label><button class="btn" data-act="on-join">เข้าห้อง</button></div>`;
+    body = `<h2>${T("เล่นออนไลน์")}</h2>
+      <p class="lede">${T("ห้องละไม่เกิน 7 คน คนละ 1 Master · ที่นั่งที่ไม่มีคนเป็นบอท · เวลาคิด 30 วินาทีทุกคำถาม (หมดเวลาเกมเลือกแบบปลอดภัยให้ตามกระดาษข้อ 21) · ดูผลการต่อสู้ 15 วินาที")}</p>
+      <label class="onf">${T("ชื่อของคุณ")} <input id="on-name" maxlength="16" value="${esc(s.name || '')}" placeholder="${T("เช่น B")}"></label>
+      <div class="onrow"><button class="btn primary" data-act="on-create">${T("สร้างห้องใหม่")}</button></div>
+      <div class="onrow"><label class="onf">${T("รหัสห้อง")} <input id="on-code" maxlength="4" value="${esc(code.toUpperCase())}" placeholder="ABCD" style="text-transform:uppercase"></label><button class="btn" data-act="on-join">${T("เข้าห้อง")}</button></div>`;
   } else {
     const host = r.you === 'host';
     const link = `${location.origin}${location.pathname}?room=${r.code}`;
@@ -134,22 +138,22 @@ function lobby(wait = '') {
       const q = taken.get(m.key);
       const dis = q && !q.you;
       return `<button class="mcard${q?.you ? ' sel' : ''}" style="--c:${m.color}" data-act="on-pick" data-m="${m.key}"${dis || r.playing ? ' disabled' : ''} aria-pressed="${!!q?.you}">
-        <span class="en">${esc(m.en.toUpperCase())} · ระดับ${esc(m.level)}</span><b>${esc(m.name)}</b>${q ? `<span class="st2">${esc(q.name)}${q.you ? ' (คุณ)' : ''}</span>` : ''}</button>`;
+        <span class="en">${esc(m.en.toUpperCase())} ${T("· ระดับ")}${esc(m.level)}</span><b>${esc(m.name)}</b>${q ? `<span class="st2">${esc(q.name)}${q.you ? T(" (คุณ)") : ''}</span>` : ''}</button>`;
     }).join('');
-    const ppl = r.seats.map((q) => `<li>${q.host ? '👑 ' : ''}${esc(q.name)}${q.you ? ' (คุณ)' : ''} · ${q.master ? esc(MASTERS.find((m) => m.key === q.master).short) : 'สุ่ม Master'}${q.on ? '' : ' · หลุด'}</li>`).join('');
-    body = `<h2>ห้อง <span class="oncode">${esc(r.code)}</span></h2>
-      <p class="lede">ส่งรหัสห้อง หรือลิงก์นี้ให้เพื่อน: <a href="${esc(link)}">${esc(link)}</a> <button class="btn sm" data-act="on-copy" data-v="${esc(link)}">คัดลอก</button></p>
-      <h2>คนในห้อง ${r.seats.length}/7</h2><ul class="onppl">${ppl}</ul>
-      <h2>เลือก Master <small class="dim">ไม่เลือกก็ได้ เริ่มเกมแล้วสุ่มให้ · Servant สุ่มแบบเกมจริง</small></h2><div class="masters">${ms}</div>
-      ${mine?.master ? '<div class="onrow"><button class="btn sm ghost" data-act="on-pick" data-m="">ไม่เลือก (สุ่ม)</button></div>' : ''}
-      <label class="check"><input type="checkbox" id="on-timer"${r.timer ? ' checked' : ''}${host && !r.playing ? '' : ' disabled'}> จำกัดเวลาคิด 30 วินาที${host ? '' : ' (หัวห้องตั้ง)'}</label>
-      ${r.playing ? '<p class="lede">เกมกำลังเล่นอยู่</p>' : host ? '' : '<p class="lede">รอหัวห้องเริ่มเกม…</p>'}`;
+    const ppl = r.seats.map((q) => `<li>${q.host ? '👑 ' : ''}${esc(q.name)}${q.you ? T(" (คุณ)") : ''} · ${q.master ? esc(MASTERS.find((m) => m.key === q.master).short) : T("สุ่ม Master")}${q.on ? '' : T(" · หลุด")}</li>`).join('');
+    body = `<h2>${T("ห้อง")} <span class="oncode">${esc(r.code)}</span></h2>
+      <p class="lede">${T("ส่งรหัสห้อง หรือลิงก์นี้ให้เพื่อน:")} <a href="${esc(link)}">${esc(link)}</a> <button class="btn sm" data-act="on-copy" data-v="${esc(link)}">${T("คัดลอก")}</button></p>
+      <h2>${T("คนในห้อง {0}/7", r.seats.length)}</h2><ul class="onppl">${ppl}</ul>
+      <h2>${T("เลือก Master")} <small class="dim">${T("ไม่เลือกก็ได้ เริ่มเกมแล้วสุ่มให้ · Servant สุ่มแบบเกมจริง")}</small></h2><div class="masters">${ms}</div>
+      ${mine?.master ? `<div class="onrow"><button class="btn sm ghost" data-act="on-pick" data-m="">${T("ไม่เลือก (สุ่ม)")}</button></div>` : ''}
+      <label class="check"><input type="checkbox" id="on-timer"${r.timer ? ' checked' : ''}${host && !r.playing ? '' : ' disabled'}> ${T("จำกัดเวลาคิด 30 วินาที")}${host ? '' : T(" (หัวห้องตั้ง)")}</label>
+      ${r.playing ? `<p class="lede">${T("เกมกำลังเล่นอยู่")}</p>` : host ? '' : `<p class="lede">${T("รอหัวห้องเริ่มเกม…")}</p>`}`;
   }
   const acts = online.on && r
-    ? `<button class="btn ghost" data-act="on-leave">ออกจากห้อง</button>${r.playing || (r.over && online.gameNo) ? '<button class="btn" data-act="on-back">ดูกระดาน</button>' : ''}${r.you === 'host' && !r.playing ? `<button class="btn primary" data-act="on-start">${r.over ? 'เริ่มเกมใหม่' : 'เริ่มเกม'}</button>` : ''}`
-    : `<button class="btn ghost" data-act="on-offline">กลับ (เล่นกับบอท)</button>`;
+    ? `<button class="btn ghost" data-act="on-leave">${T("ออกจากห้อง")}</button>${r.playing || (r.over && online.gameNo) ? `<button class="btn" data-act="on-back">${T("ดูกระดาน")}</button>` : ''}${r.you === 'host' && !r.playing ? `<button class="btn primary" data-act="on-start">${r.over ? T("เริ่มเกมใหม่") : T("เริ่มเกม")}</button>` : ''}`
+    : `<button class="btn ghost" data-act="on-offline">${T("กลับ (เล่นกับบอท)")}</button>`;
   const note = wait || online.note;
-  H().openModal(`<div class="dlg online"><span class="eyebrow">DOMINATE GRAIL WAR · ออนไลน์</span>${body}
+  H().openModal(`<div class="dlg online"><span class="eyebrow">${T("DOMINATE GRAIL WAR · ออนไลน์")}</span>${body}
     ${note ? `<p class="lede onnote">${esc(note)}</p>` : ''}<div class="acts">${acts}</div></div>`);
 }
 
@@ -162,14 +166,14 @@ document.addEventListener('click', (ev) => {
     const name = nameNow();
     save({ ...load(), name });
     const code = (document.querySelector('#on-code')?.value || '').trim().toUpperCase();
-    if (act === 'on-join' && !code) { online.note = 'ใส่รหัสห้อง 4 ตัวก่อน'; lobby(); return; }
+    if (act === 'on-join' && !code) { online.note = T("ใส่รหัสห้อง 4 ตัวก่อน"); lobby(); return; }
     online.note = '';
-    lobby('กำลังต่อเซิร์ฟเวอร์…');
+    lobby(T("กำลังต่อเซิร์ฟเวอร์…"));
     connect(() => send(act === 'on-create' ? { t: 'create', name } : { t: 'join', code, name }));
   }
   if (act === 'on-pick') send({ t: 'pick', master: t.dataset.m || null });
   if (act === 'on-start') { online.wantLobby = false; send({ t: 'start' }); }
-  if (act === 'on-copy') navigator.clipboard?.writeText(t.dataset.v).then(() => { t.textContent = 'คัดลอกแล้ว'; }, () => {});
+  if (act === 'on-copy') navigator.clipboard?.writeText(t.dataset.v).then(() => { t.textContent = T("คัดลอกแล้ว"); }, () => {});
   if (act === 'on-back') { online.wantLobby = false; H().closeModal(); }
   if (act === 'on-offline') { online.wantLobby = false; H().offline(); }
   if (act === 'on-leave') {
@@ -192,12 +196,12 @@ function badgeInner() {
   const t = online.turn;
   const left = t?.left != null ? Math.max(0, t.left - (Date.now() - online.turnAt)) : null;
   const g = H().game();
-  const who = t?.kind === 'combatEnd' ? (t.waiting?.length ? `รออ่านผล: ${t.waiting.map(esc).join(', ')}` : '')
-    : t && g?.players?.[t.pid] && t.pid !== online.me ? `${esc(online.people[t.pid]?.name || '')} กำลังคิด` : '';
+  const who = t?.kind === 'combatEnd' ? (t.waiting?.length ? T("รออ่านผล: {0}", t.waiting.map(esc).join(', ')) : '')
+    : t && g?.players?.[t.pid] && t.pid !== online.me ? T("{0} กำลังคิด", esc(online.people[t.pid]?.name || '')) : '';
   const sec = left != null ? Math.ceil(left / 1000) : 0;
   const clock = left != null ? `<b class="onclock${sec <= 10 ? ' low' : ''}">⏱ ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</b>` : '';
   const off = online.ws?.readyState !== 1;
-  return `<button data-act="on-lobby" title="ห้องออนไลน์ · คนในห้อง">🌐<span class="code"> ${esc(online.code || '')}</span></button>${who ? `<span>${who}</span>` : ''}${clock}${off ? '<span class="low">หลุด · กำลังต่อใหม่</span>' : ''}`;
+  return `<button data-act="on-lobby" title="${T("ห้องออนไลน์ · คนในห้อง")}">🌐<span class="code"> ${esc(online.code || '')}</span></button>${who ? `<span>${who}</span>` : ''}${clock}${off ? `<span class="low">${T("หลุด · กำลังต่อใหม่")}</span>` : ''}`;
 }
 export const barHtml = () => (online.on ? `<span class="onbar">${badgeInner()}</span>` : '');
 function badge() {
