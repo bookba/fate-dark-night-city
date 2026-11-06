@@ -1,5 +1,8 @@
 // Sound effects (paper 4.6 item 23), made with the Web Audio API: no sound files, nothing to load.
 // Off until the first tap (browsers block sound before it) and at the level in the settings (item 24).
+// A sound replaced on the admin page (server/admin.mjs) plays its uploaded file instead, at the same level.
+import { OVR } from './custom.js';
+
 let ctx = null;
 let out = null;
 let level = 2; // 0 off · 1 low · 2 medium · 3 loud
@@ -27,7 +30,7 @@ function ac() {
   } catch { return null; }
 }
 // the first tap anywhere opens the sound
-export function unlockSound() { if (level) ac(); }
+export function unlockSound() { if (level && ac()) for (const n of Object.keys(OVR.sounds || {})) fileFor(n); } // and start loading the uploaded sounds
 
 // one note: a frequency (or a slide to a second one) with a quick rise and a fall
 function tone(c, t, f, d, o = {}) {
@@ -99,6 +102,35 @@ const SFX = {
   test: (c, t) => SFX.turn(c, t),
 };
 
+export const SFX_NAMES = Object.keys(SFX);
+
+// the uploaded sounds, fetched and decoded once each
+const files = {};
+function fileFor(name) {
+  const u = OVR.sounds?.[name] || (name === 'test' ? OVR.sounds?.turn : null);
+  if (!u || !ctx) return null;
+  if (!files[u]) {
+    files[u] = { buf: null };
+    fetch(u).then((r) => r.arrayBuffer()).then((a) => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no)))
+      .then((b) => { files[u].buf = b; }, () => { files[u].bad = true; });
+  }
+  return files[u];
+}
+function playFile(c, f) {
+  const s = c.createBufferSource();
+  s.buffer = f.buf;
+  s.connect(out);
+  s.start(c.currentTime + 0.01);
+}
+// the admin page plays a sound file (a URL) at the sound level
+export async function playUrl(u) {
+  const c = ac();
+  if (!c) return;
+  const a = await (await fetch(u)).arrayBuffer();
+  const buf = await new Promise((ok, no) => c.decodeAudioData(a, ok, no));
+  playFile(c, { buf });
+}
+
 export function sfx(name) {
   if (!level || !SFX[name]) return;
   const now = performance.now();
@@ -106,5 +138,9 @@ export function sfx(name) {
   last[name] = now;
   const c = ac();
   if (!c) return;
+  const f = fileFor(name);
+  if (f && !f.bad) { if (f.buf) playFile(c, f); return; } // still loading: this once, quiet
   try { SFX[name](c, c.currentTime + 0.01); } catch { /* a browser without some node: stay quiet */ }
 }
+// the original drawn sound, even when replaced (the admin page compares the two)
+export function sfxOriginal(name) { const c = ac(); if (c && SFX[name]) SFX[name](c, c.currentTime + 0.01); }

@@ -10,9 +10,12 @@ import en from './lang/en.js';
 import zh from './lang/zh.js';
 import ja from './lang/ja.js';
 import { PATTERNS } from './lang/patterns.js';
+import { OVR } from './custom.js';
 
 export const LANGS = { th: 'ไทย', en: 'English', zh: '中文', ja: '日本語' };
 export const STRINGS = { th: {}, en: { ...en }, zh: { ...zh }, ja: { ...ja } };
+// texts changed on the admin page (server/admin.mjs), here before any module reads them
+for (const l of Object.keys(STRINGS)) Object.assign(STRINGS[l], OVR.strings?.[l] || {});
 
 const pick = () => {
   try {
