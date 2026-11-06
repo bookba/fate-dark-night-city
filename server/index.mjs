@@ -1,6 +1,7 @@
 // The online game server: serves the v5 demo page and runs the rooms over a WebSocket at /ws.
 // Start: node server/index.mjs (PORT from the host, 8080 by default). No packages to install.
 import http from 'node:http';
+import { T } from '../v5/i18n.js'; // the server's texts are Thai; each page shows them in its language
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,7 +55,7 @@ server.on('upgrade', (req, sock) => {
     if (m.t === 'create' || m.t === 'join' || m.t === 'resume') {
       if (seat) { const r0 = room, s0 = seat; room = null; seat = null; if (s0.ws === ws) r0.detach(s0); }
       const r = m.t === 'create' ? rooms.create() : rooms.get(m.code);
-      if (!r) { say({ t: 'error', msg: 'ไม่พบห้องนี้ (รหัสผิด หรือห้องปิดไปแล้ว)', code: m.code, gone: true }); return; }
+      if (!r) { say({ t: 'error', msg: T("ไม่พบห้องนี้ (รหัสผิด หรือห้องปิดไปแล้ว)"), code: m.code, gone: true }); return; }
       const out = m.t === 'resume' ? r.resume(ws, m.token) : r.join(ws, m.name);
       if (out.error) { say({ t: 'error', msg: out.error, code: m.code, gone: m.t === 'resume' }); return; }
       room = r; seat = out.seat;
