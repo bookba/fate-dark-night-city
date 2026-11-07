@@ -13,7 +13,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { SFX_NAMES } from '../v5/sound.js';
 
-const KEY = process.env.ADMIN_KEY || '';
+const KEY = (process.env.ADMIN_KEY || '').trim(); // a space pasted around the key on Render does not count
 const DIR = path.resolve(process.env.DATA_DIR || fileURLToPath(new URL('./data', import.meta.url)));
 const MEDIA = path.join(DIR, 'media');
 const FILE = path.join(DIR, 'overrides.json');
@@ -41,7 +41,7 @@ function keyOk(req, given) {
   let f = fails.get(ip);
   if (f && f.until > now) return false;
   if (!f || now - f.since > WINDOW) f = { n: 0, since: now, until: 0 };
-  const ok = crypto.timingSafeEqual(digest(given || ''), digest(KEY));
+  const ok = crypto.timingSafeEqual(digest(String(given || '').trim()), digest(KEY));
   if (ok) { fails.delete(ip); return true; }
   f.n += 1;
   if (f.n >= 8) f.until = now + WINDOW;
