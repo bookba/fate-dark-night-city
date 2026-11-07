@@ -5,6 +5,7 @@
 // same for everyone; when it runs out the game takes the safe answer of item 21 and the war log
 // says "หมดเวลา". A person who drops out is played by a bot until they come back.
 import crypto from 'node:crypto';
+import { T } from '../v5/i18n.js'; // the server's texts are Thai; each page shows them in its language
 import { Game, MASTERS } from '../v5/game.js';
 import { botDecide } from '../v5/bot.js';
 import { Encoder, viewSwap, delta } from '../v5/net.js';
@@ -49,16 +50,16 @@ class Room {
 
   // ---------- people ----------
   join(ws, name) {
-    if (this.seats.length >= MASTERS.length) return { error: 'ห้องเต็มแล้ว (7 คน)' };
-    if (this.game && !this.game.over) return { error: 'ห้องนี้เริ่มเกมไปแล้ว' };
-    const seat = { token: crypto.randomUUID(), name: clean(name) || `ผู้เล่น ${this.seats.length + 1}`, master: null, ws: null };
+    if (this.seats.length >= MASTERS.length) return { error: T("ห้องเต็มแล้ว (7 คน)") };
+    if (this.game && !this.game.over) return { error: T("ห้องนี้เริ่มเกมไปแล้ว") };
+    const seat = { token: crypto.randomUUID(), name: clean(name) || T("ผู้เล่น {0}", this.seats.length + 1), master: null, ws: null };
     this.seats.push(seat);
     this.attach(seat, ws);
     return { seat };
   }
   resume(ws, token) {
     const seat = this.seats.find((s) => s.token === token);
-    if (!seat) return { error: 'ไม่พบที่นั่งของคุณในห้องนี้' };
+    if (!seat) return { error: T("ไม่พบที่นั่งของคุณในห้องนี้") };
     this.attach(seat, ws);
     return { seat };
   }
@@ -119,7 +120,7 @@ class Room {
     this.game = game; this.gameNo++; this.enc = new Encoder(); this.ask = null; this.ends = null; this.events = [];
     this.lobby();
     this.flush();
-    game.run().catch((e) => { console.error(e); game.log(`เกิดข้อผิดพลาด: ${e.message}`, 'death'); game.over = true; this.flush(); })
+    game.run().catch((e) => { console.error(e); game.log(T("เกิดข้อผิดพลาด: {0}", e.message), 'death'); game.over = true; this.flush(); })
       .finally(() => { if (game === this.game) { this.flush(); this.lobby(); } });
   }
   seatOf(p) { return this.seats.find((s) => s.master === p.m.key) || null; }
@@ -149,7 +150,7 @@ class Room {
     clearTimeout(a.t);
     const p = this.game.players[a.pid];
     let out = v;
-    if (how === 'time') { out = timeoutAnswer(this.game, p, a.kind, a.ctx, a.draft); this.game.log(`${p.name} หมดเวลา`, ''); }
+    if (how === 'time') { out = timeoutAnswer(this.game, p, a.kind, a.ctx, a.draft); this.game.log(T("{0} หมดเวลา", p.name), ''); }
     if (how === 'bot') out = botDecide(this.game, p, a.kind, a.ctx);
     a.res(out);
     this.flush(true);

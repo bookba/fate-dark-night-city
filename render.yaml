@@ -10,3 +10,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # the admin page (server/README.md): https://fdnc.onrender.com/admin?key=<ADMIN_KEY>
+      - key: ADMIN_KEY
+        sync: false # typed in on Render, never in the repo
+      # where the admin page's edits are kept for good (Render's free disk is wiped when it sleeps)
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: bookba/fate-dark-night-city
+      - key: GITHUB_BRANCH
+        value: admin-data

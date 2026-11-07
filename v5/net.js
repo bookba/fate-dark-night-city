@@ -6,6 +6,7 @@
 // A message is the object graph flattened into numbered nodes, so shared objects stay shared
 // (the player whose turn it is is the same object as in the players list). The fixed card and
 // Master data in data.js is not sent: both sides find it by its path in the module.
+import { T, TX } from './i18n.js';
 import * as DATA from './data.js';
 import { Game } from './game.js';
 
@@ -88,7 +89,7 @@ export function viewSwap(g, viewer) {
   swap.set(g, { ...g, human: viewer || g.human });
   if (!viewer || g.over) return swap;
   const kirei = viewer.m.key === 'kirei' && !viewer.revealed && !viewer.out;
-  const hideSv = (sv, cls) => swap.set(sv, { key: '?', name: 'ชื่อจริงซ่อน', cls: cls || '?', deck: [], skills: [], hidden: true });
+  const hideSv = (sv, cls) => swap.set(sv, { key: '?', name: T("ชื่อจริงซ่อน"), cls: cls || '?', deck: [], skills: [], hidden: true });
   for (const q of g.players) {
     if (q === viewer) continue;
     for (const c of [...q.hand, ...q.deck]) swap.set(c, hiddenCard(c));
@@ -121,7 +122,9 @@ export class Mirror {
       }
       fresh.set(id, o);
     }
+    // the server writes its texts in Thai: each page shows them in its own language (i18n.js)
     const val = (v) => {
+      if (typeof v === 'string') return TX(v);
       if (v === null || typeof v !== 'object') return v;
       if ('$r' in v) return fresh.get(String(v.$r));
       if ('$s' in v) return BY_PATH.get(v.$s);
@@ -134,8 +137,9 @@ export class Mirror {
       else if (n.k === 'S') { o.clear(); for (const x of n.v) o.add(val(x)); }
       else if (n.k === 'M') { o.clear(); for (const [a, b] of n.v) o.set(val(a), val(b)); }
       else {
-        for (const key of Object.keys(o)) if (!(key in n.v)) delete o[key];
-        for (const [key, x] of Object.entries(n.v)) o[key] = val(x);
+        const keys = new Set(Object.keys(n.v).map(TX)); // keys too: p.uses is by card name
+        for (const key of Object.keys(o)) if (!keys.has(key)) delete o[key];
+        for (const [key, x] of Object.entries(n.v)) o[TX(key)] = val(x);
         if (n.k === 'G') { o.rng = Math.random; o.decide = () => new Promise(() => {}); o.onEvent = () => {}; } // the copy never runs on its own
       }
     }

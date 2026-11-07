@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>หน้าแอดมิน · Dominate Grail War</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+  :root { --bg:#f6f1e7; --card:#fffdf8; --ink:#1f1b16; --dim:#6f6352; --line:#e2d7c3; --gold:#a8790a; --gold2:#f3e2b5; --red:#a52a1e; --ok:#2e7d32; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16130f; --card:#211c16; --ink:#efe6d6; --dim:#a99a82; --line:#3a3127; --gold:#e0b44a; --gold2:#3b2f15; --red:#ef7b6d; --ok:#7fc684; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 'IBM Plex Sans Thai', system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); padding:10px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0 8px 0 0; }
+  nav { display:flex; gap:4px; flex-wrap:wrap; }
+  a.btn { text-decoration:none; display:inline-block; }
+  @media (max-width:600px) { header { padding:8px 10px; } nav { flex-wrap:nowrap; overflow-x:auto; max-width:100%; } nav button { white-space:nowrap; } main { padding:12px; } }
+  nav button, .btn { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:5px 14px; cursor:pointer; }
+  nav button.on { background:var(--gold); color:#fff; border-color:var(--gold); }
+  .btn.primary { background:var(--gold); color:#fff; border-color:var(--gold); }
+  .btn.danger { color:var(--red); }
+  .btn:disabled { opacity:.5; cursor:default; }
+  main { padding:16px; max-width:1200px; margin:0 auto; }
+  .note { color:var(--dim); font-size:13px; margin:4px 0 12px; }
+  .warn { background:var(--gold2); border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:6px; }
+  .tile.changed { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold2); }
+  .tile .pic { height:130px; display:flex; align-items:center; justify-content:center; background:repeating-conic-gradient(#0001 0 25%, transparent 0 50%) 0 0/16px 16px; border-radius:8px; overflow:hidden; }
+  .tile img { max-width:100%; max-height:130px; }
+  .tile .name { font-size:12px; color:var(--dim); word-break:break-all; }
+  .tile .acts { display:flex; gap:4px; flex-wrap:wrap; }
+  .tile .acts .btn { padding:3px 10px; font-size:13px; }
+  .tag { display:inline-block; font-size:11px; background:var(--gold); color:#fff; border-radius:999px; padding:0 8px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:13px; color:var(--dim); font-weight:500; }
+  td.src { width:40%; white-space:pre-wrap; font-size:14px; }
+  td.src .def { color:var(--dim); font-size:13px; margin-top:4px; }
+  textarea, input[type=text], input[type=search], select { font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; width:100%; }
+  textarea { min-height:38px; resize:vertical; }
+  textarea.changed { border-color:var(--gold); background:var(--gold2); }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .bar input[type=search] { max-width:320px; }
+  .bar select { width:auto; }
+  #cssText { min-height:340px; font-family:ui-monospace, Consolas, monospace; font-size:13px; }
+  #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:8px 16px; border-radius:999px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:10; }
+  #toast.show { opacity:1; }
+  .snd { display:grid; grid-template-columns: 1fr auto; gap:6px 12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .snd.changed { border-color:var(--gold); }
+  .snds { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; }
+  section { display:none; } section.on { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .card h3 { margin:0 0 6px; font-size:15px; }
+  .err { color:var(--red); }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ หน้าแอดมิน</h1>
+  <nav id="tabs">
+    <button data-t="play" class="on">แก้บนหน้าเกม</button>
+    <button data-t="img">รูปภาพ</button>
+    <button data-t="snd">เสียง</button>
+    <button data-t="txt">ข้อความ (ทุกภาษา)</button>
+    <button data-t="dom">ข้อความที่แก้บนหน้าเกม</button>
+    <button data-t="css">สี / CSS</button>
+    <button data-t="bak">สำรอง / ที่เก็บ</button>
+  </nav>
+</header>
+<main>
+  <div id="storeWarn"></div>
+
+  <section id="play" class="on">
+    <div class="card">
+      <h3>แก้ทุกอย่างบนหน้าเกมจริง</h3>
+      <p class="note">เปิดเกมในโหมดแก้ไข แล้วกด "✏️ แก้ไข" ที่แถบด้านล่าง แตะข้อความไหนก็ได้เพื่อเปลี่ยนข้อความ แตะรูปไหนก็ได้เพื่อเปลี่ยนรูป ระหว่างเปิดโหมดแก้ไข การแตะจะไม่ไปกดปุ่มในเกม ปิดโหมดแก้ไขเพื่อเล่นไปยังหน้าที่ต้องการแก้ (เช่น ป๊อปอัปการ์ด) แล้วเปิดใหม่</p>
+      <div class="row" id="playLangs"></div>
+    </div>
+    <div class="card">
+      <h3>ผู้เล่นเห็นเมื่อไร</h3>
+      <p class="note">ทุกการแก้ไขบันทึกบนเซิร์ฟเวอร์ทันที ผู้เล่นทุกคนเห็นเมื่อเปิดหรือรีเฟรชหน้าเกม (เกมที่เล่นค้างอยู่ไม่สะดุด) ลิงก์หน้านี้มีรหัสอยู่ อย่าส่งต่อ</p>
+    </div>
+  </section>
+
+  <section id="img">
+    <p class="note">รูปทั้งหมดในเว็บ กด "เปลี่ยน" แล้วเลือกไฟล์ รูปใหม่ขึ้นแทนรูปเดิมทุกที่ในเกม (webp png jpg gif svg ไม่เกิน 8 MB) ไอคอนและตราคลาสที่วาดด้วยโค้ดเปลี่ยนสีได้ในแท็บ "สี / CSS"</p>
+    <div class="bar"><input type="search" id="imgQ" placeholder="ค้นหาชื่อไฟล์"><label><input type="checkbox" id="imgOnly"> เฉพาะที่เปลี่ยนแล้ว</label></div>
+    <div class="grid" id="imgs"></div>
+  </section>
+
+  <section id="snd">
+    <p class="note">เสียงในเกมสร้างด้วยโค้ด ใส่ไฟล์เสียงแทนได้ทีละเสียง (mp3 wav ogg m4a webm ไม่เกิน 8 MB) ดังตามระดับเสียงที่ผู้เล่นตั้งไว้</p>
+    <div class="snds" id="snds"></div>
+  </section>
+
+  <section id="txt">
+    <p class="note">ข้อความทุกข้อความของเกม เลือกภาษาแล้วแก้ในช่องขวา ปล่อยว่างเท่ากับใช้ข้อความเดิม <b>{0} {1}</b> คือที่ที่เกมใส่ชื่อหรือตัวเลข ต้องเก็บไว้ บันทึกเองเมื่อออกจากช่อง</p>
+    <div id="txtNone" class="warn" hidden>ยังไม่มีระบบหลายภาษาในเซิร์ฟเวอร์นี้ ใช้ "แก้บนหน้าเกม" ไปก่อน</div>
+    <div class="bar"><select id="txtLang"></select><input type="search" id="txtQ" placeholder="ค้นหาข้อความ"><label><input type="checkbox" id="txtOnly"> เฉพาะที่แก้แล้ว</label><span class="note" id="txtCount"></span></div>
+    <table><thead><tr><th>ข้อความต้นฉบับ (ไทย) / ข้อความเดิมของภาษานี้</th><th>ข้อความใหม่</th></tr></thead><tbody id="txts"></tbody></table>
+  </section>
+
+  <section id="dom">
+    <p class="note">ข้อความที่แก้ด้วยการแตะบนหน้าเกม เปลี่ยนเมื่อข้อความบนหน้าจอตรงกับช่องซ้ายทั้งก้อน แยกตามภาษา เพิ่มเองได้ที่แถวล่างสุด</p>
+    <div class="bar"><select id="domLang"></select></div>
+    <table><thead><tr><th>ข้อความบนหน้าจอ</th><th>เปลี่ยนเป็น</th><th></th></tr></thead><tbody id="doms"></tbody></table>
+  </section>
+
+  <section id="css">
+    <p class="note">CSS เพิ่มเติม ใส่ท้ายหน้าเกม ใช้เปลี่ยนสี ตัวอักษร ขนาด ซ่อนสิ่งที่ไม่ต้องการ ฯลฯ ตัวอย่าง: <code>:root { --gold: #c00; }</code> หรือ <code>body { font-size: 18px; }</code></p>
+    <textarea id="cssText" spellcheck="false"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn primary" id="cssSave">บันทึก CSS</button><a class="btn" href="/v5/" target="_blank">เปิดเกมดูผล</a></div>
+  </section>
+
+  <section id="bak">
+    <div class="card"><h3>ที่เก็บข้อมูล</h3><div id="store"></div></div>
+    <div class="card">
+      <h3>สำรองข้อมูล</h3>
+      <p class="note">ไฟล์เดียวมีทั้งข้อความ CSS รูป และเสียงที่แก้ไว้ เก็บไว้ในเครื่อง แล้วนำกลับมาใส่ได้</p>
+      <div class="row"><a class="btn primary" id="bakDown">ดาวน์โหลดไฟล์สำรอง</a><label class="btn">นำไฟล์สำรองกลับมา<input type="file" id="bakUp" accept=".json,application/json" hidden></label></div>
+    </div>
+    <div class="card">
+      <h3>คืนค่าเดิมทั้งเว็บ</h3>
+      <p class="note">ลบการแก้ไขทั้งหมด (ข้อความ CSS รูป เสียง) กลับเป็นเว็บเดิม ดาวน์โหลดไฟล์สำรองไว้ก่อน</p>
+      <button class="btn danger" id="resetAll">คืนค่าเดิมทั้งหมด</button>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>window.__OVR = {}; // the game modules imported here show their original texts and sounds</script>
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const LANG_NAME = { th: 'ไทย', en: 'English', zh: '中文', ja: '日本語' };
+const SND_NAME = { turn: 'ถึงตาคุณ', place: 'วางหมาก', move: 'เดินหมาก', card: 'ลงการ์ด', pick: 'เลือกการ์ดในป๊อปอัป', phase: 'เริ่มช่วงใหม่ของรอบ', fight: 'เริ่มการต่อสู้', win: 'ชนะการต่อสู้', lose: 'แพ้การต่อสู้', reveal: 'เปิดชื่อจริง', cs: 'ใช้ Command Spell', out: 'Master ตกรอบ', grail: 'จบสงคราม ได้จอก', test: 'เสียงทดสอบในการตั้งค่า' };
+
+// the key: from the address once, then kept in this tab only and taken out of the address
+const q = new URLSearchParams(location.search);
+let key = q.get('key');
+if (key) { try { sessionStorage.setItem('fdnc-admin-key', key); } catch {} history.replaceState(null, '', location.pathname); }
+else { try { key = sessionStorage.getItem('fdnc-admin-key'); } catch {} }
+
+async function call(method, url, body, type = 'application/json') {
+  const r = await fetch(url, { method, headers: { 'x-admin-key': key || '', ...(body != null ? { 'Content-Type': type } : {}) }, body: body == null ? undefined : type === 'application/json' && typeof body !== 'string' ? JSON.stringify(body) : body });
+  if (r.status === 404 && !url.includes('/api/')) throw new Error('ไม่พบ');
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404 && !j.error) throw new Error('รหัสแอดมินไม่ถูกต้อง เปิดลิงก์ที่มีรหัสใหม่');
+  if (!r.ok) throw new Error(j.error || `ผิดพลาด ${r.status}`);
+  return j;
+}
+function toast(t, bad) { const e = $('#toast'); e.textContent = t; e.style.background = bad ? 'var(--red)' : ''; e.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('show'), 2600); }
+const fail = (e) => toast(e.message, true);
+
+let S = null; // { data, pictures, sounds, langs, storage }
+let I18N = null; // { STRINGS, PATTERNS } of the game, untouched
+async function load() { S = await call('GET', '/admin/api/state'); }
+
+// ---------- tabs ----------
+$('#tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('button')?.dataset.t;
+  if (!t) return;
+  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.t === t);
+  for (const s of document.querySelectorAll('main > section')) s.classList.toggle('on', s.id === t);
+  try { sessionStorage.setItem('fdnc-admin-tab', t); } catch {}
+});
+
+// ---------- play ----------
+function drawPlay() {
+  $('#playLangs').innerHTML = S.langs.map((l) => `<a class="btn${l === 'th' ? ' primary' : ''}" href="/v5/?edit=1&lang=${l}" target="_blank">เปิดเกม (${LANG_NAME[l]})</a>`).join('');
+}
+
+// ---------- pictures ----------
+function drawImgs() {
+  const f = $('#imgQ').value.trim().toLowerCase(), only = $('#imgOnly').checked;
+  const list = S.pictures.filter((p) => (!f || p.path.toLowerCase().includes(f)) && (!only || S.data.images[p.path]));
+  $('#imgs').innerHTML = list.map((p) => {
+    const o = S.data.images[p.path];
+    const src = o ? `/media/${o.id}` : p.path;
+    return `<div class="tile${o ? ' changed' : ''}" data-p="${esc(p.path)}"><div class="pic"><img loading="lazy" src="${esc(src)}" alt=""></div>
+      <div class="name">${o ? '<span class="tag">เปลี่ยนแล้ว</span> ' : ''}${esc(p.path.replace(/^\/src\/art\//, ''))}</div>
+      <div class="acts"><label class="btn">เปลี่ยน<input type="file" accept="image/webp,image/png,image/jpeg,image/gif,image/svg+xml" hidden></label>${o ? `<button class="btn" data-a="orig">ดูรูปเดิม</button><button class="btn danger" data-a="reset">คืนรูปเดิม</button>` : ''}</div></div>`;
+  }).join('') || '<p class="note">ไม่มีรูปที่ตรงกับที่ค้นหา</p>';
+}
+$('#imgQ').oninput = drawImgs; $('#imgOnly').onchange = drawImgs;
+$('#imgs').addEventListener('change', async (e) => {
+  const inp = e.target, t = inp.closest('.tile'); const file = inp.files?.[0];
+  if (!file || !t) return;
+  try { await call('PUT', `/admin/api/image?path=${encodeURIComponent(t.dataset.p)}&name=${encodeURIComponent(file.name)}`, file, file.type); await load(); drawImgs(); toast('เปลี่ยนรูปแล้ว'); } catch (err) { fail(err); }
+});
+$('#imgs').addEventListener('click', async (e) => {
+  const a = e.target.closest('button')?.dataset.a, t = e.target.closest('.tile');
+  if (!a || !t) return;
+  if (a === 'orig') { const im = t.querySelector('img'); const o = S.data.images[t.dataset.p]; const showingOrig = !im.src.includes('/media/'); im.src = showingOrig ? `/media/${o.id}` : `${t.dataset.p}?orig=${Date.now()}`; e.target.textContent = showingOrig ? 'ดูรูปเดิม' : 'ดูรูปใหม่'; return; }
+  if (a === 'reset') { try { await call('DELETE', `/admin/api/image?path=${encodeURIComponent(t.dataset.p)}`); await load(); drawImgs(); toast('คืนรูปเดิมแล้ว'); } catch (err) { fail(err); } }
+});
+
+// ---------- sounds ----------
+let SOUND = null;
+async function sound() { if (!SOUND) { SOUND = await import('/v5/sound.js'); SOUND.setSound(2); } SOUND.unlockSound(); return SOUND; }
+function drawSnds() {
+  $('#snds').innerHTML = S.sounds.map((n) => {
+    const o = S.data.sounds[n];
+    return `<div class="snd${o ? ' changed' : ''}" data-n="${n}"><div><b>${esc(SND_NAME[n] || n)}</b> <span class="note">${n}</span>${o ? `<br><span class="tag">ใช้ไฟล์</span> <span class="note">${esc(o.name || o.id)}</span>` : ''}</div>
+      <div class="row"><button class="btn" data-a="orig">▶ เดิม</button>${o ? '<button class="btn" data-a="new">▶ ใหม่</button>' : ''}</div>
+      <div class="row" style="grid-column:1/-1"><label class="btn">${o ? 'เปลี่ยนไฟล์' : 'ใส่ไฟล์เสียง'}<input type="file" accept="audio/*" hidden></label>${o ? '<button class="btn danger" data-a="reset">กลับไปใช้เสียงเดิม</button>' : ''}</div></div>`;
+  }).join('');
+}
+$('#snds').addEventListener('click', async (e) => {
+  const a = e.target.closest('button')?.dataset.a, t = e.target.closest('.snd');
+  if (!a || !t) return;
+  const n = t.dataset.n;
+  try {
+    const s = await sound();
+    if (a === 'orig') s.sfxOriginal(n);
+    if (a === 'new') await s.playUrl(`/media/${S.data.sounds[n].id}`);
+    if (a === 'reset') { await call('DELETE', `/admin/api/sound?name=${n}`); await load(); drawSnds(); toast('กลับไปใช้เสียงเดิมแล้ว'); }
+  } catch (err) { fail(err); }
+});
+$('#snds').addEventListener('change', async (e) => {
+  const t = e.target.closest('.snd'), file = e.target.files?.[0];
+  if (!file || !t) return;
+  try {
+    const type = file.type || ({ mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', webm: 'audio/webm' })[file.name.split('.').pop().toLowerCase()] || '';
+    const r = await call('PUT', `/admin/api/sound?name=${t.dataset.n}&fname=${encodeURIComponent(file.name)}`, file, type);
+    await load(); drawSnds(); toast('ใส่เสียงแล้ว'); (await sound()).playUrl(r.url).catch(() => {});
+  } catch (err) { fail(err); }
+});
+
+// ---------- texts (the language dictionary of v5/i18n.js) ----------
+async function loadI18n() {
+  try {
+    const m = await import('/v5/i18n.js');
+    let pats = [];
+    try { pats = (await import('/v5/lang/patterns.js')).PATTERNS || []; } catch {}
+    const keys = new Set(pats);
+    for (const l of Object.keys(m.STRINGS)) for (const k of Object.keys(m.STRINGS[l])) keys.add(k);
+    for (const l of S.langs) for (const k of Object.keys(S.data.strings[l] || {})) keys.add(k);
+    I18N = { STRINGS: m.STRINGS, keys: [...keys].sort((a, b) => a.localeCompare(b, 'th')) };
+  } catch { I18N = null; }
+}
+const langOpts = () => S.langs.map((l) => `<option value="${l}">${LANG_NAME[l]}</option>`).join('');
+const LIMIT = 300;
+function drawTxts() {
+  $('#txtNone').hidden = !!I18N;
+  if (!I18N) { $('#txts').innerHTML = ''; return; }
+  const l = $('#txtLang').value, f = $('#txtQ').value.trim().toLowerCase(), only = $('#txtOnly').checked;
+  const ov = S.data.strings[l] || {};
+  const def = (k) => (l === 'th' ? k : I18N.STRINGS[l]?.[k] ?? k);
+  const list = I18N.keys.filter((k) => (!only || ov[k] != null) && (!f || k.toLowerCase().includes(f) || String(def(k)).toLowerCase().includes(f) || String(ov[k] || '').toLowerCase().includes(f)));
+  $('#txtCount').textContent = `${list.length} ข้อความ${list.length > LIMIT ? ` · แสดง ${LIMIT} แรก ค้นหาเพื่อหาที่เหลือ` : ''}`;
+  $('#txts').innerHTML = list.slice(0, LIMIT).map((k) => `<tr data-k="${esc(k)}"><td class="src">${esc(k)}${l !== 'th' ? `<div class="def">${esc(def(k))}</div>` : ''}</td>
+    <td><textarea rows="1" class="${ov[k] != null ? 'changed' : ''}" placeholder="${esc(def(k))}">${esc(ov[k] ?? '')}</textarea></td></tr>`).join('');
+}
+$('#txtQ').oninput = drawTxts; $('#txtOnly').onchange = drawTxts; $('#txtLang').onchange = drawTxts;
+$('#txts').addEventListener('change', async (e) => {
+  const ta = e.target, k = ta.closest('tr')?.dataset.k, l = $('#txtLang').value;
+  if (!k) return;
+  const v = ta.value === '' ? null : ta.value;
+  const holes = (s) => (String(s).match(/\{\d+\}/g) || []).sort().join();
+  if (v != null && holes(v) !== holes(k)) toast('ข้อความเดิมมี ' + (holes(k) || 'ไม่มี {0}') + ' ตรวจว่าใส่ครบ', true);
+  try { await call('POST', '/admin/api/text', { part: 'strings', lang: l, key: k, value: v }); (S.data.strings[l] ||= {}); if (v == null) delete S.data.strings[l][k]; else S.data.strings[l][k] = v; ta.classList.toggle('changed', v != null); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
+});
+
+// ---------- texts changed on the game page ----------
+function drawDoms() {
+  const l = $('#domLang').value, m = S.data.dom[l] || {};
+  $('#doms').innerHTML = Object.entries(m).map(([k, v]) => `<tr data-k="${esc(k)}"><td class="src">${esc(k)}</td><td><textarea rows="1">${esc(v)}</textarea></td><td><button class="btn danger" data-a="del">ลบ</button></td></tr>`).join('')
+    + `<tr class="add"><td><textarea rows="1" id="domNewK" placeholder="ข้อความบนหน้าจอ (ตรงทั้งก้อน)"></textarea></td><td><textarea rows="1" id="domNewV" placeholder="เปลี่ยนเป็น"></textarea></td><td><button class="btn primary" data-a="add">เพิ่ม</button></td></tr>`;
+}
+$('#domLang').onchange = drawDoms;
+async function setDom(l, k, v) { await call('POST', '/admin/api/text', { part: 'dom', lang: l, key: k, value: v }); (S.data.dom[l] ||= {}); if (v == null) delete S.data.dom[l][k]; else S.data.dom[l][k] = v; }
+$('#doms').addEventListener('change', async (e) => {
+  const tr = e.target.closest('tr'); if (!tr?.dataset.k) return;
+  try { await setDom($('#domLang').value, tr.dataset.k, e.target.value); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
+});
+$('#doms').addEventListener('click', async (e) => {
+  const a = e.target.closest('button')?.dataset.a; if (!a) return;
+  const l = $('#domLang').value;
+  try {
+    if (a === 'del') { await setDom(l, e.target.closest('tr').dataset.k, null); drawDoms(); toast('ลบแล้ว'); }
+    if (a === 'add') { const k = $('#domNewK').value.trim(), v = $('#domNewV').value; if (!k) return; await setDom(l, k, v); drawDoms(); toast('เพิ่มแล้ว'); }
+  } catch (err) { fail(err); }
+});
+
+// ---------- CSS ----------
+$('#cssSave').onclick = async () => { try { await call('POST', '/admin/api/css', { css: $('#cssText').value }); S.data.css = $('#cssText').value; toast('บันทึก CSS แล้ว'); } catch (err) { fail(err); } };
+
+// ---------- storage, backup ----------
+function drawStore() {
+  const st = S.storage;
+  const gh = st.github;
+  const state = { ok: 'บันทึกครบแล้ว', waiting: 'กำลังบันทึก…', error: `บันทึกไม่ได้: ${st.sync.error}`, off: '' }[st.sync.state];
+  $('#store').innerHTML = gh
+    ? `<p>✅ เก็บถาวรใน GitHub: <b>${esc(gh)}</b> โฟลเดอร์ admin-data · ${esc(state)}</p>`
+    : `<p class="err">⚠️ ยังไม่ได้ตั้งที่เก็บถาวร: การแก้ไขอยู่ในดิสก์ของเซิร์ฟเวอร์ (${esc(st.dir)}) ซึ่ง Render แบบฟรีลบทิ้งเมื่อเซิร์ฟเวอร์หลับหรือรีสตาร์ต ตั้ง GITHUB_TOKEN ตาม server/README.md หรือดาวน์โหลดไฟล์สำรองไว้</p>`;
+  $('#storeWarn').innerHTML = gh ? (st.sync.state === 'error' ? `<div class="warn">⚠️ บันทึกลง GitHub ไม่ได้ (${esc(st.sync.error)}) ดูแท็บ "สำรอง / ที่เก็บ"</div>` : '') : '<div class="warn">⚠️ การแก้ไขยังไม่ถาวร: เซิร์ฟเวอร์ฟรีหลับเมื่อไรก็หาย ดูแท็บ "สำรอง / ที่เก็บ"</div>';
+}
+$('#bakDown').onclick = async () => {
+  try {
+    const r = await fetch('/admin/api/backup', { headers: { 'x-admin-key': key } });
+    if (!r.ok) throw new Error('ดาวน์โหลดไม่ได้');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = `fdnc-admin-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  } catch (err) { fail(err); }
+};
+$('#bakUp').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!confirm('แทนที่การแก้ไขทั้งหมดตอนนี้ด้วยไฟล์สำรองนี้?')) return;
+  try { await call('POST', '/admin/api/restore', await f.text()); await refreshAll(); toast('นำไฟล์สำรองกลับมาแล้ว'); } catch (err) { fail(err); }
+  e.target.value = '';
+};
+$('#resetAll').onclick = async () => {
+  if (!confirm('ลบการแก้ไขทั้งหมด กลับเป็นเว็บเดิม?')) return;
+  try { await call('POST', '/admin/api/reset', {}); await refreshAll(); toast('คืนค่าเดิมแล้ว'); } catch (err) { fail(err); }
+};
+
+async function refreshAll() {
+  await load();
+  $('#cssText').value = S.data.css || '';
+  drawPlay(); drawImgs(); drawSnds(); drawTxts(); drawDoms(); drawStore();
+}
+(async () => {
+  if (!key) { document.body.innerHTML = '<main><p>ไม่พบ</p></main>'; return; }
+  try {
+    await load();
+    for (const id of ['#txtLang', '#domLang']) { $(id).innerHTML = langOpts(); }
+    $('#txtLang').value = 'en';
+    await loadI18n();
+    await refreshAll();
+    let t = null; try { t = sessionStorage.getItem('fdnc-admin-tab'); } catch {}
+    if (t) document.querySelector(`#tabs button[data-t="${t}"]`)?.click();
+    setInterval(async () => { try { const s = await call('GET', '/admin/api/state'); S.storage = s.storage; drawStore(); } catch {} }, 15000);
+  } catch (err) { document.body.innerHTML = `<main><p class="err">${esc(err.message)}</p></main>`; }
+})();
+</script>
+</body>
+</html>
