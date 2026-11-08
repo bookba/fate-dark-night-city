@@ -1266,3 +1266,81 @@ button.card:hover { transform: translateY(-3px); }
   #bar .onbar button { padding: 1px 6px; }
   #bar .onbar .code { display: none; }
 }
+
+/* ---------- members, the lobby, friends, chat (online.js, B 8 Nov 2026) ---------- */
+.online h3 { margin: 4px 0 0; font: 600 15px var(--ff-head); }
+.online .dim { color: var(--dim); }
+.online input[type=password], .online #on-say-lobby, .online #on-say-room { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--night-2); color: inherit; min-width: 0; }
+.onav { display: inline-grid; place-items: center; flex: none; border-radius: 50%; object-fit: cover; object-position: 50% 15%; border: 2px solid var(--grail); background: var(--c, #3a4466); color: #fff; font: 700 14px/1 var(--ff-crest); overflow: hidden; }
+.onacct { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--r); background: var(--night-3); border: 1px solid var(--line); }
+.onacct .nm { display: grid; flex: 1 1 180px; min-width: 0; }
+.onacct .nm small { color: var(--dim); font-size: 12px; }
+.onback { padding: 8px 12px; border-radius: var(--r); border: 1px solid var(--grail); background: color-mix(in srgb, var(--grail) 12%, var(--night-2)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ontabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.onnum { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--seal); color: #fff; font: 600 11px/1 var(--ff-body); margin-left: 2px; }
+.onbox { display: grid; gap: 10px; padding: 12px; border-radius: var(--r); border: 1px solid var(--line); background: color-mix(in srgb, var(--night-3) 60%, transparent); }
+.onform { display: grid; gap: 10px; max-width: 420px; }
+.onform input { width: 100%; }
+.onrooms, .onfriends, .onhist, .onlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.onrooms li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--r); background: var(--night-3); border: 1px solid var(--line); }
+.onrooms .rt { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.onrooms .rt > div { display: grid; min-width: 0; }
+.onrooms .rt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onrooms small { color: var(--dim); font-size: 12px; }
+.onwho { display: inline-flex; gap: 6px; align-items: center; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-width: 0; text-align: left; }
+.onwho:disabled { cursor: default; }
+.onwho > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.onwho:not(:disabled):hover > span { text-decoration: underline; color: var(--grail); }
+.onppl li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.online .onppl { list-style: none; padding-left: 0; gap: 6px; }
+.onfriends li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: var(--r); background: var(--night-3); }
+.onfriends li > span:last-child { display: flex; gap: 6px; }
+.onfriends .st { font-size: 12px; color: var(--dim); display: inline-flex; gap: 6px; align-items: center; }
+.ondot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: inline-block; }
+.ondot.on { background: var(--ok); }
+.onprof { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.onprof .nm { display: grid; gap: 4px; flex: 1 1 220px; }
+.onprof h2 { margin: 0; }
+.onprof p { margin: 0; }
+.onstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.onstat { padding: 10px; border-radius: var(--r); background: var(--night-3); display: grid; gap: 2px; text-align: center; }
+.onstat b { font: 700 22px/1.1 var(--ff-crest); color: var(--grail); }
+.onstat small { color: var(--dim); font-size: 12px; }
+.onlist li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 10px; border-radius: 8px; background: var(--night-3); font-size: 13px; }
+.onhist li { display: flex; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--night-3); font-size: 13px; }
+.onhist li > b { min-width: 30px; text-align: center; font: 700 15px var(--ff-crest); color: var(--dim); }
+.onhist li.win > b { color: var(--grail); }
+.onhist li > div { display: grid; min-width: 0; }
+.onavs { display: flex; flex-wrap: wrap; gap: 6px; }
+.onavs button { padding: 2px; border-radius: 50%; border: 2px solid transparent; background: none; cursor: pointer; }
+.onavs button.sel { border-color: var(--seal); }
+.ontop { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ontop th, .ontop td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.ontop th { color: var(--dim); font-weight: 500; font-size: 12px; }
+.ontop tr.me td { background: color-mix(in srgb, var(--grail) 10%, transparent); }
+.oncols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+.onchatbox { display: grid; gap: 8px; }
+.onlog { list-style: none; margin: 0; padding: 8px; display: grid; gap: 6px; align-content: start; max-height: 260px; min-height: 120px; overflow-y: auto; border-radius: var(--r); background: var(--night); border: 1px solid var(--line); font-size: 13.5px; }
+.onlog li { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+.onlog li .onwho { font-weight: 600; color: var(--grail); align-self: center; }
+.onlog li.mine .onwho { color: var(--mana); }
+.onlog li .tx { flex: 1 1 140px; word-break: break-word; }
+.onlog li small { color: var(--dim); font-size: 11px; margin-left: auto; }
+.onsay { display: flex; gap: 6px; }
+.onsay input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--night-2); color: inherit; }
+#onchat { position: fixed; z-index: 24; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: min(340px, calc(100vw - 24px)); display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--night-2); box-shadow: 0 16px 50px rgba(0, 0, 0, .55); }
+#onchat[hidden] { display: none; }
+#onchat .hd { display: flex; justify-content: space-between; align-items: center; }
+#onchat .onlog { max-height: min(40vh, 300px); }
+@media (max-width: 1099px) { #onchat { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); } }
+#bar .onbar .onchatbtn { position: relative; letter-spacing: 0; }
+#bar .onbar .onchatbtn.on { border-color: var(--grail); }
+#bar .onbar .onchatbtn .onnum { position: absolute; top: -7px; right: -8px; }
+#onnotice { position: fixed; z-index: 30; left: 50%; top: calc(10px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; gap: 6px; width: min(460px, calc(100vw - 32px)); }
+.onnote-card { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--grail); background: var(--night-2); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); font-size: 14px; }
+.onnote-card > span { flex: 1; min-width: 0; }
+@media (max-width: 560px) {
+  .onfriends li { grid-template-columns: minmax(0, 1fr) auto; }
+  .onfriends .st { grid-column: 1; grid-row: 2; }
+  .onrooms li { padding: 6px 8px; }
+}

@@ -18,7 +18,7 @@ const DIR = path.resolve(process.env.DATA_DIR || fileURLToPath(new URL('./data',
 const MEDIA = path.join(DIR, 'media');
 const FILE = path.join(DIR, 'overrides.json');
 const GH = { token: process.env.GITHUB_TOKEN || '', repo: process.env.GITHUB_REPO || '', branch: process.env.GITHUB_BRANCH || 'admin-data' };
-const ghOn = () => !!(GH.token && GH.repo);
+export const ghOn = () => !!(GH.token && GH.repo);
 const LANGS = ['th', 'en', 'zh', 'ja'];
 const IMG = { '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
 const AUD = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/wave': '.wav', 'audio/ogg': '.ogg', 'audio/webm': '.webm', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/flac': '.flac' };
@@ -129,7 +129,7 @@ async function ensureBranch() {
   if (!c.ok && c.status !== 422) throw new Error(`branch create ${c.status}`);
   branchOk = true;
 }
-async function ghGet(p, raw = false) {
+export async function ghGet(p, raw = false) {
   const url = `/contents/admin-data/${p}?ref=${encodeURIComponent(GH.branch)}`;
   const r = await gh('GET', url, null, raw);
   if (r.status === 404) return null;
@@ -138,7 +138,7 @@ async function ghGet(p, raw = false) {
   const j = await r.json();
   return { sha: j.sha, buf: Buffer.from(j.content || '', 'base64') };
 }
-async function ghPut(p, buf, sha) {
+export async function ghPut(p, buf, sha) {
   await ensureBranch();
   return gh('PUT', `/contents/admin-data/${p}`, { message: `admin: ${p}`, content: buf.toString('base64'), branch: GH.branch, ...(sha ? { sha } : {}) });
 }
@@ -253,9 +253,13 @@ export async function handle(req, res, url, root) {
   return true;
 }
 
+// more admin addresses from other parts of the server (accounts.mjs: the members), so this file
+// does not import them: each is (req, res, what, method, query, { json, send }) → true when it answered
+export const plugins = [];
 async function api(req, res, url, what, root) {
   const q = url.searchParams;
   const M = req.method;
+  for (const f of plugins) if (await f(req, res, what, M, q, { json, send })) return;
   if (what === 'state' && M === 'GET') {
     send(res, 200, { data, pictures: pictures(root), sounds: SFX_NAMES, langs: LANGS, storage: { dir: DIR, github: ghOn() ? `${GH.repo} (branch ${GH.branch})` : '', sync } });
     return;

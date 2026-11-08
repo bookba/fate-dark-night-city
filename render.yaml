@@ -20,3 +20,7 @@ services:
         value: bookba/fate-dark-night-city
       - key: GITHUB_BRANCH
         value: admin-data
+      # the members' data (accounts, friends, match history) is kept encrypted with this key in the
+      # admin-data branch; Render makes a random one. Never change it afterwards (the data would not open)
+      - key: ACCOUNTS_KEY
+        generateValue: true

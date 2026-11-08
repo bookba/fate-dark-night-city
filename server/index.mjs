@@ -1,12 +1,12 @@
 // The online game server: serves the v5 demo page and runs the rooms over a WebSocket at /ws.
 // Start: node server/index.mjs (PORT from the host, 8080 by default). No packages to install.
 import http from 'node:http';
-import { T } from '../v5/i18n.js'; // the server's texts are Thai; each page shows them in its language
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { upgrade } from './ws.mjs';
-import { Rooms } from './room.mjs';
+import * as hub from './hub.mjs';
+import * as accounts from './accounts.mjs';
 import * as admin from './admin.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,33 +41,15 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-const rooms = new Rooms();
+// every page's connection: hub.mjs (members, the lobby, friends, chat) and its room (room.mjs)
 server.on('upgrade', (req, sock) => {
   if (new URL(req.url, 'http://x').pathname !== '/ws') { sock.destroy(); return; }
   const ws = upgrade(req, sock);
-  if (!ws) return;
-  let room = null, seat = null;
-  const say = (m) => ws.send(JSON.stringify(m));
-  ws.on('message', (text) => {
-    let m;
-    try { m = JSON.parse(text); } catch { return; }
-    if (!m || typeof m !== 'object') return;
-    if (m.t === 'create' || m.t === 'join' || m.t === 'resume') {
-      if (seat) { const r0 = room, s0 = seat; room = null; seat = null; if (s0.ws === ws) r0.detach(s0); }
-      const r = m.t === 'create' ? rooms.create() : rooms.get(m.code);
-      if (!r) { say({ t: 'error', msg: T("ไม่พบห้องนี้ (รหัสผิด หรือห้องปิดไปแล้ว)"), code: m.code, gone: true }); return; }
-      const out = m.t === 'resume' ? r.resume(ws, m.token) : r.join(ws, m.name);
-      if (out.error) { say({ t: 'error', msg: out.error, code: m.code, gone: m.t === 'resume' }); return; }
-      room = r; seat = out.seat;
-      return;
-    }
-    if (room && seat && seat.ws === ws) {
-      room.message(seat, m);
-      if (m.t === 'leave') { room = null; seat = null; }
-    }
-  });
-  ws.on('close', () => { if (room && seat && seat.ws === ws) room.detach(seat); });
+  if (ws) hub.connect(ws, req);
 });
+admin.plugins.push(accounts.adminApi); // the members tab of the admin page
 
 const PORT = +process.env.PORT || 8080;
 server.listen(PORT, () => console.log(`Dominate Grail War online: http://localhost:${PORT}/`));
+// Render stops the server with SIGTERM (it sleeps, or a new version starts): the members' data is saved first
+for (const sig of ['SIGTERM', 'SIGINT']) process.once(sig, () => { accounts.flush().finally(() => process.exit(0)); setTimeout(() => process.exit(0), 8000).unref(); });

@@ -69,6 +69,7 @@
     <button data-t="dom">ข้อความที่แก้บนหน้าเกม</button>
     <button data-t="css">สี / CSS</button>
     <button data-t="bak">สำรอง / ที่เก็บ</button>
+    <button data-t="mem">สมาชิก</button>
   </nav>
 </header>
 <main>
@@ -114,6 +115,14 @@
     <p class="note">CSS เพิ่มเติม ใส่ท้ายหน้าเกม ใช้เปลี่ยนสี ตัวอักษร ขนาด ซ่อนสิ่งที่ไม่ต้องการ ฯลฯ ตัวอย่าง: <code>:root { --gold: #c00; }</code> หรือ <code>body { font-size: 18px; }</code></p>
     <textarea id="cssText" spellcheck="false"></textarea>
     <div class="row" style="margin-top:8px"><button class="btn primary" id="cssSave">บันทึก CSS</button><a class="btn" href="/v5/" target="_blank">เปิดเกมดูผล</a></div>
+  </section>
+
+  <section id="mem">
+    <div id="memStore"></div>
+    <p class="note">สมาชิกที่สมัครในเกม (ล่าสุดที่เข้าเล่นอยู่บน) · <b>ตั้งรหัสใหม่</b> สำหรับคนที่ลืมรหัสผ่าน: รหัสใหม่ขึ้นครั้งเดียว ส่งให้เจ้าของบัญชีแล้วให้เขาเปลี่ยนเองในโปรไฟล์ · <b>ระงับ</b> เข้าสู่ระบบไม่ได้และถูกออกจากระบบทันที</p>
+    <div class="bar"><input type="search" id="memQ" placeholder="ค้นหาชื่อผู้ใช้ / ชื่อที่แสดง"><span id="memCount" class="note"></span></div>
+    <table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อที่แสดง</th><th>เกม / ชนะ</th><th>เพื่อน</th><th>สมัคร · เข้าล่าสุด</th><th></th></tr></thead><tbody id="mems"></tbody></table>
+    <div class="card" style="margin-top:12px"><h3>เกมออนไลน์ล่าสุดที่มีสมาชิกเล่น</h3><div id="memGames" class="note"></div></div>
   </section>
 
   <section id="bak">
@@ -318,10 +327,39 @@ $('#resetAll').onclick = async () => {
   try { await call('POST', '/admin/api/reset', {}); await refreshAll(); toast('คืนค่าเดิมแล้ว'); } catch (err) { fail(err); }
 };
 
+// ---------- members (server/accounts.mjs) ----------
+let MEM = null;
+async function loadMem() { try { MEM = await call('GET', `/admin/api/users?q=${encodeURIComponent($('#memQ').value.trim())}`); drawMem(); } catch (err) { $('#mems').innerHTML = `<tr><td colspan="6" class="err">${esc(err.message)}</td></tr>`; } }
+const day = (s) => (s ? new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
+function drawMem() {
+  const st = MEM.store;
+  $('#memStore').innerHTML = st.github
+    ? (st.state === 'error' ? `<div class="warn">⚠️ เก็บข้อมูลสมาชิกลง GitHub ไม่ได้: ${esc(st.error)}</div>` : `<p class="note">✅ ข้อมูลสมาชิกเก็บถาวร (เข้ารหัส) ใน GitHub branch admin-data ไฟล์ admin-data/accounts.bin${st.key ? '' : ' · ใช้กุญแจจาก GITHUB_TOKEN เพราะยังไม่ได้ตั้ง ACCOUNTS_KEY'}</p>`)
+    : '<div class="warn">⚠️ ข้อมูลสมาชิกยังไม่ถาวร: ตั้ง GITHUB_TOKEN (และ ACCOUNTS_KEY) ตาม server/README.md ไม่อย่างนั้นบัญชีหายเมื่อเซิร์ฟเวอร์ฟรีหลับ</div>';
+  $('#memCount').textContent = `ทั้งหมด ${MEM.total} คน`;
+  $('#mems').innerHTML = MEM.list.map((u) => `<tr data-uid="${esc(u.uid)}"${u.banned ? ' style="opacity:.6"' : ''}><td><b>${esc(u.user)}</b>${u.banned ? ' <span class="tag" style="background:var(--red)">ระงับ</span>' : ''}</td><td>${esc(u.name)}</td><td>${u.games} / ${u.wins}</td><td>${u.friends}</td><td class="note">${day(u.created)}<br>${day(u.last)}</td>
+    <td><div class="row"><button class="btn" data-m="rename">เปลี่ยนชื่อ</button><button class="btn" data-m="reset">ตั้งรหัสใหม่</button><button class="btn" data-m="${u.banned ? 'unban' : 'ban'}">${u.banned ? 'เลิกระงับ' : 'ระงับ'}</button><button class="btn danger" data-m="delete">ลบ</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="note">ยังไม่มีสมาชิก</td></tr>';
+  $('#memGames').innerHTML = MEM.matches.length ? MEM.matches.map((g) => `<div>${day(g.at)} · ห้อง ${esc(g.code)} · ${g.rounds} รอบ · ${g.players.map((p, i) => `${i + 1}. ${esc(p.name || 'บอท')} (${esc(p.master)}${p.winner ? ' 🏆' : ''} ${p.vp} VP)`).join(', ')}</div>`).join('') : 'ยังไม่มี';
+}
+$('#memQ').addEventListener('input', () => { clearTimeout(loadMem.t); loadMem.t = setTimeout(loadMem, 300); });
+$('#mems').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-m]'); if (!b) return;
+  const uid = b.closest('tr').dataset.uid, act = b.dataset.m, u = MEM.list.find((x) => x.uid === uid);
+  const body = { uid, act };
+  if (act === 'rename') { const n = prompt('ชื่อที่แสดงใหม่', u.name); if (!n) return; body.name = n; }
+  if (act === 'delete' && !confirm(`ลบบัญชี ${u.user}? ลบแล้วกู้คืนไม่ได้`)) return;
+  if (act === 'reset' && !confirm(`ตั้งรหัสผ่านใหม่ให้ ${u.user}? รหัสเดิมใช้ไม่ได้อีก`)) return;
+  try {
+    const r = await call('POST', '/admin/api/users/act', body);
+    if (r.pass) prompt(`รหัสผ่านใหม่ของ ${u.user} (คัดลอกส่งให้เจ้าของบัญชี ขึ้นครั้งเดียว)`, r.pass);
+    toast('เรียบร้อย'); loadMem();
+  } catch (err) { fail(err); }
+});
+
 async function refreshAll() {
   await load();
   $('#cssText').value = S.data.css || '';
-  drawPlay(); drawImgs(); drawSnds(); drawTxts(); drawDoms(); drawStore();
+  drawPlay(); drawImgs(); drawSnds(); drawTxts(); drawDoms(); drawStore(); loadMem();
 }
 (async () => {
   if (!key) { document.body.innerHTML = '<main><p>ไม่พบ</p></main>'; return; }
