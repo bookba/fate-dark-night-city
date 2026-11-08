@@ -1248,4 +1248,9 @@ export default {
   "ไม่พบคำขอนี้": "Request not found",
   "ที่นั่งนี้ถูกเปิดจากเครื่องอื่นแล้ว": "This seat was opened on another device",
   "หัวห้องเชิญคุณออกจากห้อง": "The host removed you from the room",
+  "ไคลแมกซ์ {0}": "Climax {0}",
+  "ทุกคนได้มานา +{0}": "Everyone gets Mana +{0}",
+  "อนิเมชันและเอฟเฟกต์": "Animations and effects",
+  "ป้ายเปลี่ยนเฟส หมากเคลื่อนที่ การ์ดลอย การต่อสู้ แต้ม VP · \"น้อย\" ไม่มีของลอยและจอสั่น": "Phase banners, moving pieces, flying cards, fights, VP numbers · \"Less\" has no flying pieces or shaking",
+  "น้อย": "Less",
 };
