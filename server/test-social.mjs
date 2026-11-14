@@ -15,7 +15,12 @@ async function start() {
   server = spawn(process.execPath, [fileURLToPath(new URL('./index.mjs', import.meta.url))], { env: { ...process.env, PORT: String(PORT), DATA_DIR: DATA, GITHUB_TOKEN: '' }, stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((r) => server.stdout.once('data', r));
 }
-const done = (code, msg) => { console.log(msg); server?.kill(); fs.rmSync(DATA, { recursive: true, force: true }); process.exit(code); };
+// the server saves its members when it is stopped (SIGTERM), so the test's folder goes once it has exited
+const done = (code, msg) => {
+  console.log(msg);
+  const end = () => { try { fs.rmSync(DATA, { recursive: true, force: true }); } catch { /* a temp folder: left to the system */ } process.exit(code); };
+  if (!server || server.exitCode !== null || server.signalCode !== null) end(); else { server.once('exit', end); server.kill(); }
+};
 setTimeout(() => done(1, 'FAIL: took more than 60 s'), 60_000).unref();
 let n = 0;
 const check = (ok, what) => { n++; if (!ok) done(1, `FAIL: ${what}`); };

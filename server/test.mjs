@@ -16,7 +16,15 @@ import path from 'node:path';
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'fdnc-test-')); // a members' store of its own, no GitHub
 const server = spawn(process.execPath, [fileURLToPath(new URL('./index.mjs', import.meta.url))], { env: { ...process.env, PORT: String(PORT), THINK_MS: '2000', DATA_DIR: DATA, GITHUB_TOKEN: '' }, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((r) => server.stdout.once('data', r));
-const stop = (code, msg) => { if (msg) console.log(msg); server.kill(); fs.rmSync(DATA, { recursive: true, force: true }); process.exit(code); };
+// the server saves its members when it is stopped (SIGTERM), so the test's folder goes once it has exited
+let stopping = false;
+const stop = (code, msg) => {
+  if (msg) console.log(msg);
+  if (stopping) return;
+  stopping = true;
+  const end = () => { try { fs.rmSync(DATA, { recursive: true, force: true }); } catch { /* a temp folder: left to the system */ } process.exit(code); };
+  if (server.exitCode !== null || server.signalCode !== null) end(); else { server.once('exit', end); server.kill(); }
+};
 setTimeout(() => stop(1, 'FAIL: the game did not end within 15 minutes'), 15 * 60_000).unref();
 
 let code = null;
