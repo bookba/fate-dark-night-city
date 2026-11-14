@@ -4,9 +4,11 @@
 // - OVR.strings[lang][key]: the language dictionary's texts (v5/i18n.js merges them in)
 // - OVR.dom[lang][shown text]: any other text on the page, swapped where it shows
 // - OVR.css: extra CSS · OVR.sounds[name]: a sound file (v5/sound.js) · pictures: swapped by the server
+// - OVR.theme: backgrounds and colours, turned into CSS here (themeCss) · OVR.game: the Servants'
+//   names and card numbers (v5/data.js applyGameEdits)
 const W = typeof window !== 'undefined' ? window : null;
 export const OVR = (W && W.__OVR && typeof W.__OVR === 'object') ? W.__OVR : {};
-OVR.strings ||= {}; OVR.dom ||= {}; OVR.sounds ||= {};
+OVR.strings ||= {}; OVR.dom ||= {}; OVR.sounds ||= {}; OVR.theme ||= {}; OVR.game ||= {};
 
 const doc = W && W.document;
 const lang = () => (doc && doc.documentElement.lang) || 'th';
@@ -81,11 +83,44 @@ export function applyTexts() {
 export const sourceOf = (n) => seen.get(n)?.src ?? n.nodeValue;
 export const attrSourceOf = (el, a) => attrSeen.get(el)?.[a]?.src ?? el.getAttribute(a);
 
+// ---------- backgrounds and colours (the admin page's "ฉากหลัง & สี") ----------
+// where each background goes; the admin page lists the same keys
+export const BG_PLACES = { page: 'body', map: '.map', dlg: '.dlg', pop: '.pop-dlg', side: '#dock, #standings, #logbox' };
+export const THEME_COLORS = ['night', 'night-2', 'night-3', 'line', 'bone', 'dim', 'seal', 'grail', 'mana'];
+const okColor = (c) => typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c);
+const okImage = (u) => typeof u === 'string' && /^\/(media\/[0-9a-f]{40}\.[a-z0-9]+|src\/art\/[\w./-]+\.(webp|png|jpe?g|gif|svg))$/i.test(u) && !u.includes('..');
+function bgCss(where, sel, b) {
+  if (!b || typeof b !== 'object') return '';
+  const dim = Math.max(0, Math.min(95, +b.dim || 0)) / 100;
+  const layers = [];
+  if (okImage(b.image)) {
+    if (dim) layers.push(`linear-gradient(rgba(6, 9, 18, ${dim}), rgba(6, 9, 18, ${dim}))`);
+    const fit = b.fit === 'contain' ? 'contain no-repeat' : b.fit === 'tile' ? 'auto repeat' : 'cover no-repeat';
+    const pos = ['top', 'bottom', 'center'].includes(b.pos) ? b.pos : 'center';
+    layers.push(`url("${b.image}") ${pos} / ${fit}${where === 'page' && b.fixed ? ' fixed' : ''}`);
+  }
+  if (okColor(b.color) && okColor(b.color2)) layers.push(`linear-gradient(${Math.round(+b.angle || 180)}deg, ${b.color}, ${b.color2})`);
+  if (!layers.length && !okColor(b.color)) return '';
+  const color = okColor(b.color) ? b.color : 'var(--night)';
+  let out = `${sel} { background: ${layers.length ? `${layers.join(', ')}, ` : ''}${color} !important; }\n`;
+  if (where === 'map') out += `${sel}::after { background: ${okImage(b.image) ? 'none' : `rgba(6, 9, 18, ${dim})`} !important; }\n`;
+  return out;
+}
+// places/root: the admin page's preview draws the same CSS on its own small copy of the screen
+export function themeCss(t = OVR.theme, places = BG_PLACES, root = ':root') {
+  if (!t || typeof t !== 'object') return '';
+  const vars = Object.entries(t.colors || {}).filter(([k, v]) => THEME_COLORS.includes(k) && okColor(v)).map(([k, v]) => `--${k}: ${v};`);
+  let out = vars.length ? `${root} { ${vars.join(' ')} }\n` : '';
+  for (const [k, sel] of Object.entries(places)) out += bgCss(k, sel, t.bg?.[k]);
+  return out;
+}
+
 let cssEl = null;
 export function applyCss() {
   if (!doc) return;
-  if (!cssEl) { if (!OVR.css) return; cssEl = doc.createElement('style'); cssEl.id = 'admin-css'; doc.head.appendChild(cssEl); }
-  cssEl.textContent = OVR.css || '';
+  const text = themeCss() + (OVR.css || '');
+  if (!cssEl) { if (!text) return; cssEl = doc.createElement('style'); cssEl.id = 'admin-css'; doc.head.appendChild(cssEl); }
+  cssEl.textContent = text;
 }
 
 if (doc) {

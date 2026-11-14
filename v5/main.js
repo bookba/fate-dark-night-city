@@ -15,6 +15,7 @@ import { sfx, setSound, unlockSound } from './sound.js';
 import { SV_ART, CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
 import { online, openOnline, onlineAgain, onlineAuto, barHtml } from './online.js';
+import { fxFrame, setFxLevel } from './fx.js';
 
 const $ = (s) => document.querySelector(s);
 // the two texts written in index.html, in the page's language
@@ -22,10 +23,13 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const PHASES = [['prep', T("เตรียมการ")], ['outpost', T("ตั้งมั่น")], ['action', T("ปฏิบัติการ")], ['combat', T("ต่อสู้")], ['end', T("จบรอบ")]];
 // the settings menu (paper 4.6 item 24), kept in this browser; the page works the same without storage
-const settings = { sound: 2, turnAlert: true, vibrate: true, sysNote: false, botSpeed: 'normal', strip: 'auto' };
+// anim (paper 4.6 item 27): 'full' · 'lite' · 'off'; a computer set to reduce motion starts with 'off'
+const reduceMotion = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } })();
+const settings = { sound: 2, turnAlert: true, vibrate: true, sysNote: false, botSpeed: 'normal', strip: 'auto', anim: reduceMotion ? 'off' : 'full' };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('dgw-settings') || '{}')); } catch { /* no storage: the defaults */ }
 const saveSettings = () => { try { localStorage.setItem('dgw-settings', JSON.stringify(settings)); } catch { /* not kept */ } };
 setSound(settings.sound);
+setFxLevel(settings.anim);
 // a short pause on each bot choice so the board can be followed (settings: bot speed, solo play)
 const BOT_PAUSE = { slow: 650, normal: 260, fast: 80 };
 const botDelay = () => BOT_PAUSE[settings.botSpeed] ?? 260;
@@ -145,7 +149,7 @@ const crown = (p, cls = '') => (lead.has(p) ? ic('crown', '', { v: crownV([p]), 
 // a round Master piece for the board; rank 1 wears a small crown on top
 function tok(p, note = '', o = {}) {
   const cls = `tok${p.isHuman ? ' me' : ''}${g.turn === p ? ' turn' : ''}`;
-  return `<span class="${cls}" style="--c:${p.m.color}" title="${esc(`${p.m.name}${p.isHuman ? T(" (คุณ)") : ''}${note}`)}">${esc(p.m.tok)}${o.noCrown ? '' : crown(p, 'crn')}</span>`;
+  return `<span class="${cls}" data-pid="${p.id}" style="--c:${p.m.color}" title="${esc(`${p.m.name}${p.isHuman ? T(" (คุณ)") : ''}${note}`)}">${esc(p.m.tok)}${o.noCrown ? '' : crown(p, 'crn')}</span>`;
 }
 const csDots = (n) => '◆'.repeat(Math.max(0, n)) || '–';
 // the Command Spells left as ◆◆◆, a tap says what they are
@@ -308,9 +312,22 @@ function render() {
   drawPop();
   drawChoice();
   fitPhone();
+  animate();
   if (me().out && !outShown && !g.over) { outShown = true; showOut(); }
   if (g.over && !overShown && !wait) { overShown = true; showOver(); }
   tutKick();
+}
+
+// the effects of what changed since the last drawing (fx.js, paper 4.6 item 27)
+const PHASE_NO = Object.fromEntries(PHASES.map(([k], i) => [k, i + 1]));
+function animate() {
+  const ban = {};
+  for (const k of ['outpost', 'action', 'combat']) ban[k] = [`${T("เฟส")} ${PHASE_NO[k]} · ${PHASES[PHASE_NO[k] - 1][1]}`, PHASE_TIP[k]];
+  fxFrame(g, {
+    started, skip, meId: me().id, myF: myBattle()?.f || null, resStep: RES_STEP, banners: ban, climax: g.climax(),
+    roundTitle: g.climax() ? T("ไคลแมกซ์ {0}", g.climaxNo()) : T("รอบ {0}/{1}", g.round, REGULAR),
+    roundSub: g.sit ? `${esc(g.sit.name)} · ${T("ทุกคนได้มานา +{0}", g.sit.mana)}` : '',
+  });
 }
 
 const stepNow = () => (g.step && g.phase && !g.over ? g.step : '');
@@ -752,6 +769,7 @@ function showSettings(back = null) {
   openModal(`<div class="dlg settings"><span class="eyebrow">${T("เมนู")}</span><h2>${T("ตั้งค่า")}</h2>
     <div class="setrow"><div><b>${T("ภาษา")} · Language</b><small>${started && !g.over && !online.on ? T("เปลี่ยนแล้วหน้าเว็บโหลดใหม่ เกมที่เล่นอยู่จะเริ่มใหม่") : T("เปลี่ยนแล้วหน้าเว็บโหลดใหม่")}</small></div>${langSeg()}</div>
     <div class="setrow"><div><b>${T("เสียงเอฟเฟกต์")}</b><small>${T("วางหมาก ย้าย ลงการ์ด ต่อสู้ เปิดชื่อจริง ถึงตาคุณ")}</small></div>${seg('sound', [[0, T("ปิด")], [1, T("เบา")], [2, T("กลาง")], [3, T("ดัง")]])}<button class="btn sm ghost" data-act="sndtest">${T("▶ ลองฟัง")}</button></div>
+    <div class="setrow"><div><b>${T("อนิเมชันและเอฟเฟกต์")}</b><small>${T("ป้ายเปลี่ยนเฟส หมากเคลื่อนที่ การ์ดลอย การต่อสู้ แต้ม VP · \"น้อย\" ไม่มีของลอยและจอสั่น")}</small></div>${seg('anim', [['full', T("เต็ม")], ['lite', T("น้อย")], ['off', T("ปิด")]])}</div>
     <div class="setrow"><div><b>${T("แจ้งเตือนเมื่อถึงตาคุณ")}</b><small>${T("ป้ายบนจอและเสียง")}</small></div>${onOff('turnAlert')}</div>
     <div class="setrow"><div><b>${T("สั่นเมื่อถึงตาคุณ")}</b><small>${T("มือถือที่สั่นได้")}</small></div>${onOff('vibrate')}</div>
     <div class="setrow"><div><b>${T("แจ้งเตือนเมื่อสลับไปแอปอื่น")}</b><small>${noteState || T("ขึ้นเป็นการแจ้งเตือนของเครื่อง · ชื่อแท็บขึ้น ● เสมอ")}</small></div>${canNote && Notification.permission !== 'denied' ? onOff('sysNote') : ''}</div>
@@ -763,6 +781,7 @@ function setSetting(k, raw) {
   const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
   if (!(k in settings)) return;
   settings[k] = v;
+  if (k === 'anim') setFxLevel(v);
   if (k === 'sound') { setSound(v); if (v) { unlockSound(); sfx('test'); } }
   if (k === 'sysNote' && v && 'Notification' in window && Notification.permission === 'default') {
     try { Notification.requestPermission().then(() => { if (Notification.permission !== 'granted') settings.sysNote = false; saveSettings(); if (!$('#modal').hidden && $('#modal .settings')) showSettings(settingsBack); }); } catch { settings.sysNote = false; }

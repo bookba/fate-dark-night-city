@@ -5,6 +5,7 @@
 // reports used in paper v3.0. ph = placeholder.
 
 import { T } from './i18n.js';
+import { OVR } from './custom.js';
 export const TYPES = { S: T("กำลัง"), A: T("ว่องไว"), M: T("เวท"), X: T("พิเศษ"), N: 'NP', Z: T("ไม่มีชนิด") };
 export const ALL_TYPES = ['S', 'A', 'M', 'X', 'N']; // Z (Archer Class) has no type, so it never matches one
 // a card can have more than one type [p.4]: c.types lists them, e.g. Excalibur is NP and Strength
@@ -236,3 +237,31 @@ export const EVENTS = [
   ev(T("หมอกหนา"), 2, { noTerrain: true }, T("ได้เปรียบพื้นที่ไม่มีผล")),
   ev(T("ผู้เห็นเหตุการณ์"), 2, { loserVP: 1 }, T("ผู้แพ้ได้ 1 VP")),
 ];
+
+// ---------- the admin page's changes to the Servants (server/admin.mjs, B 14 Nov 2026) ----------
+// OVR.game.servants[key] = { name, skills: { index: { power, mana } }, deck: { index: power } }.
+// Applied here on the page and, by server/admin.mjs, on the server too (it runs the online games),
+// always from the original values, so taking a change back is just applying again without it.
+// The texts of the cards are language texts (the admin page's strings), not here.
+const ORIG = SERVANTS.map((sv) => ({ name: sv.name, skills: sv.skills.map((c) => ({ power: c.power, mana: c.mana })), deck: sv.deck.map((c) => ({ power: c.power, mana: c.mana })) }));
+// a plain Strength / Agility / Magic card of the deck: its power can change, its mana follows (power − 3)
+export const plainCard = (c) => !!c && c.basic && !c.fx && !c.name && ['S', 'A', 'M'].includes(c.type);
+const num = (v, lo, hi) => (Number.isFinite(+v) && v !== '' && v != null ? Math.max(lo, Math.min(hi, Math.round(+v))) : null);
+export function applyGameEdits(game) {
+  const all = (game && game.servants) || {};
+  SERVANTS.forEach((sv, i) => {
+    const o = ORIG[i], e = all[sv.key] || {};
+    sv.name = typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 40) : o.name;
+    sv.skills.forEach((c, j) => {
+      const x = (e.skills && e.skills[j]) || {};
+      c.power = num(x.power, 0, 30) ?? o.skills[j].power;
+      c.mana = num(x.mana, 0, 12) ?? o.skills[j].mana;
+    });
+    sv.deck.forEach((c, j) => {
+      const p = plainCard(c) ? num(e.deck && e.deck[j], 0, 15) : null;
+      c.power = p ?? o.deck[j].power;
+      c.mana = p != null ? Math.max(0, p - 3) : o.deck[j].mana;
+    });
+  });
+}
+applyGameEdits(OVR.game);
