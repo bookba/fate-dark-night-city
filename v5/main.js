@@ -14,8 +14,8 @@ import { botDecide, destValue, gateTypes } from './bot.js';
 import { sfx, setSound, unlockSound } from './sound.js';
 import { SV_ART, CARD_ART } from './art.js';
 import { ICONS, ic, iconize, sprite, svg, WHEN_ICON } from './icons.js';
-import { online, openOnline, onlineAgain, onlineAuto, barHtml } from './online.js';
-import { fxFrame, setFxLevel } from './fx.js';
+import { online, openOnline, onlineAgain, onlineAuto, openHome, barHtml } from './online.js';
+import { fxFrame, fxClear, setFxLevel } from './fx.js';
 
 const $ = (s) => document.querySelector(s);
 // the two texts written in index.html, in the page's language
@@ -324,7 +324,7 @@ function animate() {
   const ban = {};
   for (const k of ['outpost', 'action', 'combat']) ban[k] = [`${T("เฟส")} ${PHASE_NO[k]} · ${PHASES[PHASE_NO[k] - 1][1]}`, PHASE_TIP[k]];
   fxFrame(g, {
-    started, skip, meId: me().id, myF: myBattle()?.f || null, resStep: RES_STEP, banners: ban, climax: g.climax(),
+    started, skip: skip || (!$('#modal').hidden && $('#modal').classList.contains('full')), meId: me().id, myF: myBattle()?.f || null, resStep: RES_STEP, banners: ban, climax: g.climax(),
     roundTitle: g.climax() ? T("ไคลแมกซ์ {0}", g.climaxNo()) : T("รอบ {0}/{1}", g.round, REGULAR),
     roundSub: g.sit ? `${esc(g.sit.name)} · ${T("ทุกคนได้มานา +{0}", g.sit.mana)}` : '',
   });
@@ -344,7 +344,7 @@ function drawHud() {
   $('#hud').innerHTML = `<span class="crest">DOMINATE GRAIL WAR</span>
     <div class="track"><b class="rl">${roundHtml()}${ph ? `<span class="ph"> · ${ph}${st ? `<span class="stc"> ${st}</span>` : ''}</span>` : ''}</b><ol class="steps" aria-label="${T("ขั้นของรอบ")}">${steps}</ol></div>
     ${stats}
-    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="rules" title="${T("กติกา")}" aria-label="${T("กติกา")}">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">${T("เกมใหม่")}</button><button class="btn sm ghost w-only icb" data-act="settings" title="${T("ตั้งค่า")}" aria-label="${T("ตั้งค่า")}">⚙</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">${T("เมนู")}</button></div>`;
+    <div class="hud-btns"><button class="btn sm ghost w-only icb" data-act="home" title="${T("ล็อบบี้")}" aria-label="${T("ล็อบบี้")}">🏠</button><button class="btn sm ghost w-only icb" data-act="rules" title="${T("กติกา")}" aria-label="${T("กติกา")}">${svg('rules')}</button><button class="btn sm ghost w-only" data-act="new">${T("เกมใหม่")}</button><button class="btn sm ghost w-only icb" data-act="settings" title="${T("ตั้งค่า")}" aria-label="${T("ตั้งค่า")}">⚙</button><button class="btn sm ghost n-only" data-act="pop" data-k="menu">${T("เมนู")}</button></div>`;
 }
 
 // one status line: whose turn it is and what to do; pop-ups open from here too
@@ -757,7 +757,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) docu
 document.addEventListener('pointerdown', () => { unlockSound(); const b = $('#turnban'); if (b) b.hidden = true; }, { capture: true });
 
 // ---------- settings (paper 4.6 item 24) ----------
-let settingsBack = null; // the start screen to go back to
+let settingsBack = null; // the screen to go back to: 'start' (the Master picker) or 'home' (the front page)
 // the language buttons (B 6 Nov 2026): settings and the start screen
 const langSeg = (cls = '') => `<div class="seg langs${cls}" role="group" aria-label="Language">${Object.entries(LANGS).map(([k, n]) => `<button class="btn sm${lang() === k ? ' on' : ''}" data-act="lang" data-l="${k}" lang="${k}" aria-pressed="${lang() === k}">${n}</button>`).join('')}</div>`;
 function showSettings(back = null) {
@@ -775,7 +775,7 @@ function showSettings(back = null) {
     <div class="setrow"><div><b>${T("แจ้งเตือนเมื่อสลับไปแอปอื่น")}</b><small>${noteState || T("ขึ้นเป็นการแจ้งเตือนของเครื่อง · ชื่อแท็บขึ้น ● เสมอ")}</small></div>${canNote && Notification.permission !== 'denied' ? onOff('sysNote') : ''}</div>
     <div class="setrow"><div><b>${T("ความเร็วบอท")}</b><small>${T("เล่นคนเดียว · ออนไลน์ไม่มีผล")}</small></div>${seg('botSpeed', [['slow', T("ช้า")], ['normal', T("ปกติ")], ['fast', T("เร็ว")]])}</div>
     <div class="setrow"><div><b>${T("แถบอันดับบนกระดาน (มือถือ)")}</b><small>${T("ถ้าไม่พอดีจอจะซ่อนเอง · ดูได้ที่ปุ่ม \"อันดับ\"")}</small></div>${seg('strip', [['auto', T("แสดงเมื่อพอดี")], ['off', T("ซ่อน")]])}</div>
-    <div class="acts"><button class="btn primary" data-act="setdone">${back ? T("กลับ") : T("ปิด")}</button></div></div>`);
+    <div class="acts"><button class="btn primary" data-act="setdone">${back ? T("กลับ") : T("ปิด")}</button></div></div>`, !!back);
 }
 function setSetting(k, raw) {
   const v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
@@ -906,7 +906,7 @@ function popBody() {
   if (k === 'rank') { const s = standingsHtml(); return { title: T("อันดับ VP ของทุกคน"), sub: s.sub, html: s.html }; }
   if (k === 'log') return { title: T("บันทึกสงคราม"), html: `<div class="loglist">${logHtml()}</div>` };
   if (k === 'sit') return sitPop();
-  if (k === 'menu') return { title: T("เมนู"), html: `<div class="menu"><button class="btn" data-act="rules">${T("กติกา")}</button><button class="btn" data-act="icons">${T("ไอคอนทั้งหมด")}</button><button class="btn" data-act="new">${T("เกมใหม่ · เปลี่ยน Master")}</button><button class="btn" data-act="settings">${T("⚙ ตั้งค่า")}</button></div>` };
+  if (k === 'menu') return { title: T("เมนู"), html: `<div class="menu"><button class="btn" data-act="home">${T("🏠 ล็อบบี้")}</button><button class="btn" data-act="rules">${T("กติกา")}</button><button class="btn" data-act="icons">${T("ไอคอนทั้งหมด")}</button><button class="btn" data-act="new">${T("เกมใหม่ · เปลี่ยน Master")}</button><button class="btn" data-act="settings">${T("⚙ ตั้งค่า")}</button></div>` };
   return null;
 }
 
@@ -1767,8 +1767,9 @@ function pcardPop(id, key) {
 }
 
 // ---------- overlays ----------
-function openModal(html) { $('#modal').innerHTML = html; $('#modal').hidden = false; }
-function closeModal() { $('#modal').hidden = true; $('#modal').innerHTML = ''; }
+// full: a page of its own (the front page's background), not a window over the board
+function openModal(html, full = false) { const m = $('#modal'); m.innerHTML = html; m.classList.toggle('full', full); m.hidden = false; if (full) fxClear(); }
+function closeModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; m.classList.remove('full'); }
 function closeSheet() { $('#sheet').hidden = true; $('#sheet').innerHTML = ''; }
 
 function showStart() {
@@ -1786,7 +1787,7 @@ function showStart() {
     <h2>${T("เลือก Servant")} <small class="dim">${T("เลือกเองเพื่อทดลองเล่น หรือ 🎲 สุ่มแบบเกมจริง")}</small></h2><div class="servants">${ss}</div>
     <p class="lede">${T("Servant เป็นความลับจนกว่าจะเปิดชื่อจริง · คนอื่นสุ่มจาก Servant ที่เหลือ · แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่น · แตะชื่อในอันดับเพื่อดูผู้เล่นคนนั้น · ความสามารถและพลังการ์ดตาม Fate/Domination ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน")}</p>
     <label class="check opt-sample"><input type="checkbox" id="opt-sample"${setup.sample ? ' checked' : ''}> ${T("ใส่การ์ดตัวอย่าง {0} ใบให้ทุกคน (ทดลองช่วงใช้การ์ดของกระดาษข้อ 9 · ไม่ใช่การ์ดจริง)", SAMPLE.length + 1)}</label>
-    <div class="acts">${started && !g.over ? `<button class="btn ghost" data-act="close">${T("กลับไปเล่นต่อ")}</button>` : ''}<button class="btn" data-act="online">${T("🌐 เล่นออนไลน์")}</button><button class="btn" data-act="rules">${T("อ่านกติกา")}</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="${T("เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น")}">${T("สอนเล่น")}</button><button class="btn primary" data-act="start">${started ? T("เริ่มเกมใหม่") : T("เริ่มสงคราม")}</button></div></div>`);
+    <div class="acts"><button class="btn ghost" data-act="home">${T("← ล็อบบี้")}</button>${started && !g.over ? `<button class="btn ghost" data-act="close">${T("กลับไปเล่นต่อ")}</button>` : ''}<button class="btn" data-act="rules">${T("อ่านกติกา")}</button><button class="btn${tutDone() ? '' : ' tut-new'}" data-act="tutorial" title="${T("เล่นรอบแรกเป็นชิโร่กับ Saber พร้อมผู้สอนทีละขั้น")}">${T("สอนเล่น")}</button><button class="btn primary" data-act="start">${started ? T("เริ่มเกมใหม่") : T("เริ่มสงคราม")}</button></div></div>`, true);
 }
 
 let summonGo = null;
@@ -1823,8 +1824,8 @@ function iconPage() {
     <p class="row-lab">${T("ชนิดการ์ด")}</p><ul class="iconlist">${types}</ul>
     <p class="row-lab">${T("ขั้นของรอบ")}</p><ul class="iconlist"><li><span class="ic pn"><b>3</b></span><b>${T("เฟส")}</b><span>${T("เลข 1–5 บนแถบบน แตะดูชื่อ · เฟสตอนนี้มีชื่อและเลขขั้น เช่น 3.4")}</span></li><li><span class="ic c-grail stc"><b>3.1</b></span><b>${T("ช่วงใช้การ์ด")}</b><span>${T("บนการ์ดที่ใช้นอกการลงการ์ด เลขคือขั้นของรอบ (ข้อ 8.0)")}</span></li></ul></div>`;
 }
-function showRules(at) {
-  const back = !started ? 'back-start' : summonGo ? 'go-summon' : 'close';
+function showRules(at, backTo = null) {
+  const back = backTo || (!started ? 'back-start' : summonGo ? 'go-summon' : 'close');
   openModal(`<div class="dlg narrow"><span class="eyebrow">${T("กติกาแบบย่อ · ตามคู่มือ")}</span><h2>${T("วิธีเล่น")}</h2><div class="rules">
     <div><h3>${T("เป้าหมาย")}</h3><p>${T("เก็บ VP จากการชนะในสนามรบและการลาดตระเวน · รอบปกติ {0} รอบ แล้วเล่นรอบไคลแมกซ์จนเหลือคนเดียว · จบรอบ {1} เหลือ 4 คน · จบไคลแมกซ์แรกเหลือ 2 คน · จบไคลแมกซ์ \"เหลือ 2 คน\" เหลือ 1 คน = ผู้ชนะ ·", REGULAR, REGULAR)} <b>${T("แต้มเท่ากันที่เส้นตัด ออกทุกคน")}</b></p></div>
     <div><h3>${T("หนึ่งรอบ")}</h3><ol>
@@ -1843,7 +1844,7 @@ function showRules(at) {
     <div><h3>${T("หน้าจอ")}</h3><p>${T("แตะพื้นที่บนกระดานเพื่อดูรายละเอียดและเลือกทำแอคชั่นที่นั่น · ตอนลงการ์ดหน้าลงการ์ดจะเปิดเอง กด ▾ พับหน้าต่างเพื่อดูกระดาน · ตอนสู้ พื้นที่ของคุณกลายเป็นหน้าต่างต่อสู้ที่บอกว่าใครอยู่ ลงการ์ดอะไร และพลังเท่าไร · การ์ดในมืออยู่ใต้กระดานเสมอ ปุ่ม \"ดูเดค\" ท้ายแถบเปิดรายละเอียดการ์ดทุกใบ · แตะชื่อในอันดับ VP เพื่อดูข้อมูลเปิดของคนนั้น เปิดชื่อจริงแล้วเห็นความสามารถและการ์ดในสำรับ Servant ทั้งหมด · ป้าย \"สกิล Servant\" และ \"สกิล Master\" บอกว่าการ์ดมาจากช่องสกิลของใคร · ข้อความที่ยาวเกินกระดานกด ▸ · 👑 คืออันดับ 1 (VP มากสุดตอนนี้) อยู่บนหมาก ชื่อพื้นที่ และอันดับ · บนมือถือการ์ดของคุณ อันดับ และบันทึกอยู่ที่ปุ่มด้านล่าง")}</p></div>
     ${iconPage()}
     <p class="dim">${T("อ้างอิงกระดาษออกแบบ v5.2 · ความสามารถ Master และการ์ด Servant ตาม Fate/Domination · ตัวเลขที่วิกิไม่บอก การ์ดสถานการณ์ และการ์ดอีเวนต์เป็นค่าแทน")}</p></div>
-    <div class="acts"><button class="btn primary" data-act="${back}">${T("ปิด")}</button></div></div>`);
+    <div class="acts"><button class="btn primary" data-act="${back}">${T("ปิด")}</button></div></div>`, back === 'back-home' || back === 'back-start');
   if (at) requestAnimationFrame(() => $(`#modal #${at}`)?.scrollIntoView({ block: 'start' }));
 }
 
@@ -1886,7 +1887,7 @@ function showOver() {
   openModal(`<div class="dlg narrow"><span class="eyebrow">${T("Heaven's Feel · จบเกม")}</span>
     <h2>${meWon ? T("คุณชนะสงครามจอกศักดิ์สิทธิ์") : T("{0} ชนะ", esc(g.winner ? g.winner.name : T("ไม่มีใคร")))}</h2>
     <p class="lede">${esc(g.how)}</p><ol class="st">${rows}</ol>
-    <div class="acts"><button class="btn" data-act="pickmaster">${T("เปลี่ยน Master")}</button><button class="btn" data-act="close">${T("ดูกระดาน")}</button><button class="btn primary" data-act="again">${T("เล่นอีกครั้ง")}</button></div></div>`);
+    <div class="acts"><button class="btn ghost" data-act="home">${T("🏠 ล็อบบี้")}</button><button class="btn" data-act="pickmaster">${T("เปลี่ยน Master")}</button><button class="btn" data-act="close">${T("ดูกระดาน")}</button><button class="btn primary" data-act="again">${T("เล่นอีกครั้ง")}</button></div></div>`);
 }
 
 // ---------- the tutorial (paper 4.6 item 12) ----------
@@ -2222,6 +2223,8 @@ document.addEventListener('click', (ev) => {
     case 'bigart': showBig(t.dataset.src, t.querySelector('img')?.alt); break;
     case 'new': case 'pickmaster': pop = null; popBack = null; drawPop(); if (online.on) onlineAgain(); else showStart(); break;
     case 'online': openOnline(); break;
+    case 'home': pop = null; popBack = null; drawPop(); openHome(); break;
+    case 'back-home': openHome(); break;
     case 'master': case 'servant': { const y = $('#modal').scrollTop; if (act === 'master') setup.master = t.dataset.m; else setup.servant = t.dataset.s; showStart(); $('#modal').scrollTop = y; break; }
     case 'start': case 'again': if (online.on) { onlineAgain(); break; } closeModal(); startGame(); break;
     case 'tutorial': closeModal(); startGame(true); break;
@@ -2245,7 +2248,7 @@ document.addEventListener('click', (ev) => {
     case 'set': setSetting(t.dataset.k, t.dataset.v); break;
     case 'lang': if (t.dataset.l !== lang()) setLang(t.dataset.l); break;
     case 'sndtest': unlockSound(); sfx('test'); break;
-    case 'setdone': if (settingsBack === 'start') showStart(); else closeModal(); break;
+    case 'setdone': if (settingsBack === 'start') showStart(); else if (settingsBack === 'home') openHome(); else closeModal(); break;
     case 'popclose': closePop(); break;
     case 'cardinfo': if (pop?.k === 'card') { pop.f = +t.dataset.uid; render(); } else openPop({ k: 'card', f: +t.dataset.uid }); break;
     case 'pwrow': { // a row of the battle window: where that Master's power comes from (paper 4.6 item 9)
@@ -2368,7 +2371,7 @@ document.addEventListener('keydown', (ev) => {
   if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && ['card', 'player', 'pcard', 'pw'].includes(pop?.k) && !pop.min) $(`#pop .cv-nav button:${ev.key === 'ArrowLeft' ? 'first' : 'last'}-of-type`)?.click();
 });
 
-// first screen: an empty board behind the Master picker
+// first screen: an empty board behind the front page
 // ---------- online play (online.js): the server runs the game, this page draws its copy ----------
 online.hooks = {
   esc, openModal, closeModal, toast, render: later, game: () => g, draft: () => draft, event: onEvent,
@@ -2387,14 +2390,23 @@ online.hooks = {
     if (pop && ['act', 'opts', 'area', 'win'].includes(pop.k)) pop = null;
     popBack = null; closeSheet(); render();
   },
-  offline() { // left the room: back to the start page against bots
+  offline() { // left the room: an empty board (online.js shows the front page over it)
     started = false;
     g = new Game({ decide: () => new Promise(() => {}), onEvent: () => {}, humanMaster: setup.master });
-    render(); showStart();
+    render();
   },
+  // the front page's menu
+  showStart, // เล่นกับบอท: the Master and Servant picker
+  tutorial() { closeModal(); startGame(true); },
+  rules() { showRules(undefined, 'back-home'); },
+  settings() { showSettings('home'); },
+  langSeg: () => langSeg(' hm-lang'),
+  tutDone,
+  playing: () => started && !g.over && !online.on, // a game against bots to go back to
+  resumeInfo: () => `${tut ? T("สอนเล่น") : T("เกมกับบอท")} · ${me().m.short} · ${roundLabel()}`,
 };
 
 document.body.insertAdjacentHTML('afterbegin', sprite()); // the icon drawings, once
 g = new Game({ decide: () => new Promise(() => {}), onEvent: () => {}, humanMaster: setup.master });
 render();
-if (!onlineAuto()) showStart();
+if (!onlineAuto()) openHome(); // the front page: a lobby with a menu (B, 14 Nov 2026)

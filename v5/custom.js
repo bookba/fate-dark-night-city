@@ -85,7 +85,8 @@ export const attrSourceOf = (el, a) => attrSeen.get(el)?.[a]?.src ?? el.getAttri
 
 // ---------- backgrounds and colours (the admin page's "ฉากหลัง & สี") ----------
 // where each background goes; the admin page lists the same keys
-export const BG_PLACES = { page: 'body', map: '.map', dlg: '.dlg', pop: '.pop-dlg', side: '#dock, #standings, #logbox' };
+// (lobby: the front page and the other pages of their own; dlg: every window, and the front page's panel)
+export const BG_PLACES = { page: 'body', lobby: '#modal.full', map: '.map', dlg: '.dlg:not(.home), .hm-panel', pop: '.pop-dlg', side: '#dock, #standings, #logbox' };
 export const THEME_COLORS = ['night', 'night-2', 'night-3', 'line', 'bone', 'dim', 'seal', 'grail', 'mana'];
 const okColor = (c) => typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c);
 const okImage = (u) => typeof u === 'string' && /^\/(media\/[0-9a-f]{40}\.[a-z0-9]+|src\/art\/[\w./-]+\.(webp|png|jpe?g|gif|svg))$/i.test(u) && !u.includes('..');

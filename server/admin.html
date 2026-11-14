@@ -213,6 +213,10 @@
   .pv-pop .t { font-weight: 600; }
   .pv-btn { justify-self: start; background: var(--seal); color: #fff; border-radius: 6px; padding: 2px 8px; font-weight: 600; font-size: 11px; }
   .pv-dim { color: var(--dim); }
+  .pv-lobby { background: radial-gradient(420px 220px at 88% -10%, color-mix(in srgb, var(--grail) 14%, transparent), transparent 62%), radial-gradient(380px 260px at -12% 112%, color-mix(in srgb, var(--seal) 16%, transparent), transparent 60%), var(--night); color: var(--bone); padding: 10px; display: grid; gap: 6px; font-size: 12px; border-top: 1px solid var(--line); }
+  .pv-lobby .t { font: 700 14px/1.1 var(--ff-crest); letter-spacing: .08em; color: var(--grail); }
+  .pv-menu { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pv-menu span { border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; background: var(--night-3); }
 
   #cssText { min-height: 360px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 
@@ -323,7 +327,7 @@
               <div class="pv-dlg"><span class="t">หน้าเริ่มเกม</span><span class="pv-dim">หน้าต่างใหญ่: เริ่ม เลือก Servant ผลลัพธ์</span><span class="pv-btn">เริ่มเกม</span></div>
               <div class="pv-pop"><span class="t">ป๊อปอัป</span><span class="pv-dim">แตะพื้นที่หรือการ์ด</span></div>
             </div>
-          </div></div>
+          </div><div class="pv-lobby"><span class="t">DOMINATE GRAIL WAR</span><span class="pv-dim">หน้าแรก (ล็อบบี้)</span><div class="pv-menu"><span>🌐 เล่นออนไลน์</span><span>🤖 เล่นกับบอท</span><span>🎓 สอนเล่น</span><span>⚙ ตั้งค่า</span></div></div></div>
           <p class="note" style="margin-top:8px">ภาพตัวอย่างโดยประมาณ ดูของจริงได้ที่ <a href="/v5/" target="_blank">หน้าเกม</a> หลังบันทึก</p>
         </div>
       </div>
@@ -600,8 +604,9 @@ $('#svEd').addEventListener('click', async (e) => {
 // ---------- backgrounds and colours ----------
 const PLACES = [
   ['page', '🌌 ฉากหลังหน้าเกม', 'พื้นหลังทั้งหน้า อยู่หลังทุกอย่าง'],
+  ['lobby', '🏰 หน้าแรก (ล็อบบี้)', 'หน้าแรกที่มีเมนู ห้องรอเล่น และหน้าเลือก Master'],
   ['map', '🗺️ กระดาน (แผนที่ฟุยุกิ)', 'กรอบแผนที่ที่มีโรงฝึกเวท มิยามะ ชินโตะ ลาดตระเวน'],
-  ['dlg', '📜 หน้าต่างใหญ่', 'หน้าเริ่มเกม เลือก Servant ตั้งค่า ผลลัพธ์ จบเกม'],
+  ['dlg', '📜 หน้าต่างใหญ่', 'หน้าเลือก Master ตั้งค่า ผลลัพธ์ จบเกม และกรอบข้างเมนูในหน้าแรก'],
   ['pop', '🪟 ป๊อปอัป', 'หน้าต่างที่ขึ้นเมื่อแตะพื้นที่ การ์ด หรือผู้เล่น'],
   ['side', '📋 แผงข้าง', 'Master ของคุณ อันดับ และบันทึกสงคราม'],
 ];
@@ -612,7 +617,7 @@ const COLORS = [
 let TH = null; // the theme being edited, saved with the button
 const clone = (o) => JSON.parse(JSON.stringify(o || {}));
 const modeOf = (b) => (!b ? 'off' : b.image ? 'image' : b.color2 ? 'grad' : 'color');
-const PV = { page: '#pv .pv-page', map: '#pv .pv-map', dlg: '#pv .pv-dlg', pop: '#pv .pv-pop', side: '#pv .pv-side' };
+const PV = { page: '#pv .pv-page', lobby: '#pv .pv-lobby', map: '#pv .pv-map', dlg: '#pv .pv-dlg', pop: '#pv .pv-pop', side: '#pv .pv-side' };
 function presets() { // the game's own big pictures, as ready-made backgrounds
   return S.pictures.filter((p) => /^\/src\/art\/(map|servants)\//.test(p.path)).map((p) => p.path);
 }

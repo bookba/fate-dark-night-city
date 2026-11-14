@@ -8,6 +8,11 @@
 // games, the room list with quick join, the lobby chat, the room chat (also during the game, 💬 in
 // the bar), friends (online, in which room, invite), and the ranking. The server side is
 // server/hub.mjs and server/accounts.mjs.
+//
+// The front page (B, 14 Nov 2026: "เราจะทำ index เป็นล็อบบี้ ที่มีเมนูให้เลือก"): the site opens on a
+// lobby with the game's name, who you are, and a menu: play online (the rooms), against bots, the
+// tutorial, the rules, friends, the ranking, the chat, the settings. home() below; main.js has 🏠
+// during a game, and "▶ เล่นต่อ" on the menu goes back to it.
 import { T, TX } from './i18n.js';
 // the server's texts come in Thai (errors, default names, the war log of the events): shown in the page's language
 const txDeep = (v) => (typeof v === 'string' ? TX(v) : Array.isArray(v) ? v.map(txDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, txDeep(x)])) : v);
@@ -32,13 +37,17 @@ export const online = {
 // the member side: who you are, the lobby, friends, chat
 const acc = {
   me: null, known: false, // known: the server answered "hello"
-  view: 'rooms', // rooms | chat | friends | top | profile | auth
+  view: 'rooms', // the front page's panel: rooms | chat | friends | top | profile | auth
+  home: false, // sitting in a room, but looking at the front page
+  over: null, // profile | friends | top | auth: opened from inside the room, over it ("กลับไปที่ห้อง")
+  panelOpen: false, // phones: the panel shows instead of the menu
   authMode: 'login', authErr: '', busy: false,
   rooms: null, friends: { list: [], in: [], out: [] }, top: null,
   prof: null, profQ: '', edit: false,
   back: null, // your seat in a room, open on another page or device
   chat: { lobby: [], room: [] }, unread: 0, chatOpen: false,
   opened: false, // the connection has worked once (so it is worth reconnecting)
+  down: false, // the server could not be reached
 };
 const H = () => online.hooks;
 const esc = (s) => H().esc(s);
@@ -56,9 +65,9 @@ function connect(first) {
   try { ws = new WebSocket(wsUrl()); } catch { fail(); return; }
   online.ws = ws;
   ws.addEventListener('open', () => {
-    online.tries = 0; acc.opened = true;
+    online.tries = 0; acc.opened = true; acc.down = false;
     ws.send(JSON.stringify({ t: 'hello', token: accToken() })); // who you are, first
-    if (!online.on) ws.send(JSON.stringify({ t: 'rooms', on: true }));
+    if (!online.on || acc.home) ws.send(JSON.stringify({ t: 'rooms', on: true }));
     first();
   });
   ws.addEventListener('message', (ev) => { let m; try { m = JSON.parse(ev.data); } catch { return; } onMsg(m); });
@@ -75,11 +84,14 @@ function connect(first) {
   });
 }
 function fail() {
-  online.note = T("ต่อเซิร์ฟเวอร์เกมไม่ได้ · เล่นออนไลน์ได้เมื่อเปิดเกมจากเว็บของเซิร์ฟเวอร์ (ดู server/README.md)");
+  acc.down = true; acc.busy = false;
   if (showing()) lobby();
 }
 const $m = () => document.querySelector('#modal');
 const showing = () => !$m().hidden && !!$m().querySelector('.dlg.online');
+// the page came from a web server, so there can be a game server (not a file opened on the computer)
+const canNet = () => /^https?:$/.test(location.protocol) || !!new URLSearchParams(location.search).get('server');
+const netDown = () => acc.down && online.ws?.readyState !== 1;
 // the address shows ?room=CODE while in a room, so it can be shared or reloaded
 function setUrl(code) {
   const q = new URLSearchParams(location.search);
@@ -101,17 +113,19 @@ function onMsg(m) {
   if (m.t === 'joined') {
     if (online.code && online.code !== m.code) leftRoom(true); // another room: the last one's game is not this one
     online.on = true; online.code = m.code; online.token = m.token; online.note = '';
-    acc.back = null; acc.chat.room = []; acc.unread = 0; acc.view = 'room';
+    acc.back = null; acc.chat.room = []; acc.unread = 0; acc.home = false; acc.over = null;
     save({ code: m.code, token: m.token, name: load().name });
     setUrl(m.code);
     send({ t: 'rooms', on: false });
     return;
   }
   if (m.t === 'lobby') {
+    const first = !online.room;
     online.room = m;
     badge();
-    // the lobby shows before the first game, or when you asked to see it
-    if (online.wantLobby || (!m.playing && !m.over)) lobby();
+    // the room shows as you come in, before the first game, or when you asked to see it, but not
+    // over the rules or the settings opened from the front page
+    if (first || ((online.wantLobby || (!m.playing && !m.over)) && (showing() || $m().hidden))) lobby();
     return;
   }
   if (m.t === 'state') { onState(m); return; }
@@ -122,28 +136,34 @@ function onMsg(m) {
     if (m.token) accSave(m.token);
     if (!m.me && (m.expired || was)) accSave('');
     if (m.back !== undefined) acc.back = m.back && m.back.code !== online.code ? m.back : null;
-    if (m.me && acc.view === 'auth') { acc.view = 'rooms'; acc.authErr = ''; }
-    if (!m.me && ['friends', 'profile'].includes(acc.view) && acc.prof?.rel === 'me') acc.view = 'rooms';
+    if (m.me && acc.over === 'auth') { acc.over = null; acc.authErr = ''; }
+    if (m.me && acc.view === 'auth') { acc.view = 'rooms'; acc.panelOpen = false; acc.authErr = ''; } // logged in: back to the menu
+    if (!m.me && ['friends', 'profile'].includes(acc.view) && acc.prof?.rel === 'me') { acc.view = 'rooms'; acc.panelOpen = false; }
     if (acc.prof && m.me && acc.prof.uid === m.me.uid) acc.prof = { ...acc.prof, ...m.me };
     redraw();
     return;
   }
-  if (m.t === 'autherr') { acc.authErr = m.msg; acc.busy = false; if (!acc.me && acc.view !== 'auth' && showing()) acc.view = 'auth'; redraw(); return; }
+  if (m.t === 'autherr') {
+    acc.authErr = m.msg; acc.busy = false;
+    if (!acc.me && showing()) { if (inRoomView()) acc.over = 'auth'; else { acc.view = 'auth'; acc.panelOpen = true; } }
+    redraw();
+    return;
+  }
   if (m.t === 'note') { H().toast(m.msg, m.ok ? 'reveal' : ''); return; }
-  if (m.t === 'rooms') { acc.rooms = m.list; if (acc.view === 'rooms' && !online.on) redraw(); return; }
-  if (m.t === 'friends') { acc.friends = m; if (acc.view === 'friends' || online.on) redraw(); return; }
-  if (m.t === 'top') { acc.top = m.list; if (acc.view === 'top') redraw(); return; }
+  if (m.t === 'rooms') { acc.rooms = m.list; if (!online.on || acc.home) redraw(); return; } // the menu counts the rooms too
+  if (m.t === 'friends') { acc.friends = m; redraw(); return; }
+  if (m.t === 'top') { acc.top = m.list; redraw(); return; }
   if (m.t === 'profile') { if (m.q === acc.profQ) { acc.prof = m.p || { missing: true }; redraw(); } return; }
   if (m.t === 'chatlog') { acc.chat[m.ch] = m.list || []; redraw(); drawChat(); return; }
   if (m.t === 'chat') {
     const list = acc.chat[m.ch];
     list.push(m.msg);
     if (list.length > 80) list.shift();
-    if (m.ch === 'room' && !acc.chatOpen && !(showing() && online.on) && m.msg.from?.uid !== acc.me?.uid) { acc.unread++; badge(); }
+    if (m.ch === 'room' && !acc.chatOpen && !(showing() && inRoomView()) && m.msg.from?.uid !== acc.me?.uid) { acc.unread++; badge(); }
     addChatLine(m.ch, m.msg);
     return;
   }
-  if (m.t === 'friendreq') { notice(T("{0} ขอเป็นเพื่อนกับคุณ", m.from.name), [[T("ดูคำขอ"), () => { acc.view = 'friends'; openOnline(); }]]); return; }
+  if (m.t === 'friendreq') { notice(T("{0} ขอเป็นเพื่อนกับคุณ", m.from.name), [[T("ดูคำขอ"), () => view('friends')]]); return; }
   if (m.t === 'invited') {
     if (m.code === online.code) return;
     notice(T("{0} ชวนคุณเข้าห้อง {1}", m.from.name, m.title || m.code), [[T("เข้าห้อง"), () => joinRoom(m.code)]]);
@@ -160,7 +180,7 @@ function leftRoom(keepBoard = false) {
 
 function onState(m) {
   const fresh = m.game !== online.gameNo;
-  if (fresh) { online.gameNo = m.game; online.mirror = new Mirror(); online.asked = null; online.wantLobby = false; }
+  if (fresh) { online.gameNo = m.game; online.mirror = new Mirror(); online.asked = null; online.wantLobby = false; acc.home = false; acc.over = null; }
   const root = online.mirror.apply(m.data, m.full);
   online.me = m.me; online.turn = m.turn; online.turnAt = Date.now(); online.people = m.people || {};
   if (fresh) H().begin(root.g); else H().render();
@@ -210,7 +230,8 @@ export function openOnline() {
   online.wantLobby = true;
   const s = load();
   const code = new URLSearchParams(location.search).get('room');
-  if (online.on) { lobby(); return; }
+  if (online.on) { acc.home = false; acc.over = null; lobby(); return; }
+  acc.view = 'rooms'; acc.panelOpen = true;
   if (s.code && s.token && (!code || code.toUpperCase() === s.code)) { lobby(T("กำลังกลับเข้าห้อง…")); connect(() => send({ t: 'resume', code: s.code, token: s.token })); return; }
   online.note = '';
   lobby(online.ws?.readyState === 1 ? '' : T("กำลังต่อเซิร์ฟเวอร์…"));
@@ -225,7 +246,8 @@ function joinRoom(code) {
 
 // Draws the modal again, keeping what was being typed, the focus and the scroll (the lobby is
 // drawn again whenever the room, the list or the chat changes).
-function paint(html) {
+let painted = ''; // the screen drawn last
+function paint(html, full = true, key = '') {
   const m = $m();
   const keep = {};
   let focus = null, sel = null, top = 0;
@@ -238,7 +260,9 @@ function paint(html) {
     top = m.scrollTop;
     for (const l of m.querySelectorAll('.onlog[id]')) logs[l.id] = l.scrollHeight - l.scrollTop - l.clientHeight < 30;
   }
-  H().openModal(html);
+  H().openModal(html, full);
+  if (key !== painted) top = 0; // another screen: from its top
+  painted = key;
   for (const [id, v] of Object.entries(keep)) { if (id === 'pubChecked') continue; const i = m.querySelector(`#${id}`); if (i) i.value = v; }
   if (keep.pubChecked !== undefined && m.querySelector('#on-pub')) m.querySelector('#on-pub').checked = keep.pubChecked;
   if (focus) { const f = m.querySelector(`#${focus}`); if (f) { f.focus({ preventScroll: true }); try { if (sel) f.setSelectionRange(sel[0], sel[1]); } catch { /* not a text box */ } } }
@@ -246,19 +270,91 @@ function paint(html) {
   for (const l of m.querySelectorAll('.onlog')) if (logs[l.id] !== false) l.scrollTop = l.scrollHeight;
 }
 
-// what the modal shows: the room you are in, or the lobby (rooms, chat, friends, ranking); a
-// profile, the friends, the ranking or logging in, asked from inside a room, open over it with
-// "กลับไปที่ห้อง"
+// what the modal shows: the room you are in, or the front page (home() below); a profile, the
+// friends, the ranking or logging in, asked from inside the room, open over it with "กลับไปที่ห้อง"
 const OVER = ['profile', 'friends', 'top', 'auth'];
+const inRoomView = () => !!(online.on && online.room && !acc.home);
 function lobby(wait = '') {
-  if (online.on && online.room && OVER.includes(acc.view)) { over(); return; }
+  if (!inRoomView()) { home(wait); return; }
+  if (OVER.includes(acc.over)) { over(); return; }
+  const r = online.room;
   const note = wait || online.note;
-  const body = online.on && online.room ? roomView() : homeView();
-  const acts = online.on && online.room
-    ? `<button class="btn ghost" data-act="on-leave">${T("ออกจากห้อง")}</button>${online.room.playing || (online.room.over && online.gameNo) ? `<button class="btn" data-act="on-back">${T("ดูกระดาน")}</button>` : ''}${online.room.you === 'host' && !online.room.playing ? `<button class="btn primary" data-act="on-start">${online.room.over ? T("เริ่มเกมใหม่") : T("เริ่มเกม")}</button>` : ''}`
-    : `<button class="btn ghost" data-act="on-offline">${T("กลับ (เล่นกับบอท)")}</button>`;
-  paint(`<div class="dlg online"><span class="eyebrow">${T("DOMINATE GRAIL WAR · ออนไลน์")}</span>${body}
-    ${note ? `<p class="lede onnote">${esc(note)}</p>` : ''}<div class="acts">${acts}</div></div>`);
+  const acts = `<button class="btn ghost" data-act="on-home" data-k="home">${T("🏠 ล็อบบี้")}</button><button class="btn ghost" data-act="on-leave">${T("ออกจากห้อง")}</button>${r.playing || (r.over && online.gameNo) ? `<button class="btn" data-act="on-back">${T("ดูกระดาน")}</button>` : ''}${r.you === 'host' && !r.playing ? `<button class="btn primary" data-act="on-start">${r.over ? T("เริ่มเกมใหม่") : T("เริ่มเกม")}</button>` : ''}`;
+  // before a game the room is a page of its own; during one it opens over the board
+  paint(`<div class="dlg online"><span class="eyebrow">${T("DOMINATE GRAIL WAR · ออนไลน์")}</span>${roomView()}
+    ${note ? `<p class="lede onnote">${esc(note)}</p>` : ''}<div class="acts">${acts}</div></div>`, !r.playing, `room:${r.code}`);
+}
+
+// ---------- the front page: a lobby with a menu ----------
+// The menu on the left (a phone: the whole screen, two tiles a row); the online parts open in the
+// panel beside it (a phone: instead of it, with "← เมนู"). Against bots, the tutorial, the rules and
+// the settings are main.js's own screens, which come back here. A game being played (against bots,
+// or the room you sit in) is "▶ เล่นต่อ" at the top of the menu.
+const PANELS = ['rooms', 'chat', 'friends', 'top', 'profile', 'auth'];
+function home(wait = '') {
+  if (!PANELS.includes(acc.view)) acc.view = 'rooms';
+  const v = acc.view;
+  const note = wait || online.note;
+  const title = { rooms: T("เล่นออนไลน์"), chat: T("แชตล็อบบี้"), friends: T("เพื่อน"), top: T("อันดับ"), profile: T("โปรไฟล์"), auth: T("บัญชีสมาชิก") }[v];
+  const body = v === 'auth' ? authView() : netDown() ? downView() : v === 'profile' ? profileView() : v === 'friends' ? friendsView() : v === 'top' ? topView() : v === 'chat' ? chatView('lobby') : roomsPanel();
+  // who you are: a saved login waits for the server's answer
+  const slot = acc.me || acc.known || !accToken() || netDown() || !canNet() ? accountBar() : `<div class="onacct"><div class="nm"><b>${T("กำลังเข้าสู่ระบบ…")}</b></div></div>`;
+  // a seat in a room: the server's word for a member, the one saved on this page for a guest
+  const s = load();
+  const seat = acc.back || (!online.on && s.code && s.token ? { code: s.code, saved: true } : null);
+  const back = seat ? `<div class="onback">${T("คุณยังมีที่นั่งในห้อง {0}", esc(seat.title || seat.code))}${seat.playing ? T(" (กำลังเล่น)") : ''} <button class="btn sm primary" data-act="${seat.saved ? 'on-resume' : 'on-join'}" data-code="${esc(seat.code)}">${T("กลับเข้าห้อง")}</button>${seat.saved ? `<button class="btn sm ghost" data-act="on-forget" aria-label="${T("ปิด")}">✕</button>` : ''}</div>` : '';
+  paint(`<div class="dlg online home${acc.panelOpen ? ' pan' : ''}">
+    <header class="hm-top"><div class="hm-title"><span class="eyebrow">${T("สงครามจอกศักดิ์สิทธิ์ · เมืองฟุยุกิ")}</span><div class="title-crest">DOMINATE GRAIL WAR</div>
+      <p class="lede">${T("7 Master ชิงจอกศักดิ์สิทธิ์ · เล่นออนไลน์กับเพื่อน หรือเล่นกับบอท")}</p></div>
+      <div class="hm-side">${H().langSeg()}${slot}</div></header>
+    ${note ? `<p class="onnote hm-note">${esc(note)}</p>` : ''}${back}
+    <div class="hm-body"><nav class="hm-menu" aria-label="${T("เมนู")}">${menu()}</nav>
+      <section class="hm-panel"><div class="hm-ph"><button class="btn sm ghost hm-back" data-act="on-menu">${T("← เมนู")}</button><h2>${title}</h2></div>${body}</section></div>
+  </div>`, true, `home:${v}:${acc.panelOpen}`);
+}
+function menu() {
+  const r = online.on && online.room;
+  const solo = H().playing();
+  const it = (k, icon, label, small, o = {}) => {
+    const on = PANELS.includes(k) && acc.view === k;
+    return `<button class="hm-item${o.cls ? ` ${o.cls}` : ''}${on ? ' on' : ''}" data-act="on-home" data-k="${k}"${o.dis ? ' disabled' : ''}${on ? ' aria-current="true"' : ''}><span class="hi" aria-hidden="true">${icon}</span>
+      <span class="hl"><b>${label}${o.num ? ` <span class="onnum">${o.num}</span>` : ''}${o.tag ? ` <span class="hm-tag">${o.tag}</span>` : ''}</b><small>${small}</small></span></button>`;
+  };
+  const nRooms = acc.rooms ? acc.rooms.length : null;
+  const busy = r ? T("ออกจากห้องออนไลน์ก่อน") : '';
+  return [
+    r ? it('resume', '▶', r.playing ? T("กลับไปเล่นต่อ") : T("กลับไปที่ห้อง"), `${esc(r.title || T("ห้อง"))} · ${esc(r.code)}${r.playing ? ` · ${T("กำลังเล่น")}` : ''}`, { cls: 'resume', num: acc.unread }) : '', // num: the room chat not read yet
+    solo ? it('resume', '▶', T("เล่นต่อ"), esc(H().resumeInfo()), { cls: 'resume' }) : '',
+    it('rooms', '🌐', T("เล่นออนไลน์"), netDown() || !canNet() ? T("ต่อเซิร์ฟเวอร์ไม่ได้") : nRooms == null ? T("ห้องละไม่เกิน 7 คน · เข้าห้องด่วน") : T("{0} ห้องเปิดอยู่ · เข้าห้องด่วน สร้างห้อง", nRooms)),
+    it('bots', '🤖', T("เล่นกับบอท"), busy || T("เลือก Master และ Servant แล้วเล่นกับบอท 6 ตัว"), { dis: !!r }),
+    it('tutorial', '🎓', T("สอนเล่น"), busy || (solo ? T("รอบแรกทีละขั้น · เกมที่ค้างอยู่จะเริ่มใหม่") : T("รอบแรกทีละขั้น เป็นชิโร่กับ Saber")), { dis: !!r, tag: !r && !H().tutDone() ? T("แนะนำ") : '' }),
+    it('rules', '📖', T("กติกา"), T("กติกาแบบย่อ และไอคอนทั้งหมด")),
+    it('friends', '👥', T("เพื่อน"), acc.me ? T("ออนไลน์ {0} จาก {1} คน", acc.friends.list.filter((f) => f.on).length, acc.friends.list.length) : T("สำหรับสมาชิก · ชวนเข้าห้องได้"), { num: acc.me ? acc.friends.in.length : 0 }),
+    it('top', '🏆', T("อันดับ"), T("สมาชิกที่ชนะมากที่สุด")),
+    it('chat', '💬', T("แชต"), T("คุยกับทุกคนในล็อบบี้")),
+    it('settings', '⚙', T("ตั้งค่า"), T("ภาษา เสียง อนิเมชัน การแจ้งเตือน")),
+  ].join('');
+}
+// the server cannot be reached (or this is a file on the computer): the parts that need it say so
+const downView = () => `<p class="lede">${T("ต่อเซิร์ฟเวอร์เกมไม่ได้ · เล่นออนไลน์ได้เมื่อเปิดเกมจากเว็บของเซิร์ฟเวอร์ (ดู server/README.md)")}</p>
+  <p class="dim">${T("เล่นกับบอท สอนเล่น และกติกาใช้ได้ตามปกติ")}</p>
+  <div class="onrow">${canNet() ? `<button class="btn primary" data-act="on-retry">${T("ลองต่อใหม่")}</button>` : ''}<button class="btn" data-act="on-home" data-k="bots">${T("🤖 เล่นกับบอท")}</button></div>`;
+// the rooms, or the room you sit in (another room only after leaving it)
+function roomsPanel() {
+  const r = online.on && online.room;
+  if (!r) return roomsView();
+  return `<div class="onback">${T("คุณอยู่ในห้อง {0}", esc(r.title || r.code))}${r.playing ? T(" (กำลังเล่น)") : ''} <button class="btn sm primary" data-act="on-home" data-k="resume">${T("กลับไปที่ห้อง")}</button><button class="btn sm ghost" data-act="on-leave">${T("ออกจากห้อง")}</button></div>
+    <p class="dim">${T("ออกจากห้องก่อน จึงเข้าห้องอื่นหรือสร้างห้องใหม่ได้")}</p>`;
+}
+// the front page, from main.js (the first screen, 🏠 during a game, "← ล็อบบี้"); panel: open that one
+export function openHome(panel = null) {
+  acc.home = true; acc.over = null;
+  if (panel) acc.view = panel;
+  acc.panelOpen = !!panel;
+  if (!canNet()) acc.down = true;
+  if (online.on) { online.wantLobby = true; send({ t: 'rooms', on: true }); }
+  lobby();
+  if (canNet()) connect(() => {});
 }
 
 // who you are, at the top of the lobby
@@ -270,23 +366,6 @@ function accountBar() {
   }
   return `<div class="onacct guest"><div class="nm"><b>${T("ยังไม่ได้เข้าสู่ระบบ")}</b><small>${T("เล่นแบบไม่สมัครได้ · สมาชิกเก็บสถิติ ประวัติการเล่น มีเพื่อน และคุยในล็อบบี้ได้")}</small></div>
     <button class="btn sm primary" data-act="on-auth" data-v="signup">${T("สมัครสมาชิก")}</button><button class="btn sm" data-act="on-auth" data-v="login">${T("เข้าสู่ระบบ")}</button></div>`;
-}
-function tabs() {
-  const n = acc.friends.in.length;
-  const t = (v, label) => `<button class="btn sm${acc.view === v ? ' on' : ''}" data-act="on-view" data-v="${v}" aria-pressed="${acc.view === v}">${label}</button>`;
-  return `<nav class="ontabs">${t('rooms', T("🏠 ห้อง"))}${t('chat', T("💬 แชต"))}${t('friends', `${T("👥 เพื่อน")}${n ? ` <span class="onnum">${n}</span>` : ''}`)}${t('top', T("🏆 อันดับ"))}</nav>`;
-}
-function homeView() {
-  if (!['rooms', 'chat', 'friends', 'top', 'profile', 'auth'].includes(acc.view)) acc.view = 'rooms';
-  const back = acc.back ? `<div class="onback">${T("คุณยังมีที่นั่งในห้อง {0}", esc(acc.back.title || acc.back.code))}${acc.back.playing ? T(" (กำลังเล่น)") : ''} <button class="btn sm primary" data-act="on-join" data-code="${esc(acc.back.code)}">${T("กลับเข้าห้อง")}</button></div>` : '';
-  let main;
-  if (acc.view === 'auth') main = authView();
-  else if (acc.view === 'profile') main = profileView();
-  else if (acc.view === 'friends') main = friendsView();
-  else if (acc.view === 'top') main = topView();
-  else if (acc.view === 'chat') main = chatView('lobby');
-  else main = roomsView();
-  return `<h2>${T("เล่นออนไลน์")}</h2>${acc.known || online.ws?.readyState === 1 ? accountBar() : ''}${back}${acc.view === 'auth' ? '' : tabs()}${main}`;
 }
 
 function roomsView() {
@@ -323,7 +402,7 @@ function authView() {
       <label class="onf">${T("รหัสผ่าน")} <input id="on-pass" type="password" maxlength="100" autocomplete="${up ? 'new-password' : 'current-password'}" placeholder="${up ? T("6 ตัวขึ้นไป") : ''}"></label>
       ${up ? `<label class="onf">${T("รหัสผ่านอีกครั้ง")} <input id="on-pass2" type="password" maxlength="100" autocomplete="new-password"></label>` : ''}
       ${acc.authErr ? `<p class="onnote">${esc(acc.authErr)}</p>` : ''}
-      <div class="onrow"><button class="btn primary" type="submit"${acc.busy ? ' disabled' : ''}>${up ? T("สมัครสมาชิก") : T("เข้าสู่ระบบ")}</button><button class="btn ghost" type="button" data-act="on-view" data-v="rooms">${T("ยกเลิก")}</button></div>
+      <div class="onrow"><button class="btn primary" type="submit"${acc.busy ? ' disabled' : ''}>${up ? T("สมัครสมาชิก") : T("เข้าสู่ระบบ")}</button><button class="btn ghost" type="button" data-act="on-cancel">${T("ยกเลิก")}</button></div>
       <p class="dim">${up ? T("ไม่ต้องใช้อีเมล · จำรหัสผ่านไว้ให้ดี ถ้าลืม ให้แอดมินตั้งรหัสใหม่ให้") : T("ลืมรหัสผ่าน: ติดต่อแอดมินให้ตั้งรหัสใหม่")}</p>
     </form></div>`;
 }
@@ -357,8 +436,7 @@ function profileView() {
     ${edit}
     <div class="onstats">${tile(s.games, T("เกม"))}${tile(s.wins, T("ชนะ"))}${tile(pct(s.wins, s.games), T("อัตราชนะ"))}${tile(s.top3, T("ติด 3 อันดับแรก"))}${tile(s.best, T("VP สูงสุด"))}${tile(s.games ? (s.vp / s.games).toFixed(1) : '–', T("VP เฉลี่ย"))}</div>
     ${ms ? `<h3>${T("Master ที่เล่นบ่อย")}</h3><ul class="onlist">${ms}</ul>` : ''}
-    <h3>${T("ประวัติการเล่น")}</h3>${hist ? `<ul class="onhist">${hist}</ul>` : `<p class="dim">${T("ยังไม่มีเกมออนไลน์ที่เล่นจบ")}</p>`}
-    ${online.on ? '' : `<div class="onrow"><button class="btn ghost sm" data-act="on-view" data-v="rooms">${T("← กลับไปล็อบบี้")}</button></div>`}`;
+    <h3>${T("ประวัติการเล่น")}</h3>${hist ? `<ul class="onhist">${hist}</ul>` : `<p class="dim">${T("ยังไม่มีเกมออนไลน์ที่เล่นจบ")}</p>`}`;
 }
 
 function friendsView() {
@@ -439,7 +517,9 @@ function roomView() {
 const nameNow = () => (document.querySelector('#on-name')?.value || load().name || '').trim();
 const val = (id) => (document.querySelector(`#${id}`)?.value || '').trim();
 function view(v, u) {
-  acc.view = v; acc.authErr = ''; acc.edit = false;
+  acc.authErr = ''; acc.edit = false;
+  if (inRoomView()) acc.over = v; // from inside the room: over it
+  else { acc.view = v; acc.panelOpen = true; acc.home = true; }
   if (v === 'top') send({ t: 'top' });
   if (v === 'friends') send({ t: 'friends' });
   if (v === 'profile') { acc.profQ = u || acc.me?.user || ''; acc.prof = null; send({ t: 'profile', user: acc.profQ }); }
@@ -447,10 +527,11 @@ function view(v, u) {
   lobby();
 }
 function over() {
-  const body = acc.view === 'profile' ? profileView() : acc.view === 'friends' ? friendsView() : acc.view === 'top' ? topView() : authView();
-  paint(`<div class="dlg online"><span class="eyebrow">${T("DOMINATE GRAIL WAR · ออนไลน์")}</span>${body}<div class="acts"><button class="btn" data-act="on-lobby">${T("กลับไปที่ห้อง")}</button></div></div>`);
+  const v = acc.over;
+  const body = v === 'profile' ? profileView() : v === 'friends' ? friendsView() : v === 'top' ? topView() : authView();
+  paint(`<div class="dlg online"><span class="eyebrow">${T("DOMINATE GRAIL WAR · ออนไลน์")}</span>${body}<div class="acts"><button class="btn" data-act="on-lobby">${T("กลับไปที่ห้อง")}</button></div></div>`, !online.room?.playing, `over:${v}`);
 }
-const refreshProf = () => { if (acc.view === 'profile' && acc.profQ) setTimeout(() => send({ t: 'profile', user: acc.profQ }), 150); };
+const refreshProf = () => { if ((acc.view === 'profile' || acc.over === 'profile') && acc.profQ) setTimeout(() => send({ t: 'profile', user: acc.profQ }), 150); };
 
 document.addEventListener('submit', (ev) => {
   const f = ev.target;
@@ -496,22 +577,41 @@ document.addEventListener('click', (ev) => {
   if (act === 'on-start') { online.wantLobby = false; send({ t: 'start' }); }
   if (act === 'on-copy') navigator.clipboard?.writeText(t.dataset.v).then(() => { t.textContent = T("คัดลอกแล้ว"); }, () => {});
   if (act === 'on-back') { online.wantLobby = false; H().closeModal(); }
-  if (act === 'on-offline') { online.wantLobby = false; send({ t: 'rooms', on: false }); H().offline(); }
   if (act === 'on-leave') {
     send({ t: 'leave' });
     leftRoom();
     save({ name: load().name });
     setUrl(null);
-    acc.view = 'rooms';
-    H().offline(); // the board against bots behind, the lobby in front
-    online.wantLobby = true;
+    acc.home = false; acc.over = null; acc.view = 'rooms';
+    H().offline(); // an empty board behind the front page
     lobby();
   }
+  // ----- the front page -----
+  if (act === 'on-home') {
+    const k = t.dataset.k;
+    if (k === 'home') openHome();
+    else if (k === 'resume') { // back to the game being played: the room's, or the one against bots
+      if (online.on) {
+        acc.home = false; acc.over = null;
+        send({ t: 'rooms', on: false });
+        if (online.room?.playing && online.gameNo) { online.wantLobby = false; H().closeModal(); } else lobby();
+      } else H().closeModal();
+    } else if (k === 'bots') H().showStart();
+    else if (k === 'tutorial') H().tutorial();
+    else if (k === 'rules') H().rules();
+    else if (k === 'settings') H().settings();
+    else if (PANELS.includes(k)) view(k);
+  }
+  if (act === 'on-menu') { acc.panelOpen = false; lobby(); }
+  if (act === 'on-retry') { acc.down = false; lobby(T("กำลังต่อเซิร์ฟเวอร์…")); connect(() => redraw()); }
+  if (act === 'on-resume') { const s = load(); if (s.code && s.token) { online.wantLobby = true; lobby(T("กำลังกลับเข้าห้อง…")); connect(() => send({ t: 'resume', code: s.code, token: s.token })); } }
+  if (act === 'on-forget') { save({ name: load().name }); lobby(); }
+  if (act === 'on-cancel') { acc.authErr = ''; acc.busy = false; if (acc.over) acc.over = null; else { acc.view = 'rooms'; acc.panelOpen = false; } lobby(); }
   // ----- members -----
   if (act === 'on-view') view(t.dataset.v, t.dataset.u);
   if (act === 'on-prof') { if (t.dataset.u) view('profile', t.dataset.u); }
-  if (act === 'on-auth') { acc.authMode = t.dataset.v; acc.view = 'auth'; acc.authErr = ''; if (online.on) online.wantLobby = true; lobby(); connect(() => {}); }
-  if (act === 'on-logout') { send({ t: 'logout' }); accSave(''); acc.me = null; acc.friends = { list: [], in: [], out: [] }; acc.view = 'rooms'; redraw(); }
+  if (act === 'on-auth') { acc.authMode = t.dataset.v; view('auth'); if (canNet()) connect(() => {}); }
+  if (act === 'on-logout') { send({ t: 'logout' }); accSave(''); acc.me = null; acc.friends = { list: [], in: [], out: [] }; acc.view = 'rooms'; acc.panelOpen = false; acc.over = null; redraw(); }
   if (act === 'on-pedit') { acc.edit = !acc.edit; acc.authErr = ''; acc.pickAv = null; lobby(); }
   if (act === 'on-pav') { acc.pickAv = t.dataset.a; for (const b of $m().querySelectorAll('.onavs button')) { b.classList.toggle('sel', b === t); b.setAttribute('aria-pressed', b === t); } }
   if (act === 'on-psave') { send({ t: 'profile.set', name: val('on-pname'), bio: val('on-pbio'), ...(acc.pickAv ? { avatar: acc.pickAv } : {}) }); acc.edit = false; acc.pickAv = null; acc.prof = null; send({ t: 'profile', user: acc.profQ }); lobby(); }
@@ -526,7 +626,7 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('change', (ev) => { if (ev.target.id === 'on-timer') send({ t: 'timer', on: ev.target.checked }); });
 // back to the lobby from the end of the game ("เล่นอีกครั้ง")
-export function onlineAgain() { online.wantLobby = true; acc.view = 'room'; lobby(); }
+export function onlineAgain() { online.wantLobby = true; acc.home = false; acc.over = null; lobby(); }
 
 // ---------- a notice with buttons (an invitation, a friend request) ----------
 function notice(text, buttons) {
@@ -587,13 +687,16 @@ function badge() {
   if (el.dataset.h !== h) { el.innerHTML = h; el.dataset.h = h; } // the same: left alone, so a press on it is not lost
 }
 setInterval(() => { if (online.on) badge(); }, 250);
-document.addEventListener('click', (ev) => { if (ev.target.closest('[data-act="on-lobby"]')) { online.wantLobby = true; if (online.on) acc.view = 'room'; lobby(); } });
+document.addEventListener('click', (ev) => {
+  if (!ev.target.closest('[data-act="on-lobby"]')) return;
+  online.wantLobby = true;
+  if (online.on) { if (acc.home) send({ t: 'rooms', on: false }); acc.home = false; acc.over = null; }
+  lobby();
+});
 
-// opened with ?room=CODE: straight to that room
+// opened with ?room=CODE: straight to that room (otherwise main.js opens the front page, which connects)
 export function onlineAuto() {
   const code = new URLSearchParams(location.search).get('room');
   if (code) { openOnline(); return true; }
-  // logged in on this browser: connect now, so friends see you and invitations arrive
-  if (accToken() && /^https?:$/.test(location.protocol)) connect(() => {});
   return false;
 }

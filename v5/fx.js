@@ -29,6 +29,8 @@ function root(up = false) {
   }
   return up ? top : layer;
 }
+// a page of its own opens over the board (the front page): what is still flying goes
+export function fxClear() { for (const l of [layer, top]) if (l) l.replaceChildren(); }
 const UP = /^fx-(ban|vignette|gold)/;
 const mk = (cls, html = '', style = {}) => {
   const el = document.createElement('div');
