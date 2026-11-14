@@ -18,26 +18,52 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const clean = (s, n = 16) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n);
 
+// The rooms tell hub.mjs (the lobby, friends, the members) what happens through these:
+//   changed() a room's people or state changed (the room list) · left(ws, seat) a page is no longer in its room
+//   ended(room, game) a game finished (the match history)
 export class Rooms {
-  constructor() { this.rooms = new Map(); setInterval(() => this.sweep(), 60_000).unref(); }
-  create() {
+  constructor(on = {}) {
+    this.rooms = new Map();
+    this.on = { changed() {}, left() {}, ended() {}, ...on };
+    setInterval(() => this.sweep(), 60_000).unref();
+  }
+  create(opts = {}) {
     let code;
     do code = Array.from({ length: 4 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join(''); while (this.rooms.has(code));
-    const r = new Room(code);
+    const r = new Room(code, this, opts);
     this.rooms.set(code, r);
     return r;
   }
   get(code) { return this.rooms.get(String(code || '').toUpperCase()); }
   // a room nobody has been connected to for 15 minutes is closed
   sweep() {
-    for (const [code, r] of this.rooms) if (!r.seats.some((s) => s.ws) && Date.now() - r.idleSince > 15 * 60_000) { r.closed = true; this.rooms.delete(code); }
+    for (const [code, r] of this.rooms) if (!r.seats.some((s) => s.ws) && Date.now() - r.idleSince > 15 * 60_000) { r.closed = true; this.rooms.delete(code); this.on.changed(); }
+  }
+  // the room list of the lobby: open rooms with somebody in them, the waiting ones first
+  list() {
+    return [...this.rooms.values()].filter((r) => r.pub && !r.closed && r.seats.some((s) => s.ws)).map((r) => r.summary())
+      .sort((a, b) => a.playing - b.playing || b.n - a.n).slice(0, 100);
+  }
+  // a member's seat in a room still open (to come back to it from another device)
+  seatOf(uid) {
+    for (const r of this.rooms.values()) { if (r.closed) continue; const s = r.seats.find((q) => q.uid === uid); if (s) return { room: r, seat: s }; }
+    return null;
+  }
+  // "เข้าห้องด่วน": the open waiting room with the most people that still has a seat
+  quick() {
+    return [...this.rooms.values()].filter((r) => r.pub && !r.closed && !(r.game && !r.game.over) && r.seats.length < MASTERS.length && r.seats.some((s) => s.ws))
+      .sort((a, b) => b.seats.length - a.seats.length)[0] || null;
   }
 }
 
 class Room {
-  constructor(code) {
+  constructor(code, rooms = null, { title = '', pub = true } = {}) {
     this.code = code;
-    this.seats = []; // { token, name, master, ws }
+    this.rooms = rooms;
+    this.title = clean(title, 30);
+    this.pub = !!pub; // shown in the lobby's room list (a closed room is joined by its code only)
+    this.chat = []; // the room's chat: { from: { name, uid, avatar }, text, at }
+    this.seats = []; // { token, name, master, ws, uid, avatar }
     this.timer = true; // thinking time on (paper 4.6 item 21: on by default)
     this.game = null; this.gameNo = 0; this.enc = null;
     this.ask = null; // the question waiting for a person: { id, seat, pid, kind, ctx, res, deadline, draft, t }
@@ -47,12 +73,21 @@ class Room {
     this.idleSince = Date.now();
   }
   host() { return this.seats[0] || null; }
+  summary() {
+    const h = this.host();
+    return { code: this.code, title: this.title, host: h ? { name: h.name, avatar: h.avatar || null } : null, n: this.seats.length, max: MASTERS.length,
+      on: this.seats.filter((s) => s.ws).length, playing: !!(this.game && !this.game.over), round: this.game && !this.game.over ? this.game.round : 0, timer: this.timer, pub: this.pub };
+  }
 
   // ---------- people ----------
-  join(ws, name) {
+  // user: the member's card (accounts.mjs) or null for a guest; a member already in this room gets
+  // their own seat back, also from another device
+  join(ws, name, user = null) {
+    const mine = user && this.seats.find((s) => s.uid === user.uid);
+    if (mine) { this.attach(mine, ws); return { seat: mine }; }
     if (this.seats.length >= MASTERS.length) return { error: T("ห้องเต็มแล้ว (7 คน)") };
     if (this.game && !this.game.over) return { error: T("ห้องนี้เริ่มเกมไปแล้ว") };
-    const seat = { token: crypto.randomUUID(), name: clean(name) || T("ผู้เล่น {0}", this.seats.length + 1), master: null, ws: null };
+    const seat = { token: crypto.randomUUID(), name: (user ? clean(user.name) : clean(name)) || T("ผู้เล่น {0}", this.seats.length + 1), master: null, ws: null, uid: user?.uid || null, user: user?.user || null, avatar: user?.avatar || null };
     this.seats.push(seat);
     this.attach(seat, ws);
     return { seat };
@@ -64,9 +99,14 @@ class Room {
     return { seat };
   }
   attach(seat, ws) {
-    if (seat.ws && seat.ws !== ws) seat.ws.close();
+    if (seat.ws && seat.ws !== ws) { // opened on another device: the old page leaves the room (its connection stays for the lobby)
+      const old = seat.ws;
+      old.send(JSON.stringify({ t: 'error', msg: T("ที่นั่งนี้ถูกเปิดจากเครื่องอื่นแล้ว"), code: this.code, gone: true }));
+      this.rooms?.on.left(old, seat);
+    }
     seat.ws = ws;
     ws.send(JSON.stringify({ t: 'joined', code: this.code, token: seat.token }));
+    ws.send(JSON.stringify({ t: 'chatlog', ch: 'room', code: this.code, list: this.chat }));
     this.lobby();
     if (this.game) this.sendState(seat);
   }
@@ -83,11 +123,31 @@ class Room {
     }
     this.lobby();
   }
+  // the page stays connected (the lobby, friends); only the room lets it go
   leave(seat) {
-    if (this.game && !this.game.over) { if (seat.ws) { const w = seat.ws; seat.ws = null; w.close(); } this.detach(seat); return; }
-    this.seats = this.seats.filter((s) => s !== seat);
-    if (seat.ws) { const w = seat.ws; seat.ws = null; w.close(); }
+    const w = seat.ws;
+    if (this.game && !this.game.over) { seat.ws = null; this.detach(seat); }
+    else { this.seats = this.seats.filter((s) => s !== seat); seat.ws = null; if (!this.seats.some((s) => s.ws)) this.idleSince = Date.now(); this.lobby(); }
+    if (w) this.rooms?.on.left(w, seat);
+  }
+  // the host takes a seat away before the game
+  kick(seat, i) {
+    const q = this.seats[i];
+    if (seat !== this.host() || !q || q === seat || (this.game && !this.game.over)) return;
+    if (q.ws) q.ws.send(JSON.stringify({ t: 'error', msg: T("หัวห้องเชิญคุณออกจากห้อง"), code: this.code, gone: true }));
+    this.leave(q);
+  }
+  settings(seat, { title, pub }) {
+    if (seat !== this.host()) return;
+    if (title !== undefined) this.title = clean(title, 30);
+    if (pub !== undefined) this.pub = !!pub;
     this.lobby();
+  }
+  say(seat, text) {
+    const msg = { from: { name: seat.name, uid: seat.uid, avatar: seat.avatar, master: seat.master }, text, at: Date.now() };
+    this.chat.push(msg);
+    if (this.chat.length > 60) this.chat.shift();
+    for (const s of this.seats) if (s.ws) s.ws.send(JSON.stringify({ t: 'chat', ch: 'room', code: this.code, msg }));
   }
   pick(seat, master) {
     if (this.game && !this.game.over) return;
@@ -96,17 +156,20 @@ class Room {
     seat.master = master || null;
     this.lobby();
   }
-  rename(seat, name) { seat.name = clean(name) || seat.name; this.lobby(); }
+  rename(seat, name) { if (!seat.uid) seat.name = clean(name) || seat.name; this.lobby(); } // a member's name comes from their profile
+  // a member changed their profile: their seat shows it
+  profile(uid, user) { for (const s of this.seats) if (s.uid === uid) { s.name = clean(user.name) || s.name; s.avatar = user.avatar; } this.lobby(); }
   setTimer(seat, on) { if (seat === this.host() && !(this.game && !this.game.over)) { this.timer = !!on; this.lobby(); } }
   lobby() {
     for (const s of this.seats) {
       if (!s.ws) continue;
       s.ws.send(JSON.stringify({
         t: 'lobby', code: this.code, you: s.token === this.host()?.token ? 'host' : 'guest', timer: this.timer,
-        playing: !!(this.game && !this.game.over), over: !!this.game?.over,
-        seats: this.seats.map((q) => ({ name: q.name, master: q.master, on: !!q.ws, you: q === s, host: q === this.host() })),
+        playing: !!(this.game && !this.game.over), over: !!this.game?.over, title: this.title, pub: this.pub,
+        seats: this.seats.map((q) => ({ name: q.name, master: q.master, on: !!q.ws, you: q === s, host: q === this.host(), uid: q.uid || null, user: q.user || null, avatar: q.avatar || null })),
       }));
     }
+    this.rooms?.on.changed();
   }
 
   // ---------- the game ----------
@@ -121,9 +184,22 @@ class Room {
     this.lobby();
     this.flush();
     game.run().catch((e) => { console.error(e); game.log(T("เกิดข้อผิดพลาด: {0}", e.message), 'death'); game.over = true; this.flush(); })
-      .finally(() => { if (game === this.game) { this.flush(); this.lobby(); } });
+      .finally(() => {
+        if (game !== this.game) return;
+        this.flush(); this.lobby();
+        if (game.over && !this.closed) this.rooms?.on.ended(this, game, this.results(game));
+      });
   }
   seatOf(p) { return this.seats.find((s) => s.master === p.m.key) || null; }
+  // the finished game for the match history: everyone in the order they finished (the winner,
+  // then those left by VP, then those out, the last one out first)
+  results(game) {
+    const order = [...game.players].sort((a, b) => (b === game.winner) - (a === game.winner) || a.out - b.out || (b.outRound || 0) - (a.outRound || 0) || b.vp - a.vp);
+    return order.map((p) => {
+      const s = this.seatOf(p);
+      return { uid: s?.uid || null, name: s ? s.name : null, bot: !s, master: p.m.key, servant: p.sv.key, vp: p.vp, out: !!p.out, winner: p === game.winner };
+    });
+  }
   live(game) { return game === this.game && !this.closed; }
 
   async decide(game, p, kind, ctx) {
@@ -226,6 +302,8 @@ class Room {
       case 'answer': if (this.ends && m.id === this.ends.id) this.endsDone(seat, m.id); else this.answer(seat, m.id, m.v); break;
       case 'draft': this.draft(seat, m.id, m.v); break;
       case 'leave': this.leave(seat); break;
+      case 'kick': this.kick(seat, m.i); break;
+      case 'settings': this.settings(seat, m); break;
       default: break;
     }
   }

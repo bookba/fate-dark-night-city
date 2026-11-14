@@ -12,13 +12,15 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { SFX_NAMES } from '../v5/sound.js';
+import { BG_PLACES, THEME_COLORS } from '../v5/custom.js';
+import { SERVANTS, applyGameEdits, plainCard } from '../v5/data.js';
 
 const KEY = (process.env.ADMIN_KEY || '').trim(); // a space pasted around the key on Render does not count
 const DIR = path.resolve(process.env.DATA_DIR || fileURLToPath(new URL('./data', import.meta.url)));
 const MEDIA = path.join(DIR, 'media');
 const FILE = path.join(DIR, 'overrides.json');
 const GH = { token: process.env.GITHUB_TOKEN || '', repo: process.env.GITHUB_REPO || '', branch: process.env.GITHUB_BRANCH || 'admin-data' };
-const ghOn = () => !!(GH.token && GH.repo);
+export const ghOn = () => !!(GH.token && GH.repo);
 const LANGS = ['th', 'en', 'zh', 'ja'];
 const IMG = { '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
 const AUD = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/wave': '.wav', 'audio/ogg': '.ogg', 'audio/webm': '.webm', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/flac': '.flac' };
@@ -26,7 +28,7 @@ const MAX_FILE = 8 << 20; // one picture or sound
 const MAX_JSON = 2 << 20; // texts and CSS
 const MAX_BACKUP = 120 << 20; // a backup with all its files
 
-const blank = () => ({ v: 1, strings: {}, dom: {}, css: '', images: {}, sounds: {}, updated: null });
+const blank = () => ({ v: 1, strings: {}, dom: {}, css: '', images: {}, sounds: {}, theme: {}, game: {}, updated: null });
 let data = blank();
 let lastGood = null; // the GitHub copy's file id (sha), needed to replace it
 
@@ -69,7 +71,74 @@ function clean(d) { // only the known parts, of the right shapes
     if (!okJson(d[part])) continue;
     for (const [k, v] of Object.entries(d[part])) if (okJson(v) && /^[0-9a-f]{40}\.[a-z0-9]+$/.test(v.id || '')) out[part][k] = { id: v.id, type: String(v.type || ''), name: String(v.name || '').slice(0, 200) };
   }
+  out.theme = cleanTheme(d.theme);
+  out.game = cleanGame(d.game);
   out.updated = typeof d.updated === 'string' ? d.updated : null;
+  return out;
+}
+// backgrounds and colours: only known places and plain values (v5/custom.js turns them into CSS)
+const HEX = /^#[0-9a-f]{3,8}$/i;
+const IMG_URL = /^\/(media\/[0-9a-f]{40}\.[a-z0-9]+|src\/art\/[\w./-]+\.(webp|png|jpe?g|gif|svg))$/i;
+function cleanTheme(t) {
+  const out = {};
+  if (!okJson(t)) return out;
+  if (okJson(t.colors)) {
+    const c = {};
+    for (const k of THEME_COLORS) if (HEX.test(t.colors[k] || '')) c[k] = t.colors[k];
+    if (Object.keys(c).length) out.colors = c;
+  }
+  if (okJson(t.bg)) {
+    const bg = {};
+    for (const k of Object.keys(BG_PLACES)) {
+      const b = t.bg[k];
+      if (!okJson(b)) continue;
+      const o = {};
+      if (HEX.test(b.color || '')) o.color = b.color;
+      if (HEX.test(b.color2 || '')) o.color2 = b.color2;
+      if (IMG_URL.test(b.image || '') && !b.image.includes('..')) o.image = b.image;
+      if (Number.isFinite(+b.dim) && +b.dim > 0) o.dim = Math.min(95, Math.round(+b.dim));
+      if (Number.isFinite(+b.angle) && b.angle !== '') o.angle = Math.round(+b.angle) % 360;
+      if (['cover', 'contain', 'tile'].includes(b.fit)) o.fit = b.fit;
+      if (['top', 'center', 'bottom'].includes(b.pos)) o.pos = b.pos;
+      if (b.fixed === true) o.fixed = true;
+      if (o.color || o.color2 || o.image) bg[k] = o;
+    }
+    if (Object.keys(bg).length) out.bg = bg;
+  }
+  return out;
+}
+// the Servants: a name, and the numbers of the NP/skill cards and of the plain deck cards (v5/data.js)
+const int = (v, lo, hi) => (v !== '' && v != null && Number.isFinite(+v) ? Math.max(lo, Math.min(hi, Math.round(+v))) : null);
+function cleanServant(sv, e) {
+  if (!okJson(e)) return null;
+  const o = {};
+  if (typeof e.name === 'string' && e.name.trim()) o.name = e.name.trim().slice(0, 40);
+  if (okJson(e.skills)) {
+    const sk = {};
+    sv.skills.forEach((_, j) => {
+      const x = e.skills[j];
+      if (!okJson(x)) return;
+      const y = {};
+      const p = int(x.power, 0, 30), m = int(x.mana, 0, 12);
+      if (p != null) y.power = p;
+      if (m != null) y.mana = m;
+      if (Object.keys(y).length) sk[j] = y;
+    });
+    if (Object.keys(sk).length) o.skills = sk;
+  }
+  if (okJson(e.deck)) {
+    const dk = {};
+    sv.deck.forEach((c, j) => { const p = plainCard(c) ? int(e.deck[j], 0, 15) : null; if (p != null) dk[j] = p; });
+    if (Object.keys(dk).length) o.deck = dk;
+  }
+  return Object.keys(o).length ? o : null;
+}
+function cleanGame(g) {
+  const out = {};
+  if (!okJson(g) || !okJson(g.servants)) return out;
+  const svs = {};
+  for (const sv of SERVANTS) { const e = cleanServant(sv, g.servants[sv.key]); if (e) svs[sv.key] = e; }
+  if (Object.keys(svs).length) out.servants = svs;
   return out;
 }
 export const ready = (async () => {
@@ -77,13 +146,15 @@ export const ready = (async () => {
   if (ghOn()) {
     try {
       const f = await ghGet('overrides.json');
-      if (f) { data = clean(JSON.parse(f.buf.toString('utf8'))); lastGood = f.sha; fs.writeFileSync(FILE, JSON.stringify(data)); return; }
+      if (f) { data = clean(JSON.parse(f.buf.toString('utf8'))); lastGood = f.sha; fs.writeFileSync(FILE, JSON.stringify(data)); applyGameEdits(data.game); return; }
     } catch (e) { console.error('admin: reading the GitHub copy failed:', e.message); }
   }
   try { data = clean(JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch { /* nothing edited yet */ }
+  applyGameEdits(data.game);
 })();
 
 function save() {
+  applyGameEdits(data.game); // the online games started from now on use the new numbers
   data.updated = new Date().toISOString();
   fs.writeFileSync(FILE, JSON.stringify(data));
   pushLater();
@@ -129,7 +200,7 @@ async function ensureBranch() {
   if (!c.ok && c.status !== 422) throw new Error(`branch create ${c.status}`);
   branchOk = true;
 }
-async function ghGet(p, raw = false) {
+export async function ghGet(p, raw = false) {
   const url = `/contents/admin-data/${p}?ref=${encodeURIComponent(GH.branch)}`;
   const r = await gh('GET', url, null, raw);
   if (r.status === 404) return null;
@@ -138,7 +209,7 @@ async function ghGet(p, raw = false) {
   const j = await r.json();
   return { sha: j.sha, buf: Buffer.from(j.content || '', 'base64') };
 }
-async function ghPut(p, buf, sha) {
+export async function ghPut(p, buf, sha) {
   await ensureBranch();
   return gh('PUT', `/contents/admin-data/${p}`, { message: `admin: ${p}`, content: buf.toString('base64'), branch: GH.branch, ...(sha ? { sha } : {}) });
 }
@@ -180,7 +251,7 @@ async function pushNow() {
 
 // ---------- what the game reads ----------
 const safeJson = (o) => JSON.stringify(o).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-const pub = () => ({ strings: data.strings, dom: data.dom, css: data.css, sounds: Object.fromEntries(Object.entries(data.sounds).map(([k, v]) => [k, `/media/${v.id}`])), updated: data.updated });
+const pub = () => ({ strings: data.strings, dom: data.dom, css: data.css, theme: data.theme, game: data.game, sounds: Object.fromEntries(Object.entries(data.sounds).map(([k, v]) => [k, `/media/${v.id}`])), updated: data.updated });
 // v5/index.html with the edits inline, read by v5/custom.js before anything is drawn
 export function injectPage(html) {
   return html.replace('<script type="module"', `<script>window.__OVR=${safeJson(pub())};</script>\n    <script type="module"`);
@@ -253,9 +324,13 @@ export async function handle(req, res, url, root) {
   return true;
 }
 
+// more admin addresses from other parts of the server (accounts.mjs: the members), so this file
+// does not import them: each is (req, res, what, method, query, { json, send }) → true when it answered
+export const plugins = [];
 async function api(req, res, url, what, root) {
   const q = url.searchParams;
   const M = req.method;
+  for (const f of plugins) if (await f(req, res, what, M, q, { json, send })) return;
   if (what === 'state' && M === 'GET') {
     send(res, 200, { data, pictures: pictures(root), sounds: SFX_NAMES, langs: LANGS, storage: { dir: DIR, github: ghOn() ? `${GH.repo} (branch ${GH.branch})` : '', sync } });
     return;
@@ -276,6 +351,35 @@ async function api(req, res, url, what, root) {
     data.css = b.css;
     save();
     send(res, 200, { ok: true });
+    return;
+  }
+  if (what === 'theme' && M === 'POST') { // { theme }: backgrounds and colours, all at once
+    const b = await json(req);
+    data.theme = cleanTheme(b.theme);
+    save();
+    send(res, 200, { ok: true, theme: data.theme });
+    return;
+  }
+  if (what === 'servant' && M === 'POST') { // { key, edit }: one Servant's name and numbers (edit null = back to the original)
+    const b = await json(req);
+    const sv = SERVANTS.find((x) => x.key === b.key);
+    if (!sv) throw new Error('ไม่มี Servant นี้');
+    const e = cleanServant(sv, b.edit);
+    const all = { ...(data.game.servants || {}) };
+    if (e) all[sv.key] = e; else delete all[sv.key];
+    data.game = Object.keys(all).length ? { servants: all } : {};
+    save();
+    send(res, 200, { ok: true, edit: e });
+    return;
+  }
+  if (what === 'upload' && M === 'PUT') { // a picture of its own (a background), not in place of one of the site's
+    const type = String(req.headers['content-type'] || '').split(';')[0].trim();
+    const ext = Object.entries(IMG).find(([, t]) => t === type)?.[0];
+    if (!ext) throw new Error('ใช้ได้เฉพาะรูป webp png jpg gif svg');
+    const buf = await body(req, MAX_FILE);
+    if (!buf.length) throw new Error('ไฟล์ว่าง');
+    const id = await addMedia(buf, ext === '.jpeg' ? '.jpg' : ext);
+    send(res, 200, { ok: true, url: `/media/${id}` });
     return;
   }
   if (what === 'image') {
@@ -314,9 +418,11 @@ async function api(req, res, url, what, root) {
   }
   if (what === 'backup' && M === 'GET') { // everything in one file, the pictures and sounds inside
     const files = {};
-    for (const o of [...Object.values(data.images), ...Object.values(data.sounds)]) {
-      const buf = await readMedia(o.id);
-      if (buf) files[o.id] = buf.toString('base64');
+    const ids = [...Object.values(data.images), ...Object.values(data.sounds)].map((o) => o.id);
+    for (const b of Object.values(data.theme.bg || {})) if (b.image?.startsWith('/media/')) ids.push(b.image.slice(7)); // backgrounds
+    for (const id of new Set(ids)) {
+      const buf = await readMedia(id);
+      if (buf) files[id] = buf.toString('base64');
     }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': `attachment; filename="fdnc-admin-${new Date().toISOString().slice(0, 10)}.json"`, 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({ kind: 'fdnc-admin-backup', data, files }));

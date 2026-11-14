@@ -6,138 +6,408 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>หน้าแอดมิน · Dominate Grail War</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
 <style>
-  :root { --bg:#f6f1e7; --card:#fffdf8; --ink:#1f1b16; --dim:#6f6352; --line:#e2d7c3; --gold:#a8790a; --gold2:#f3e2b5; --red:#a52a1e; --ok:#2e7d32; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#16130f; --card:#211c16; --ink:#efe6d6; --dim:#a99a82; --line:#3a3127; --gold:#e0b44a; --gold2:#3b2f15; --red:#ef7b6d; --ok:#7fc684; } }
+  /* the admin page wears the game's night-and-gold, a little lighter so long work is easy on the eyes */
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f1c; --bg2: #10162a; --card: #151c32; --card2: #1b2440; --ink: #ece5d3; --dim: #9aa0b6; --line: #273152;
+    --gold: #dcb75c; --gold-ink: #1a1405; --gold-soft: rgba(220, 183, 92, .14); --red: #e5606a; --red-soft: rgba(229, 96, 106, .14); --ok: #73d095; --blue: #6bbbe4;
+    --ty-S: #e0774f; --ty-A: #58b886; --ty-M: #9b80ec; --ty-X: #a9b2c6; --ty-N: #dcb75c; --ty-Z: #8d8f99;
+    --r: 12px; --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    --ff-crest: 'Cinzel', Georgia, serif;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 'IBM Plex Sans Thai', system-ui, sans-serif; }
-  header { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); padding:10px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  header h1 { font-size:17px; margin:0 8px 0 0; }
-  nav { display:flex; gap:4px; flex-wrap:wrap; }
-  a.btn { text-decoration:none; display:inline-block; }
-  @media (max-width:600px) { header { padding:8px 10px; } nav { flex-wrap:nowrap; overflow-x:auto; max-width:100%; } nav button { white-space:nowrap; } main { padding:12px; } }
-  nav button, .btn { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:5px 14px; cursor:pointer; }
-  nav button.on { background:var(--gold); color:#fff; border-color:var(--gold); }
-  .btn.primary { background:var(--gold); color:#fff; border-color:var(--gold); }
-  .btn.danger { color:var(--red); }
-  .btn:disabled { opacity:.5; cursor:default; }
-  main { padding:16px; max-width:1200px; margin:0 auto; }
-  .note { color:var(--dim); font-size:13px; margin:4px 0 12px; }
-  .warn { background:var(--gold2); border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:14px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
-  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:6px; }
-  .tile.changed { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold2); }
-  .tile .pic { height:130px; display:flex; align-items:center; justify-content:center; background:repeating-conic-gradient(#0001 0 25%, transparent 0 50%) 0 0/16px 16px; border-radius:8px; overflow:hidden; }
-  .tile img { max-width:100%; max-height:130px; }
-  .tile .name { font-size:12px; color:var(--dim); word-break:break-all; }
-  .tile .acts { display:flex; gap:4px; flex-wrap:wrap; }
-  .tile .acts .btn { padding:3px 10px; font-size:13px; }
-  .tag { display:inline-block; font-size:11px; background:var(--gold); color:#fff; border-radius:999px; padding:0 8px; }
-  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; }
-  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { font-size:13px; color:var(--dim); font-weight:500; }
-  td.src { width:40%; white-space:pre-wrap; font-size:14px; }
-  td.src .def { color:var(--dim); font-size:13px; margin-top:4px; }
-  textarea, input[type=text], input[type=search], select { font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; width:100%; }
-  textarea { min-height:38px; resize:vertical; }
-  textarea.changed { border-color:var(--gold); background:var(--gold2); }
-  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
-  .bar input[type=search] { max-width:320px; }
-  .bar select { width:auto; }
-  #cssText { min-height:340px; font-family:ui-monospace, Consolas, monospace; font-size:13px; }
-  #toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:8px 16px; border-radius:999px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:10; }
-  #toast.show { opacity:1; }
-  .snd { display:grid; grid-template-columns: 1fr auto; gap:6px 12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
-  .snd.changed { border-color:var(--gold); }
-  .snds { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; }
-  .row { display:flex; gap:6px; flex-wrap:wrap; }
-  section { display:none; } section.on { display:block; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
-  .card h3 { margin:0 0 6px; font-size:15px; }
-  .err { color:var(--red); }
+  html, body { height: 100%; }
+  body { margin: 0; background: radial-gradient(1000px 500px at 85% -10%, #1a2445 0%, transparent 60%), var(--bg); background-attachment: fixed; color: var(--ink); font: 15px/1.55 'IBM Plex Sans Thai', system-ui, sans-serif; }
+  a { color: var(--gold); }
+  code { background: var(--card2); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+  h2, h3, h4 { margin: 0; font-weight: 600; }
+
+  /* ---------- layout: a sidebar of groups, the work on the right ---------- */
+  .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100%; }
+  aside.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: rgba(13, 18, 34, .92); border-right: 1px solid var(--line); padding: 18px 12px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .brand { display: flex; gap: 10px; align-items: center; padding: 0 6px 6px; }
+  .brand .seal { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #d43a48, #7a1c26); color: #fff; font: 700 15px/1 var(--ff-crest); box-shadow: 0 4px 14px rgba(212, 58, 72, .35); }
+  .brand b { display: block; font: 700 13px/1.2 var(--ff-crest); letter-spacing: .12em; color: var(--gold); }
+  .brand small { color: var(--dim); font-size: 12px; }
+  #nav { display: grid; gap: 14px; }
+  .grp { display: grid; gap: 2px; }
+  .grp > p { margin: 0 0 4px; padding: 0 10px; font-size: 11.5px; letter-spacing: .06em; color: var(--dim); text-transform: uppercase; }
+  .nav { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; color: var(--ink); font-size: 14.5px; }
+  .nav svg { width: 18px; height: 18px; flex: none; color: var(--dim); }
+  .nav:hover { background: var(--card); }
+  .nav.on { background: var(--gold-soft); color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+  .nav.on svg { color: var(--gold); }
+  .nav .cnt { margin-left: auto; font-size: 11px; background: var(--gold); color: var(--gold-ink); border-radius: 999px; padding: 0 7px; font-weight: 600; }
+  .nav .cnt:empty { display: none; }
+  .side .foot { margin-top: auto; display: grid; gap: 6px; }
+  .syncdot { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); padding: 8px 10px; border-radius: 10px; background: var(--card); }
+  .syncdot i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+  .syncdot.warn i { background: var(--gold); } .syncdot.bad i { background: var(--red); }
+
+  main { padding: 26px 32px 60px; max-width: 1240px; width: 100%; }
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .page-head h2 { font-size: 24px; }
+  .page-head .crumb { font-size: 12px; color: var(--dim); letter-spacing: .05em; }
+  .page-head p { margin: 4px 0 0; color: var(--dim); font-size: 14px; max-width: 720px; }
+  section.pg { display: none; } section.pg.on { display: block; animation: fade .18s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } }
+
+  /* ---------- pieces ---------- */
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; margin-bottom: 14px; }
+  .panel > h3 { font-size: 16px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .note { color: var(--dim); font-size: 13px; margin: 2px 0 10px; }
+  .warn { background: var(--gold-soft); border: 1px solid rgba(220, 183, 92, .35); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+  .err { color: var(--red); }
+  .btn { font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border: 1px solid var(--line); background: var(--card2); color: var(--ink); border-radius: 9px; padding: 6px 14px; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: #3a4772; }
+  .btn.primary { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.danger { color: var(--red); }
+  .btn.danger:hover { background: var(--red-soft); border-color: var(--red); }
+  .btn.sm { padding: 3px 10px; font-size: 13px; border-radius: 8px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tag { display: inline-block; font-size: 11px; background: var(--gold); color: var(--gold-ink); border-radius: 999px; padding: 0 8px; font-weight: 600; vertical-align: 1px; }
+  .tag.red { background: var(--red); color: #fff; }
+  textarea, input[type=text], input[type=search], input[type=number], select { font: inherit; color: var(--ink); background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; width: 100%; }
+  textarea:focus, input:focus, select:focus { outline: 2px solid rgba(220, 183, 92, .5); outline-offset: 0; border-color: var(--gold); }
+  textarea { min-height: 40px; resize: vertical; }
+  .changed, textarea.changed, input.changed { border-color: var(--gold) !important; background: color-mix(in srgb, var(--gold) 8%, var(--bg2)); }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .bar input[type=search] { max-width: 300px; }
+  .bar select { width: auto; }
+  label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--dim); cursor: pointer; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .chip.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); font-weight: 600; }
+  .chip small { opacity: .7; }
+  .langs { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .langs button { font: inherit; font-size: 13px; border: 0; background: var(--card); color: var(--dim); padding: 5px 12px; cursor: pointer; }
+  .langs button + button { border-left: 1px solid var(--line); }
+  .langs button.on { background: var(--gold-soft); color: var(--gold); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 12.5px; color: var(--dim); font-weight: 500; background: var(--card2); }
+  td.src { width: 42%; white-space: pre-wrap; font-size: 14px; }
+  td.src .def { color: var(--dim); font-size: 13px; margin-top: 4px; }
+  .tablewrap { overflow-x: auto; border-radius: var(--r); }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 10px); background: var(--ink); color: var(--bg); padding: 9px 18px; border-radius: 999px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 50; font-weight: 500; box-shadow: var(--shadow); }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.bad { background: var(--red); color: #fff; }
+
+  /* ---------- overview ---------- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { all: unset; box-sizing: border-box; cursor: pointer; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 2px; transition: border-color .15s, transform .15s; }
+  .stat:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .stat b { font: 700 26px/1.1 var(--ff-crest); color: var(--gold); }
+  .stat span { font-size: 13px; color: var(--dim); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+
+  /* ---------- pictures ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .tile.changed { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-soft); }
+  .tile .pic { height: 132px; display: flex; align-items: center; justify-content: center; background: repeating-conic-gradient(#ffffff0d 0 25%, transparent 0 50%) 0 0/16px 16px; border-radius: 8px; overflow: hidden; }
+  .tile img { max-width: 100%; max-height: 132px; }
+  .tile .name { font-size: 12px; color: var(--dim); word-break: break-all; }
+  .tile .acts { display: flex; gap: 4px; flex-wrap: wrap; }
+  .imgsec { margin-bottom: 22px; }
+  .imgsec > h4 { font-size: 14px; color: var(--dim); font-weight: 500; margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
+
+  /* ---------- sounds ---------- */
+  .snds { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+  .snd { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+  .snd.changed { border-color: var(--gold); }
+
+  /* ---------- Servants ---------- */
+  .svgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; }
+  .svc { all: unset; box-sizing: border-box; cursor: pointer; position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 3 / 4; background: var(--card2); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: flex-end; transition: transform .15s, border-color .15s, box-shadow .15s; }
+  .svc:hover, .svc:focus-visible { transform: translateY(-2px); border-color: var(--gold); box-shadow: var(--shadow); }
+  .svc img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .svc .cap { position: relative; padding: 40px 12px 10px; background: linear-gradient(transparent, rgba(6, 9, 18, .92) 55%); }
+  .svc .cls { font: 600 11px/1 var(--ff-crest); letter-spacing: .14em; color: var(--gold); }
+  .svc .nm { font-weight: 600; font-size: 15px; line-height: 1.25; margin-top: 3px; }
+  .svc .tag { position: absolute; top: 8px; right: 8px; }
+  .svc .crest { position: absolute; inset: 0; display: grid; place-items: center; font: 700 44px/1 var(--ff-crest); color: rgba(220, 183, 92, .5); }
+
+  .sved { display: none; }
+  .sved.on { display: block; }
+  .sv-top { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; }
+  .sv-pics { display: grid; gap: 10px; align-content: start; }
+  .sv-portrait { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 3 / 4; background: var(--card2); border: 1px solid var(--line); }
+  .sv-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+  .sv-icon { display: flex; gap: 10px; align-items: center; }
+  .sv-icon img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid var(--line); background: var(--card2); }
+  .field { display: grid; gap: 4px; margin-bottom: 12px; }
+  .field > span { font-size: 13px; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .orig { font-size: 12px; color: var(--dim); }
+  .orig b { color: var(--ink); font-weight: 500; }
+  .kcards { display: grid; gap: 10px; }
+  .kc { --t: var(--ty-X); display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--t); border-radius: var(--r); padding: 12px 14px; }
+  .kc.edited { border-color: var(--gold); border-left-color: var(--t); }
+  .kc .art { width: 92px; aspect-ratio: 5 / 7; border-radius: 8px; overflow: hidden; background: radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--t) 45%, transparent), transparent 72%), linear-gradient(180deg, #1c2442, #0f1528); display: grid; place-items: center; color: var(--t); font: 700 30px/1 var(--ff-crest); border: 1px solid #000; }
+  .kc .art img { width: 100%; height: 100%; object-fit: cover; }
+  .kc .hd { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+  .kc .hd b { font-size: 16px; }
+  .ty { font-size: 11.5px; border-radius: 999px; padding: 0 8px; border: 1px solid currentColor; }
+  .nums { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .num { display: grid; gap: 2px; width: 108px; }
+  .num span { font-size: 12px; color: var(--dim); }
+  .num input { padding: 5px 8px; }
+  .deck { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dc { --t: var(--ty-X); display: grid; justify-items: center; gap: 4px; width: 74px; padding: 8px 4px 6px; border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--t) 22%, var(--card2)), var(--card)); border: 1px solid var(--line); border-top: 3px solid var(--t); text-align: center; }
+  .dc.edited { border-color: var(--gold); border-top-color: var(--t); }
+  .dc small { font-size: 11px; color: var(--dim); line-height: 1.2; }
+  .dc input { width: 52px; text-align: center; padding: 3px 4px; font-weight: 600; }
+  .dc .fixed { font: 700 20px/1.3 var(--ff-crest); }
+  .tS { --t: var(--ty-S); } .tA { --t: var(--ty-A); } .tM { --t: var(--ty-M); } .tX { --t: var(--ty-X); } .tN { --t: var(--ty-N); } .tZ { --t: var(--ty-Z); }
+  .sv-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .sv-nav .sp { flex: 1; }
+  .sticky-bar { position: sticky; top: 0; z-index: 4; background: rgba(11, 15, 28, .9); backdrop-filter: blur(6px); padding: 10px 0; margin: -10px 0 10px; }
+
+  /* ---------- backgrounds & colours ---------- */
+  .theme { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+  .tpv { position: sticky; top: 16px; }
+  .bgcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin-bottom: 12px; }
+  .bgcard.set { border-color: var(--gold); }
+  .bgcard h4 { font-size: 15px; display: flex; gap: 8px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 8px 0 10px; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: var(--bg2); color: var(--dim); padding: 5px 12px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--gold); color: var(--gold-ink); font-weight: 600; }
+  .bgopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; align-items: end; }
+  .bgopts label { display: grid; gap: 4px; font-size: 12.5px; color: var(--dim); }
+  .bgopts label.chk { display: flex; gap: 8px; font-size: 13.5px; }
+  input[type=color] { width: 100%; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg2); cursor: pointer; }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .preset { all: unset; cursor: pointer; width: 74px; height: 50px; border-radius: 8px; background-size: cover; background-position: center; border: 2px solid var(--line); position: relative; }
+  .preset.on { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-soft); }
+  .preset.up { display: grid; place-items: center; font-size: 12px; color: var(--dim); background: var(--bg2); text-align: center; line-height: 1.2; }
+  .colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+  .colors label { display: grid; grid-template-columns: 40px 1fr; gap: 2px 10px; align-items: center; font-size: 13px; }
+  .colors label input { grid-row: span 2; height: 40px; }
+  .colors label small { color: var(--dim); font-size: 11.5px; }
+  .savebar { position: sticky; bottom: 12px; z-index: 5; display: flex; gap: 10px; align-items: center; background: var(--card2); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow); margin-top: 12px; }
+  .savebar[hidden] { display: none; }
+  .savebar span { flex: 1; font-size: 14px; }
+  /* the small copy of the game screen: the same CSS as the game, on these boxes */
+  .pv { --night: #0c1120; --night-2: #141b2d; --night-3: #1d2640; --line: #2b3553; --bone: #ebe4d2; --dim: #a2a6b8; --seal: #d43a48; --grail: #dcb75c; --mana: #6bbbe4; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .pv-page { background: radial-gradient(600px 300px at 70% -10%, #1a2445 0%, transparent 60%), var(--night); color: var(--bone); padding: 10px; display: grid; gap: 8px; font-size: 12px; position: relative; min-height: 360px; }
+  .pv-hud { display: flex; justify-content: space-between; align-items: center; font: 700 11px/1 var(--ff-crest); letter-spacing: .12em; color: var(--grail); padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--night-2); }
+  .pv-hud i { font-style: normal; color: var(--seal); }
+  .pv-mid { display: grid; grid-template-columns: 1fr 96px; gap: 8px; }
+  .pv-map { position: relative; border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-height: 150px; overflow: hidden; }
+  .pv-map::after { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(12, 17, 32, .35), rgba(12, 17, 32, .8)); }
+  .pv-map > * { position: relative; z-index: 1; }
+  .pv-area { border: 2px solid var(--ac); border-radius: 8px; padding: 4px 6px; background: color-mix(in srgb, var(--ac) 12%, rgba(12, 17, 32, .9)); font-weight: 600; font-size: 11px; }
+  .pv-side { border: 1px solid var(--line); border-radius: 8px; background: var(--night-2); padding: 6px; display: grid; gap: 4px; align-content: start; font-size: 11px; }
+  .pv-side b { color: var(--mana); }
+  .pv-side .vp { color: var(--grail); }
+  .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pv-dlg, .pv-pop { border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(180deg, var(--night-2), var(--night)); padding: 8px 10px; display: grid; gap: 4px; min-height: 84px; }
+  .pv-dlg .t { font: 700 13px/1.1 var(--ff-crest); color: var(--grail); }
+  .pv-pop .t { font-weight: 600; }
+  .pv-btn { justify-self: start; background: var(--seal); color: #fff; border-radius: 6px; padding: 2px 8px; font-weight: 600; font-size: 11px; }
+  .pv-dim { color: var(--dim); }
+  .pv-lobby { background: radial-gradient(420px 220px at 88% -10%, color-mix(in srgb, var(--grail) 14%, transparent), transparent 62%), radial-gradient(380px 260px at -12% 112%, color-mix(in srgb, var(--seal) 16%, transparent), transparent 60%), var(--night); color: var(--bone); padding: 10px; display: grid; gap: 6px; font-size: 12px; border-top: 1px solid var(--line); }
+  .pv-lobby .t { font: 700 14px/1.1 var(--ff-crest); letter-spacing: .08em; color: var(--grail); }
+  .pv-menu { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pv-menu span { border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; background: var(--night-3); }
+
+  #cssText { min-height: 360px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+
+  /* ---------- phones ---------- */
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    aside.side { position: sticky; top: 0; z-index: 10; height: auto; flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; padding: 8px 10px; gap: 4px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .brand { padding: 0 6px 0 0; } .brand div { display: none; }
+    #nav { display: flex; gap: 2px; } .grp { display: flex; gap: 2px; } .grp > p { display: none; }
+    .nav { white-space: nowrap; padding: 6px 10px; font-size: 13.5px; } .nav.on { box-shadow: inset 0 -2px 0 var(--gold); }
+    .side .foot { display: none; }
+    main { padding: 16px 16px 60px; }
+    .theme { grid-template-columns: minmax(0, 1fr); }
+    .tpv { position: static; order: -1; }
+    .sv-top { grid-template-columns: minmax(0, 1fr); }
+    .sv-pics { grid-template-columns: 140px 1fr; align-items: start; }
+    .page-head h2 { font-size: 20px; }
+  }
+  @media (max-width: 520px) {
+    .kc { grid-template-columns: minmax(0, 1fr); }
+    .kc .art { width: 70px; }
+    .svgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>⚙️ หน้าแอดมิน</h1>
-  <nav id="tabs">
-    <button data-t="play" class="on">แก้บนหน้าเกม</button>
-    <button data-t="img">รูปภาพ</button>
-    <button data-t="snd">เสียง</button>
-    <button data-t="txt">ข้อความ (ทุกภาษา)</button>
-    <button data-t="dom">ข้อความที่แก้บนหน้าเกม</button>
-    <button data-t="css">สี / CSS</button>
-    <button data-t="bak">สำรอง / ที่เก็บ</button>
-  </nav>
-</header>
-<main>
-  <div id="storeWarn"></div>
-
-  <section id="play" class="on">
-    <div class="card">
-      <h3>แก้ทุกอย่างบนหน้าเกมจริง</h3>
-      <p class="note">เปิดเกมในโหมดแก้ไข แล้วกด "✏️ แก้ไข" ที่แถบด้านล่าง แตะข้อความไหนก็ได้เพื่อเปลี่ยนข้อความ แตะรูปไหนก็ได้เพื่อเปลี่ยนรูป ระหว่างเปิดโหมดแก้ไข การแตะจะไม่ไปกดปุ่มในเกม ปิดโหมดแก้ไขเพื่อเล่นไปยังหน้าที่ต้องการแก้ (เช่น ป๊อปอัปการ์ด) แล้วเปิดใหม่</p>
-      <div class="row" id="playLangs"></div>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="seal">DG</span><div><b>DOMINATE</b><small>หน้าแอดมิน</small></div></div>
+    <nav id="nav"></nav>
+    <div class="foot">
+      <div class="syncdot" id="syncDot"><i></i><span>กำลังโหลด…</span></div>
+      <a class="btn" href="/v5/" target="_blank">↗ เปิดหน้าเกม</a>
     </div>
-    <div class="card">
-      <h3>ผู้เล่นเห็นเมื่อไร</h3>
-      <p class="note">ทุกการแก้ไขบันทึกบนเซิร์ฟเวอร์ทันที ผู้เล่นทุกคนเห็นเมื่อเปิดหรือรีเฟรชหน้าเกม (เกมที่เล่นค้างอยู่ไม่สะดุด) ลิงก์หน้านี้มีรหัสอยู่ อย่าส่งต่อ</p>
-    </div>
-  </section>
+  </aside>
 
-  <section id="img">
-    <p class="note">รูปทั้งหมดในเว็บ กด "เปลี่ยน" แล้วเลือกไฟล์ รูปใหม่ขึ้นแทนรูปเดิมทุกที่ในเกม (webp png jpg gif svg ไม่เกิน 8 MB) ไอคอนและตราคลาสที่วาดด้วยโค้ดเปลี่ยนสีได้ในแท็บ "สี / CSS"</p>
-    <div class="bar"><input type="search" id="imgQ" placeholder="ค้นหาชื่อไฟล์"><label><input type="checkbox" id="imgOnly"> เฉพาะที่เปลี่ยนแล้ว</label></div>
-    <div class="grid" id="imgs"></div>
-  </section>
+  <main>
+    <div id="storeWarn"></div>
 
-  <section id="snd">
-    <p class="note">เสียงในเกมสร้างด้วยโค้ด ใส่ไฟล์เสียงแทนได้ทีละเสียง (mp3 wav ogg m4a webm ไม่เกิน 8 MB) ดังตามระดับเสียงที่ผู้เล่นตั้งไว้</p>
-    <div class="snds" id="snds"></div>
-  </section>
+    <!-- ภาพรวม -->
+    <section class="pg" id="home">
+      <div class="page-head"><div><div class="crumb">ภาพรวม</div><h2>สวัสดีแอดมิน</h2><p>ทุกอย่างที่แก้ในหน้านี้ ผู้เล่นเห็นเมื่อเปิดหรือรีเฟรชหน้าเกม เกมที่เล่นค้างอยู่ไม่สะดุด ลิงก์หน้านี้มีรหัสอยู่ อย่าส่งต่อ</p></div></div>
+      <div class="stats" id="stats"></div>
+      <div class="two">
+        <div class="panel">
+          <h3>✏️ แก้บนหน้าเกมจริง</h3>
+          <p class="note">เปิดเกมในโหมดแก้ไข แล้วกด "✏️ แก้ไข" ที่แถบด้านล่าง แตะข้อความหรือรูปไหนก็ได้เพื่อเปลี่ยน ระหว่างเปิดโหมดแก้ไข การแตะจะไม่ไปกดปุ่มในเกม</p>
+          <div class="row" id="playLangs"></div>
+        </div>
+        <div class="panel">
+          <h3>💾 ที่เก็บข้อมูล</h3>
+          <div id="homeStore" class="note"></div>
+          <button class="btn sm" data-go="bak">ไปที่สำรอง / ที่เก็บ</button>
+        </div>
+      </div>
+    </section>
 
-  <section id="txt">
-    <p class="note">ข้อความทุกข้อความของเกม เลือกภาษาแล้วแก้ในช่องขวา ปล่อยว่างเท่ากับใช้ข้อความเดิม <b>{0} {1}</b> คือที่ที่เกมใส่ชื่อหรือตัวเลข ต้องเก็บไว้ บันทึกเองเมื่อออกจากช่อง</p>
-    <div id="txtNone" class="warn" hidden>ยังไม่มีระบบหลายภาษาในเซิร์ฟเวอร์นี้ ใช้ "แก้บนหน้าเกม" ไปก่อน</div>
-    <div class="bar"><select id="txtLang"></select><input type="search" id="txtQ" placeholder="ค้นหาข้อความ"><label><input type="checkbox" id="txtOnly"> เฉพาะที่แก้แล้ว</label><span class="note" id="txtCount"></span></div>
-    <table><thead><tr><th>ข้อความต้นฉบับ (ไทย) / ข้อความเดิมของภาษานี้</th><th>ข้อความใหม่</th></tr></thead><tbody id="txts"></tbody></table>
-  </section>
+    <!-- Servant -->
+    <section class="pg" id="sv">
+      <div id="svList">
+        <div class="page-head"><div><div class="crumb">เนื้อหาเกม</div><h2>Servant และการ์ด</h2><p>เลือก Servant เพื่อแก้ชื่อ รูป คำอธิบาย การ์ด NP / สกิล (ชื่อ พลัง มานา ข้อความ รูปการ์ด) และพลังของการ์ดในสำรับ</p></div></div>
+        <div class="svgrid" id="svGrid"></div>
+      </div>
+      <div class="sved" id="svEd"></div>
+    </section>
 
-  <section id="dom">
-    <p class="note">ข้อความที่แก้ด้วยการแตะบนหน้าเกม เปลี่ยนเมื่อข้อความบนหน้าจอตรงกับช่องซ้ายทั้งก้อน แยกตามภาษา เพิ่มเองได้ที่แถวล่างสุด</p>
-    <div class="bar"><select id="domLang"></select></div>
-    <table><thead><tr><th>ข้อความบนหน้าจอ</th><th>เปลี่ยนเป็น</th><th></th></tr></thead><tbody id="doms"></tbody></table>
-  </section>
+    <!-- ข้อความ -->
+    <section class="pg" id="txt">
+      <div class="page-head"><div><div class="crumb">เนื้อหาเกม</div><h2>ข้อความทุกภาษา</h2><p>ข้อความทุกข้อความของเกม แก้ในช่องขวา ปล่อยว่างเท่ากับใช้ข้อความเดิม <b>{0} {1}</b> คือที่ที่เกมใส่ชื่อหรือตัวเลข ต้องเก็บไว้ บันทึกเองเมื่อออกจากช่อง</p></div></div>
+      <div id="txtNone" class="warn" hidden>ยังไม่มีระบบหลายภาษาในเซิร์ฟเวอร์นี้ ใช้ "แก้บนหน้าเกม" ไปก่อน</div>
+      <div class="bar"><span class="langs" id="txtLang"></span><input type="search" id="txtQ" placeholder="ค้นหาข้อความ"><label class="chk"><input type="checkbox" id="txtOnly"> เฉพาะที่แก้แล้ว</label><span class="note" id="txtCount" style="margin:0"></span></div>
+      <div class="tablewrap"><table><thead><tr><th>ข้อความต้นฉบับ (ไทย) / ข้อความเดิมของภาษานี้</th><th>ข้อความใหม่</th></tr></thead><tbody id="txts"></tbody></table></div>
+    </section>
 
-  <section id="css">
-    <p class="note">CSS เพิ่มเติม ใส่ท้ายหน้าเกม ใช้เปลี่ยนสี ตัวอักษร ขนาด ซ่อนสิ่งที่ไม่ต้องการ ฯลฯ ตัวอย่าง: <code>:root { --gold: #c00; }</code> หรือ <code>body { font-size: 18px; }</code></p>
-    <textarea id="cssText" spellcheck="false"></textarea>
-    <div class="row" style="margin-top:8px"><button class="btn primary" id="cssSave">บันทึก CSS</button><a class="btn" href="/v5/" target="_blank">เปิดเกมดูผล</a></div>
-  </section>
+    <section class="pg" id="dom">
+      <div class="page-head"><div><div class="crumb">เนื้อหาเกม</div><h2>ข้อความที่แก้บนหน้าเกม</h2><p>ข้อความที่แก้ด้วยการแตะบนหน้าเกม เปลี่ยนเมื่อข้อความบนหน้าจอตรงกับช่องซ้ายทั้งก้อน แยกตามภาษา เพิ่มเองได้ที่แถวล่างสุด</p></div></div>
+      <div class="bar"><span class="langs" id="domLang"></span></div>
+      <div class="tablewrap"><table><thead><tr><th>ข้อความบนหน้าจอ</th><th>เปลี่ยนเป็น</th><th></th></tr></thead><tbody id="doms"></tbody></table></div>
+    </section>
 
-  <section id="bak">
-    <div class="card"><h3>ที่เก็บข้อมูล</h3><div id="store"></div></div>
-    <div class="card">
-      <h3>สำรองข้อมูล</h3>
-      <p class="note">ไฟล์เดียวมีทั้งข้อความ CSS รูป และเสียงที่แก้ไว้ เก็บไว้ในเครื่อง แล้วนำกลับมาใส่ได้</p>
-      <div class="row"><a class="btn primary" id="bakDown">ดาวน์โหลดไฟล์สำรอง</a><label class="btn">นำไฟล์สำรองกลับมา<input type="file" id="bakUp" accept=".json,application/json" hidden></label></div>
-    </div>
-    <div class="card">
-      <h3>คืนค่าเดิมทั้งเว็บ</h3>
-      <p class="note">ลบการแก้ไขทั้งหมด (ข้อความ CSS รูป เสียง) กลับเป็นเว็บเดิม ดาวน์โหลดไฟล์สำรองไว้ก่อน</p>
-      <button class="btn danger" id="resetAll">คืนค่าเดิมทั้งหมด</button>
-    </div>
-  </section>
-</main>
+    <!-- ฉากหลัง & สี -->
+    <section class="pg" id="theme">
+      <div class="page-head"><div><div class="crumb">หน้าตา</div><h2>ฉากหลังและสี</h2><p>เปลี่ยนฉากหลังของแต่ละส่วนในเกมเป็นสี ไล่สี หรือรูป และเปลี่ยนสีหลักของเกม ดูผลในภาพตัวอย่างก่อน แล้วกดบันทึก</p></div></div>
+      <div class="theme">
+        <div>
+          <div id="bgCards"></div>
+          <div class="bgcard" id="backCard"></div>
+          <div class="bgcard">
+            <h4>🎨 สีหลักของเกม</h4>
+            <p class="note">สีที่เกมใช้ทั่วทั้งหน้า (พื้น แผง ตัวอักษร สีเน้น) ไม่ได้แตะ = ใช้สีเดิม</p>
+            <div class="colors" id="colors"></div>
+            <div class="row" style="margin-top:10px"><button class="btn sm" id="colorsReset">ใช้สีเดิมทั้งหมด</button></div>
+          </div>
+          <div class="savebar" id="themeBar" hidden><span>มีการเปลี่ยนที่ยังไม่บันทึก</span><button class="btn" id="themeUndo">ยกเลิก</button><button class="btn primary" id="themeSave">บันทึกฉากหลังและสี</button></div>
+        </div>
+        <div class="tpv">
+          <div class="pv" id="pv"><div class="pv-page">
+            <div class="pv-hud"><span>DOMINATE GRAIL WAR</span><i>รอบ 3</i></div>
+            <div class="pv-mid">
+              <div class="pv-map">
+                <div class="pv-area" style="--ac:#3fcf7a">โรงฝึกเวท</div><div class="pv-area" style="--ac:#7178ee">มิยามะ</div>
+                <div class="pv-area" style="--ac:#e39a3a">ลาดตระเวน</div><div class="pv-area" style="--ac:#2fb5a3">ชินโตะ</div>
+              </div>
+              <div class="pv-side"><span>Master ของคุณ</span><span>มานา <b>6</b></span><span class="vp">12 VP</span><span class="pv-dim">บันทึกสงคราม…</span></div>
+            </div>
+            <div class="pv-row">
+              <div class="pv-dlg"><span class="t">หน้าเริ่มเกม</span><span class="pv-dim">หน้าต่างใหญ่: เริ่ม เลือก Servant ผลลัพธ์</span><span class="pv-btn">เริ่มเกม</span></div>
+              <div class="pv-pop"><span class="t">ป๊อปอัป</span><span class="pv-dim">แตะพื้นที่หรือการ์ด</span></div>
+            </div>
+          </div><div class="pv-lobby"><span class="t">DOMINATE GRAIL WAR</span><span class="pv-dim">หน้าแรก (ล็อบบี้)</span><div class="pv-menu"><span>🌐 เล่นออนไลน์</span><span>🤖 เล่นกับบอท</span><span>🎓 สอนเล่น</span><span>⚙ ตั้งค่า</span></div></div></div>
+          <p class="note" style="margin-top:8px">ภาพตัวอย่างโดยประมาณ ดูของจริงได้ที่ <a href="/v5/" target="_blank">หน้าเกม</a> หลังบันทึก</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- รูปภาพ -->
+    <section class="pg" id="img">
+      <div class="page-head"><div><div class="crumb">หน้าตา</div><h2>รูปภาพ</h2><p>รูปทั้งหมดในเว็บ แยกตามหมวด กด "เปลี่ยน" แล้วเลือกไฟล์ รูปใหม่ขึ้นแทนรูปเดิมทุกที่ในเกม (webp png jpg gif svg ไม่เกิน 8 MB)</p></div></div>
+      <div class="bar"><div class="chips" id="imgCats"></div><input type="search" id="imgQ" placeholder="ค้นหาชื่อไฟล์"><label class="chk"><input type="checkbox" id="imgOnly"> เฉพาะที่เปลี่ยนแล้ว</label></div>
+      <div id="imgs"></div>
+    </section>
+
+    <section class="pg" id="css">
+      <div class="page-head"><div><div class="crumb">หน้าตา</div><h2>CSS เพิ่มเติม</h2><p>สำหรับปรับละเอียดเกินกว่าแท็บฉากหลังและสี ใส่ท้ายหน้าเกม ตัวอย่าง: <code>body { font-size: 18px; }</code> หรือ <code>.pop-dlg { border-radius: 4px; }</code></p></div></div>
+      <textarea id="cssText" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="cssSave">บันทึก CSS</button><a class="btn" href="/v5/" target="_blank">เปิดเกมดูผล</a></div>
+    </section>
+
+    <!-- เสียง -->
+    <section class="pg" id="snd">
+      <div class="page-head"><div><div class="crumb">เสียง</div><h2>เสียงในเกม</h2><p>เสียงในเกมสร้างด้วยโค้ด ใส่ไฟล์เสียงแทนได้ทีละเสียง (mp3 wav ogg m4a webm ไม่เกิน 8 MB) ดังตามระดับเสียงที่ผู้เล่นตั้งไว้</p></div></div>
+      <div class="snds" id="snds"></div>
+    </section>
+
+    <!-- สมาชิก -->
+    <section class="pg" id="mem">
+      <div class="page-head"><div><div class="crumb">ผู้เล่น</div><h2>สมาชิก</h2><p><b>ตั้งรหัสใหม่</b> สำหรับคนที่ลืมรหัสผ่าน: รหัสใหม่ขึ้นครั้งเดียว ส่งให้เจ้าของบัญชีแล้วให้เขาเปลี่ยนเองในโปรไฟล์ · <b>ระงับ</b> เข้าสู่ระบบไม่ได้และถูกออกจากระบบทันที</p></div></div>
+      <div id="memStore"></div>
+      <div class="bar"><input type="search" id="memQ" placeholder="ค้นหาชื่อผู้ใช้ / ชื่อที่แสดง"><span id="memCount" class="note" style="margin:0"></span></div>
+      <div class="tablewrap"><table><thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อที่แสดง</th><th>เกม / ชนะ</th><th>เพื่อน</th><th>สมัคร · เข้าล่าสุด</th><th></th></tr></thead><tbody id="mems"></tbody></table></div>
+      <div class="panel" style="margin-top:14px"><h3>เกมออนไลน์ล่าสุดที่มีสมาชิกเล่น</h3><div id="memGames" class="note"></div></div>
+    </section>
+
+    <!-- สำรอง -->
+    <section class="pg" id="bak">
+      <div class="page-head"><div><div class="crumb">ระบบ</div><h2>สำรอง / ที่เก็บ</h2></div></div>
+      <div class="panel"><h3>ที่เก็บข้อมูล</h3><div id="store"></div></div>
+      <div class="panel">
+        <h3>สำรองข้อมูล</h3>
+        <p class="note">ไฟล์เดียวมีทุกอย่างที่แก้ไว้: ข้อความ Servant ฉากหลัง สี CSS รูป และเสียง เก็บไว้ในเครื่อง แล้วนำกลับมาใส่ได้</p>
+        <div class="row"><a class="btn primary" id="bakDown">ดาวน์โหลดไฟล์สำรอง</a><label class="btn">นำไฟล์สำรองกลับมา<input type="file" id="bakUp" accept=".json,application/json" hidden></label></div>
+      </div>
+      <div class="panel" style="border-color:rgba(229,96,106,.4)">
+        <h3>คืนค่าเดิมทั้งเว็บ</h3>
+        <p class="note">ลบการแก้ไขทั้งหมด กลับเป็นเว็บเดิม ดาวน์โหลดไฟล์สำรองไว้ก่อน</p>
+        <button class="btn danger" id="resetAll">คืนค่าเดิมทั้งหมด</button>
+      </div>
+    </section>
+  </main>
+</div>
 <div id="toast"></div>
 
-<script>window.__OVR = {}; // the game modules imported here show their original texts and sounds</script>
+<script>window.__OVR = {}; // the game modules imported here show their original texts, numbers and sounds</script>
 <script type="module">
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const LANG_NAME = { th: 'ไทย', en: 'English', zh: '中文', ja: '日本語' };
 const SND_NAME = { turn: 'ถึงตาคุณ', place: 'วางหมาก', move: 'เดินหมาก', card: 'ลงการ์ด', pick: 'เลือกการ์ดในป๊อปอัป', phase: 'เริ่มช่วงใหม่ของรอบ', fight: 'เริ่มการต่อสู้', win: 'ชนะการต่อสู้', lose: 'แพ้การต่อสู้', reveal: 'เปิดชื่อจริง', cs: 'ใช้ Command Spell', out: 'Master ตกรอบ', grail: 'จบสงคราม ได้จอก', test: 'เสียงทดสอบในการตั้งค่า' };
+const ICON = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  sv: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 7l1.5 3 3 .4-2.2 2.1.5 3-2.8-1.5-2.8 1.5.5-3L7.5 10.4l3-.4z"/>',
+  txt: '<path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 14l3 7M23 21l-3-7-3 7M18 19h4" transform="translate(-3 0) scale(.9)"/>',
+  dom: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+  theme: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.6"/>',
+  img: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
+  css: '<path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/>',
+  snd: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+  mem: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14a5 5 0 0 1 6 5"/>',
+  bak: '<path d="M4 7h16v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M3 4h18v3H3zM10 11h4"/>',
+};
+const svgI = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+const GROUPS = [
+  { name: 'ภาพรวม', items: [['home', 'ภาพรวม']] },
+  { name: 'เนื้อหาเกม', items: [['sv', 'Servant และการ์ด'], ['txt', 'ข้อความทุกภาษา'], ['dom', 'ข้อความบนหน้าเกม']] },
+  { name: 'หน้าตา', items: [['theme', 'ฉากหลังและสี'], ['img', 'รูปภาพ'], ['css', 'CSS เพิ่มเติม']] },
+  { name: 'เสียง', items: [['snd', 'เสียงในเกม']] },
+  { name: 'ผู้เล่น', items: [['mem', 'สมาชิก']] },
+  { name: 'ระบบ', items: [['bak', 'สำรอง / ที่เก็บ']] },
+];
 
 // the key: from the address once, then kept in this tab only and taken out of the address
 const q = new URLSearchParams(location.search);
@@ -153,50 +423,306 @@ async function call(method, url, body, type = 'application/json') {
   if (!r.ok) throw new Error(j.error || `ผิดพลาด ${r.status}`);
   return j;
 }
-function toast(t, bad) { const e = $('#toast'); e.textContent = t; e.style.background = bad ? 'var(--red)' : ''; e.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('show'), 2600); }
+function toast(t, bad) { const e = $('#toast'); e.textContent = t; e.classList.toggle('bad', !!bad); e.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('show'), 2600); }
 const fail = (e) => toast(e.message, true);
+const langSeg = (el, cur, onPick) => {
+  el.innerHTML = S.langs.map((l) => `<button data-l="${l}" class="${l === cur ? 'on' : ''}">${LANG_NAME[l]}</button>`).join('');
+  el.onclick = (e) => { const b = e.target.closest('button'); if (!b) return; $$('button', el).forEach((x) => x.classList.toggle('on', x === b)); onPick(b.dataset.l); };
+};
 
 let S = null; // { data, pictures, sounds, langs, storage }
-let I18N = null; // { STRINGS, PATTERNS } of the game, untouched
-async function load() { S = await call('GET', '/admin/api/state'); }
+let G = null; // the game's own modules, untouched: { STRINGS, keys, SERVANTS, TYPES, plainCard, CARD_ART, themeCss, BG_PLACES }
+async function load() { S = await call('GET', '/admin/api/state'); S.data.theme ||= {}; S.data.game ||= {}; }
 
-// ---------- tabs ----------
-$('#tabs').addEventListener('click', (e) => {
-  const t = e.target.closest('button')?.dataset.t;
-  if (!t) return;
-  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.t === t);
-  for (const s of document.querySelectorAll('main > section')) s.classList.toggle('on', s.id === t);
+// the game's modules, in Thai: the Thai texts are the keys of every language
+async function loadGame() {
+  let prev = null;
+  try { prev = localStorage.getItem('dgw-lang'); localStorage.setItem('dgw-lang', 'th'); } catch {}
+  try {
+    const [i18n, data, custom, art] = await Promise.all([import('/v5/i18n.js'), import('/v5/data.js'), import('/v5/custom.js'), import('/v5/art.js').catch(() => ({}))]);
+    let pats = [];
+    try { pats = (await import('/v5/lang/patterns.js')).PATTERNS || []; } catch {}
+    const keys = new Set(pats);
+    for (const l of Object.keys(i18n.STRINGS)) for (const k of Object.keys(i18n.STRINGS[l])) keys.add(k);
+    for (const l of S.langs) for (const k of Object.keys(S.data.strings[l] || {})) keys.add(k);
+    const path = (u) => { try { return new URL(u, location.href).pathname; } catch { return ''; } };
+    const cardArt = {};
+    for (const [n, a] of Object.entries(art.CARD_ART || {})) cardArt[n] = { art: path(a.art), full: path(a.full) };
+    G = { STRINGS: i18n.STRINGS, keys: [...keys].sort((a, b) => a.localeCompare(b, 'th')), SERVANTS: data.SERVANTS, TYPES: data.TYPES, plainCard: data.plainCard, CARD_ART: cardArt, themeCss: custom.themeCss, BG_PLACES: custom.BG_PLACES };
+  } catch (e) { console.error(e); G = null; }
+  try { if (prev == null) localStorage.removeItem('dgw-lang'); else localStorage.setItem('dgw-lang', prev); } catch {}
+}
+
+// ---------- navigation ----------
+function drawNav() {
+  const n = counts();
+  const badge = { sv: n.sv, txt: n.txt, dom: n.dom, theme: n.theme, img: n.img, snd: n.snd, css: n.css ? '✓' : '' };
+  $('#nav').innerHTML = GROUPS.map((g) => `<div class="grp"><p>${g.name}</p>${g.items.map(([id, label]) => `<button class="nav${cur === id ? ' on' : ''}" data-t="${id}">${svgI(id)}<span>${label}</span><span class="cnt">${badge[id] || ''}</span></button>`).join('')}</div>`).join('');
+}
+let cur = 'home';
+function go(t) {
+  if (!document.getElementById(t)) t = 'home';
+  cur = t;
+  $$('main > section').forEach((s) => s.classList.toggle('on', s.id === t));
+  $$('#nav .nav').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
   try { sessionStorage.setItem('fdnc-admin-tab', t); } catch {}
-});
+  window.scrollTo({ top: 0 });
+}
+$('#nav').addEventListener('click', (e) => { const t = e.target.closest('.nav')?.dataset.t; if (t) go(t); });
+document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]')?.dataset.go; if (t) go(t); });
 
-// ---------- play ----------
-function drawPlay() {
+function counts() {
+  const d = S.data;
+  const per = (o) => Object.values(o || {}).reduce((n, m) => n + Object.keys(m).length, 0);
+  return {
+    img: Object.keys(d.images).length, snd: Object.keys(d.sounds).length, txt: per(d.strings), dom: per(d.dom),
+    sv: Object.keys(d.game.servants || {}).length, css: !!(d.css || '').trim(),
+    theme: Object.keys(d.theme.bg || {}).length + Object.keys(d.theme.colors || {}).length,
+  };
+}
+
+// ---------- overview ----------
+function drawHome() {
+  const n = counts();
+  const st = [['sv', n.sv, 'Servant ที่แก้'], ['txt', n.txt, 'ข้อความที่แก้'], ['theme', n.theme, 'ฉากหลัง / สีที่เปลี่ยน'], ['img', n.img, 'รูปที่เปลี่ยน'], ['snd', n.snd, 'เสียงที่เปลี่ยน'], ['dom', n.dom, 'ข้อความบนหน้าเกม']];
+  $('#stats').innerHTML = st.map(([t, v, l]) => `<button class="stat" data-go="${t}"><b>${v}</b><span>${l}</span></button>`).join('');
   $('#playLangs').innerHTML = S.langs.map((l) => `<a class="btn${l === 'th' ? ' primary' : ''}" href="/v5/?edit=1&lang=${l}" target="_blank">เปิดเกม (${LANG_NAME[l]})</a>`).join('');
 }
 
+// ---------- Servants ----------
+const T_NAME = { S: 'กำลัง', A: 'ว่องไว', M: 'เวท', X: 'พิเศษ', N: 'NP', Z: 'ไม่มีชนิด' };
+const typeOf = (c) => (c.types || [c.type]).map((t) => T_NAME[t] || t).join(' · ');
+const pic = (p) => S.pictures.some((x) => x.path === p) ? p : null;
+const shown = (p) => { const o = S.data.images[p]; return o ? `/media/${o.id}` : p; }; // a replaced picture: the new one
+const svEdit = (k) => S.data.game.servants?.[k] || null;
+let svLang = 'th', svOpen = null;
+function drawSvGrid() {
+  if (!G) { $('#svGrid').innerHTML = '<p class="err">โหลดข้อมูลเกมไม่ได้</p>'; return; }
+  $('#svGrid').innerHTML = G.SERVANTS.map((sv) => {
+    const p = pic(`/src/art/servants/${sv.key}.webp`), e = svEdit(sv.key);
+    const edited = e || [p, pic(`/src/art/icons/${sv.key}.webp`)].some((x) => x && S.data.images[x]) || svTextsEdited(sv);
+    return `<button class="svc" data-k="${sv.key}">${p ? `<img src="${esc(shown(p))}" alt="" loading="lazy">` : `<span class="crest">${esc(sv.cls[0])}</span>`}
+      ${edited ? '<span class="tag">แก้แล้ว</span>' : ''}<div class="cap"><div class="cls">${esc(sv.cls.toUpperCase())}</div><div class="nm">${esc(e?.name || sv.name)}</div></div></button>`;
+  }).join('');
+}
+const svKeys = (sv) => [sv.note, ...sv.skills.map((c) => c.text)].filter(Boolean);
+const svTextsEdited = (sv) => svKeys(sv).some((k) => S.langs.some((l) => S.data.strings[l]?.[k] != null));
+$('#svGrid').addEventListener('click', (e) => { const k = e.target.closest('.svc')?.dataset.k; if (k) openSv(k); });
+function openSv(k) { svOpen = k; $('#svList').hidden = true; $('#svEd').classList.add('on'); drawSvEd(); window.scrollTo({ top: 0 }); }
+function closeSv() { svOpen = null; $('#svList').hidden = false; $('#svEd').classList.remove('on'); drawSvGrid(); }
+const defText = (l, k) => (l === 'th' ? k : G.STRINGS[l]?.[k] ?? k);
+const textBox = (k, rows = 2) => {
+  const v = S.data.strings[svLang]?.[k];
+  return `<textarea rows="${rows}" data-text="${esc(k)}" class="${v != null ? 'changed' : ''}" placeholder="${esc(defText(svLang, k))}">${esc(v ?? '')}</textarea>`;
+};
+const imgActs = (p, label) => p ? `<label class="btn sm">${label}<input type="file" data-img="${esc(p)}" accept="image/webp,image/png,image/jpeg,image/gif,image/svg+xml" hidden></label>${S.data.images[p] ? `<button class="btn sm danger" data-imgreset="${esc(p)}">คืนรูปเดิม</button>` : ''}` : '';
+function drawSvEd() {
+  const i = G.SERVANTS.findIndex((x) => x.key === svOpen), sv = G.SERVANTS[i];
+  if (!sv) { closeSv(); return; }
+  const e = svEdit(sv.key) || {};
+  const portrait = pic(`/src/art/servants/${sv.key}.webp`), icon = pic(`/src/art/icons/${sv.key}.webp`);
+  const prev = G.SERVANTS[(i - 1 + G.SERVANTS.length) % G.SERVANTS.length], next = G.SERVANTS[(i + 1) % G.SERVANTS.length];
+  const skills = sv.skills.map((c, j) => {
+    const x = e.skills?.[j] || {};
+    const art = G.CARD_ART[c.name];
+    const artP = art && pic(art.art);
+    const t = (c.types || [c.type])[0];
+    return `<div class="kc t${t}${x.power != null || x.mana != null || S.langs.some((l) => S.data.strings[l]?.[c.text] != null) || (artP && S.data.images[artP]) ? ' edited' : ''}">
+      <div><div class="art">${artP ? `<img src="${esc(shown(artP))}" alt="">` : esc(t === 'N' ? 'NP' : T_NAME[t]?.[0] || '?')}</div>${artP ? `<div class="row" style="margin-top:6px">${imgActs(artP, 'เปลี่ยนรูป')}</div>` : ''}</div>
+      <div>
+        <div class="hd"><b>${esc(c.name)}</b><span class="ty" style="color:var(--t)">${esc(typeOf(c))}</span></div>
+        <div class="nums">
+          <label class="num"><span>พลัง <span class="orig">(เดิม ${c.power})</span></span><input type="number" min="0" max="30" data-sk="${j}" data-f="power" value="${x.power ?? ''}" placeholder="${c.power}" class="${x.power != null ? 'changed' : ''}"></label>
+          <label class="num"><span>มานา <span class="orig">(เดิม ${c.mana})</span></span><input type="number" min="0" max="12" data-sk="${j}" data-f="mana" value="${x.mana ?? ''}" placeholder="${c.mana}" class="${x.mana != null ? 'changed' : ''}"></label>
+        </div>
+        ${c.text ? `<div class="field"><span>ข้อความบนการ์ด (${LANG_NAME[svLang]})</span>${textBox(c.text, 3)}</div>` : ''}
+      </div></div>`;
+  }).join('');
+  const deck = sv.deck.map((c, j) => {
+    const can = G.plainCard(c), v = e.deck?.[j];
+    const t = c.type;
+    return `<div class="dc t${t}${v != null ? ' edited' : ''}"><small>${esc(c.name || T_NAME[t] || t)}</small>${can ? `<input type="number" min="0" max="15" data-dk="${j}" value="${v ?? ''}" placeholder="${c.power}" class="${v != null ? 'changed' : ''}">` : `<span class="fixed">${c.power}</span>`}<small>${can ? `มานา ${Math.max(0, (v ?? c.power) - 3)}` : 'การ์ดพิเศษ'}</small></div>`;
+  }).join('');
+  $('#svEd').innerHTML = `
+    <div class="sv-nav sticky-bar"><button class="btn" data-a="back">← Servant ทั้งหมด</button><span class="sp"></span>
+      <button class="btn sm" data-open="${prev.key}">‹ ${esc(prev.name)}</button><button class="btn sm" data-open="${next.key}">${esc(next.name)} ›</button></div>
+    <div class="page-head"><div><div class="crumb">Servant · ${esc(sv.cls)}</div><h2>${esc(e.name || sv.name)}</h2></div>
+      <div class="row"><span class="note" style="margin:0">ภาษาของข้อความ</span><span class="langs" id="svLang"></span></div></div>
+    <div class="panel"><div class="sv-top">
+      <div class="sv-pics">
+        <div class="sv-portrait">${portrait ? `<img src="${esc(shown(portrait))}" alt="">` : ''}</div>
+        <div style="display:grid;gap:10px">
+          ${portrait ? `<div class="row">${imgActs(portrait, 'เปลี่ยนรูป Servant')}</div>` : ''}
+          ${icon ? `<div class="sv-icon"><img src="${esc(shown(icon))}" alt=""><div class="row">${imgActs(icon, 'เปลี่ยนไอคอน')}</div></div>` : ''}
+        </div>
+      </div>
+      <div>
+        <label class="field"><span>ชื่อที่แสดง <span class="orig">เดิม: <b>${esc(sv.name)}</b></span></span><input type="text" maxlength="40" id="svName" value="${esc(e.name ?? '')}" placeholder="${esc(sv.name)}" class="${e.name ? 'changed' : ''}"></label>
+        <div class="field"><span>คลาส</span><div><span class="tag" style="background:var(--card2);color:var(--gold);border:1px solid var(--line)">${esc(sv.cls)}</span></div></div>
+        ${sv.note ? `<div class="field"><span>คำอธิบาย Servant (${LANG_NAME[svLang]}) · ขึ้นตอนเลือก Servant</span>${textBox(sv.note, 3)}</div>` : ''}
+        <p class="note">ช่องที่ว่างไว้ใช้ค่าเดิม ตัวเลขบันทึกเมื่อออกจากช่อง ข้อความบันทึกแยกตามภาษา</p>
+        <button class="btn sm danger" data-a="svreset"${e && Object.keys(e).length ? '' : ' disabled'}>คืนชื่อและตัวเลขของ Servant นี้เป็นค่าเดิม</button>
+      </div>
+    </div></div>
+    <div class="panel"><h3>การ์ด NP / สกิล <span class="note" style="margin:0">${sv.skills.length} ใบ</span></h3><p class="note">พลังและมานาใช้ทั้งเกมเล่นกับบอทและเกมออนไลน์ (เกมใหม่ที่เริ่มหลังบันทึก)</p><div class="kcards">${skills}</div></div>
+    <div class="panel"><h3>สำรับ <span class="note" style="margin:0">${sv.deck.length} ใบ</span></h3><p class="note">การ์ดพื้นฐาน (กำลัง ว่องไว เวท) แก้พลังได้ มานาเป็นพลัง − 3 ตามกติกา การ์ดพิเศษ (Luck, Surveil ฯลฯ) แก้ข้อความได้ในแท็บข้อความทุกภาษา</p><div class="deck">${deck}</div></div>`;
+  langSeg($('#svLang'), svLang, (l) => { svLang = l; drawSvEd(); });
+}
+async function saveSv() {
+  const sv = G.SERVANTS.find((x) => x.key === svOpen);
+  const edit = { name: $('#svName').value.trim(), skills: {}, deck: {} };
+  for (const inp of $$('#svEd input[data-sk]')) if (inp.value !== '') (edit.skills[inp.dataset.sk] ||= {})[inp.dataset.f] = +inp.value;
+  for (const inp of $$('#svEd input[data-dk]')) if (inp.value !== '') edit.deck[inp.dataset.dk] = +inp.value;
+  const r = await call('POST', '/admin/api/servant', { key: sv.key, edit });
+  const all = { ...(S.data.game.servants || {}) };
+  if (r.edit) all[sv.key] = r.edit; else delete all[sv.key];
+  S.data.game = Object.keys(all).length ? { servants: all } : {};
+}
+async function saveText(l, k, v) {
+  await call('POST', '/admin/api/text', { part: 'strings', lang: l, key: k, value: v });
+  (S.data.strings[l] ||= {}); if (v == null) delete S.data.strings[l][k]; else S.data.strings[l][k] = v;
+}
+const holes = (s) => (String(s).match(/\{\d+\}/g) || []).sort().join();
+$('#svEd').addEventListener('change', async (e) => {
+  const el = e.target;
+  try {
+    if (el.matches('input[type=file][data-img]')) { await putImage(el.dataset.img, el.files[0]); drawSvEd(); return; }
+    if (el.dataset.text != null) { const v = el.value === '' ? null : el.value; await saveText(svLang, el.dataset.text, v); el.classList.toggle('changed', v != null); toast('บันทึกข้อความแล้ว'); drawNav(); return; }
+    if (el.id === 'svName' || el.dataset.sk != null || el.dataset.dk != null) { await saveSv(); drawSvEd(); drawNav(); toast('บันทึกแล้ว'); }
+  } catch (err) { fail(err); }
+});
+$('#svEd').addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  try {
+    if (b.dataset.a === 'back') closeSv();
+    if (b.dataset.open) openSv(b.dataset.open);
+    if (b.dataset.imgreset) { await resetImage(b.dataset.imgreset); drawSvEd(); }
+    if (b.dataset.a === 'svreset' && confirm('คืนชื่อ พลัง และมานาของ Servant นี้เป็นค่าเดิม? (รูปและข้อความไม่เปลี่ยน)')) { await call('POST', '/admin/api/servant', { key: svOpen, edit: null }); const all = { ...(S.data.game.servants || {}) }; delete all[svOpen]; S.data.game = Object.keys(all).length ? { servants: all } : {}; drawSvEd(); drawNav(); toast('คืนค่าเดิมแล้ว'); }
+  } catch (err) { fail(err); }
+});
+
+// ---------- backgrounds and colours ----------
+const PLACES = [
+  ['page', '🌌 ฉากหลังหน้าเกม', 'พื้นหลังทั้งหน้า อยู่หลังทุกอย่าง'],
+  ['lobby', '🏰 หน้าแรก (ล็อบบี้)', 'หน้าแรกที่มีเมนู ห้องรอเล่น และหน้าเลือก Master'],
+  ['map', '🗺️ กระดาน (แผนที่ฟุยุกิ)', 'กรอบแผนที่ที่มีโรงฝึกเวท มิยามะ ชินโตะ ลาดตระเวน'],
+  ['dlg', '📜 หน้าต่างใหญ่', 'หน้าเลือก Master ตั้งค่า ผลลัพธ์ จบเกม และกรอบข้างเมนูในหน้าแรก'],
+  ['pop', '🪟 ป๊อปอัป', 'หน้าต่างที่ขึ้นเมื่อแตะพื้นที่ การ์ด หรือผู้เล่น'],
+  ['side', '📋 แผงข้าง', 'Master ของคุณ อันดับ และบันทึกสงคราม'],
+];
+const COLORS = [
+  ['night', '#0c1120', 'พื้นโต๊ะ'], ['night-2', '#141b2d', 'แผง'], ['night-3', '#1d2640', 'ปุ่ม / ยกขึ้น'], ['line', '#2b3553', 'เส้นขอบ'],
+  ['bone', '#ebe4d2', 'ตัวอักษร'], ['dim', '#a2a6b8', 'ตัวอักษรรอง'], ['seal', '#d43a48', 'สีเน้น (แดง Command Spell)'], ['grail', '#dcb75c', 'ทอง VP'], ['mana', '#6bbbe4', 'ฟ้ามานา'],
+];
+let TH = null; // the theme being edited, saved with the button
+const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+const modeOf = (b) => (!b ? 'off' : b.image ? 'image' : b.color2 ? 'grad' : 'color');
+const PV = { page: '#pv .pv-page', lobby: '#pv .pv-lobby', map: '#pv .pv-map', dlg: '#pv .pv-dlg', pop: '#pv .pv-pop', side: '#pv .pv-side' };
+function presets() { // the game's own big pictures, as ready-made backgrounds
+  return S.pictures.filter((p) => /^\/src\/art\/(map|servants)\//.test(p.path)).map((p) => p.path);
+}
+function drawTheme() {
+  $('#bgCards').innerHTML = PLACES.map(([k, title, desc]) => {
+    const b = TH.bg?.[k], m = modeOf(b);
+    const seg = [['off', 'ค่าเดิม'], ['color', 'สีเดียว'], ['grad', 'ไล่สี'], ['image', 'รูปภาพ']].map(([v, l]) => `<button data-mode="${v}" class="${m === v ? 'on' : ''}">${l}</button>`).join('');
+    let opts = '';
+    if (m === 'color' || m === 'grad') opts = `<div class="bgopts"><label>สี${m === 'grad' ? 'บน' : ''}<input type="color" data-f="color" value="${esc(b.color || '#0c1120')}"></label>${m === 'grad' ? `<label>สีล่าง<input type="color" data-f="color2" value="${esc(b.color2 || '#2a1030')}"></label><label>ทิศ (องศา)<input type="number" data-f="angle" min="0" max="359" value="${b.angle ?? 180}"></label>` : ''}</div>`;
+    if (m === 'image') opts = `<div class="presets">${presets().map((p) => `<button class="preset${b.image === p ? ' on' : ''}" data-img="${esc(p)}" title="${esc(p.split('/').pop())}" style="background-image:url('${esc(shown(p))}')"></button>`).join('')}${b.image?.startsWith('/media/') ? `<button class="preset on" data-img="${esc(b.image)}" style="background-image:url('${esc(b.image)}')" title="รูปที่อัปโหลด"></button>` : ''}<label class="preset up">อัปโหลด<br>รูปเอง<input type="file" data-up="${k}" accept="image/webp,image/png,image/jpeg,image/gif" hidden></label></div>
+      <div class="bgopts" style="margin-top:12px"><label>ความมืดทับรูป ${b.dim || 0}%<input type="range" data-f="dim" min="0" max="90" step="5" value="${b.dim || 0}"></label>
+      <label>การวางรูป<select data-f="fit"><option value="cover"${b.fit !== 'contain' && b.fit !== 'tile' ? ' selected' : ''}>เต็มพื้นที่</option><option value="contain"${b.fit === 'contain' ? ' selected' : ''}>เห็นทั้งรูป</option><option value="tile"${b.fit === 'tile' ? ' selected' : ''}>เรียงต่อกัน</option></select></label>
+      <label>ยึดที่<select data-f="pos"><option value="center">กลาง</option><option value="top"${b.pos === 'top' ? ' selected' : ''}>บน</option><option value="bottom"${b.pos === 'bottom' ? ' selected' : ''}>ล่าง</option></select></label>
+      <label>สีใต้รูป<input type="color" data-f="color" value="${esc(b.color || '#0c1120')}"></label>
+      ${k === 'page' ? `<label class="chk" style="grid-column:1/-1"><input type="checkbox" data-f="fixed"${b.fixed ? ' checked' : ''}> รูปอยู่กับที่ ไม่เลื่อนตามหน้า</label>` : ''}</div>`;
+    return `<div class="bgcard${m !== 'off' ? ' set' : ''}" data-k="${k}"><h4>${title}${m !== 'off' ? ' <span class="tag">เปลี่ยนแล้ว</span>' : ''}</h4><p class="note" style="margin:2px 0 0">${desc}</p><div class="seg">${seg}</div>${opts}</div>`;
+  }).join('');
+  // the card backs are pictures of the site
+  const backs = [['/src/art/cards/attack-back.webp', 'หลังการ์ดในสำรับ'], ['/src/art/cards/skill-back.webp', 'หลังการ์ด NP / สกิลที่คว่ำ']].filter(([p]) => pic(p));
+  $('#backCard').innerHTML = `<h4>🂠 หลังการ์ด</h4><p class="note">รูปหลังการ์ดที่เห็นตอนการ์ดคว่ำ เปลี่ยนแล้วใช้ทันที (ไม่ต้องกดบันทึก)</p><div class="grid">${backs.map(([p, l]) => `<div class="tile${S.data.images[p] ? ' changed' : ''}"><div class="pic"><img src="${esc(shown(p))}" alt=""></div><div class="name">${l}</div><div class="acts">${imgActs(p, 'เปลี่ยน')}</div></div>`).join('')}</div>`;
+  $('#colors').innerHTML = COLORS.map(([k, def, l]) => `<label><input type="color" data-c="${k}" value="${esc(TH.colors?.[k] || def)}" class="${TH.colors?.[k] ? 'changed' : ''}"><span>${l}</span><small>${TH.colors?.[k] ? `<a href="#" data-cr="${k}">ใช้สีเดิม</a>` : 'สีเดิม'}</small></label>`).join('');
+  preview();
+}
+function preview() {
+  let el = $('#pvCss');
+  if (!el) { el = document.createElement('style'); el.id = 'pvCss'; document.head.appendChild(el); }
+  el.textContent = G ? G.themeCss(TH, PV, '#pv') : '';
+  $('#themeBar').hidden = JSON.stringify(TH) === JSON.stringify(S.data.theme || {});
+}
+const setBg = (k, f) => { TH.bg ||= {}; const b = { ...(TH.bg[k] || {}) }; f(b); if (!b.color && !b.color2 && !b.image) delete TH.bg[k]; else TH.bg[k] = b; if (!Object.keys(TH.bg).length) delete TH.bg; };
+$('#bgCards').addEventListener('click', (e) => {
+  const card = e.target.closest('.bgcard'); if (!card) return;
+  const k = card.dataset.k;
+  const m = e.target.closest('[data-mode]')?.dataset.mode;
+  if (m) {
+    setBg(k, (b) => {
+      if (m === 'off') { delete b.color; delete b.color2; delete b.image; return; }
+      if (m === 'color') { b.color ||= '#0c1120'; delete b.color2; delete b.image; }
+      if (m === 'grad') { b.color ||= '#0c1120'; b.color2 ||= '#2a1030'; delete b.image; }
+      if (m === 'image') { b.image ||= presets()[0] || ''; b.dim ??= 40; delete b.color2; }
+    });
+    drawTheme(); return;
+  }
+  const im = e.target.closest('button[data-img]')?.dataset.img;
+  if (im) { setBg(k, (b) => { b.image = im; }); drawTheme(); }
+});
+$('#bgCards').addEventListener('input', (e) => {
+  const card = e.target.closest('.bgcard'), f = e.target.dataset.f; if (!card || !f) return;
+  setBg(card.dataset.k, (b) => { b[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' || e.target.type === 'number' ? +e.target.value : e.target.value; });
+  if (e.target.type === 'range') e.target.parentElement.firstChild.textContent = `ความมืดทับรูป ${e.target.value}%`;
+  preview();
+});
+$('#bgCards').addEventListener('change', async (e) => {
+  const k = e.target.dataset.up, file = e.target.files?.[0]; if (!k || !file) return;
+  try { const r = await call('PUT', `/admin/api/upload?name=${encodeURIComponent(file.name)}`, file, file.type); setBg(k, (b) => { b.image = r.url; }); drawTheme(); toast('อัปโหลดรูปแล้ว กดบันทึกเพื่อใช้'); } catch (err) { fail(err); }
+});
+$('#colors').addEventListener('input', (e) => { const k = e.target.dataset.c; if (!k) return; TH.colors = { ...(TH.colors || {}), [k]: e.target.value }; e.target.classList.add('changed'); preview(); });
+$('#colors').addEventListener('change', () => drawTheme());
+$('#colors').addEventListener('click', (e) => { const k = e.target.dataset.cr; if (!k) return; e.preventDefault(); delete TH.colors[k]; if (!Object.keys(TH.colors).length) delete TH.colors; drawTheme(); });
+$('#colorsReset').onclick = () => { delete TH.colors; drawTheme(); };
+$('#themeUndo').onclick = () => { TH = clone(S.data.theme); drawTheme(); };
+$('#themeSave').onclick = async () => { try { const r = await call('POST', '/admin/api/theme', { theme: TH }); S.data.theme = r.theme; TH = clone(r.theme); drawTheme(); drawNav(); toast('บันทึกฉากหลังและสีแล้ว'); } catch (err) { fail(err); } };
+$('#backCard').addEventListener('change', async (e) => { const el = e.target; if (!el.dataset.img) return; try { await putImage(el.dataset.img, el.files[0]); drawTheme(); } catch (err) { fail(err); } });
+$('#backCard').addEventListener('click', async (e) => { const p = e.target.closest('[data-imgreset]')?.dataset.imgreset; if (!p) return; try { await resetImage(p); drawTheme(); } catch (err) { fail(err); } });
+window.addEventListener('beforeunload', (e) => { if (TH && JSON.stringify(TH) !== JSON.stringify(S.data.theme || {})) { e.preventDefault(); e.returnValue = ''; } });
+
 // ---------- pictures ----------
+const CATS = [['servants', 'Servant'], ['icons', 'ไอคอน Servant'], ['cards', 'การ์ด'], ['map', 'แผนที่ / ฉากหลัง'], ['ui', 'ส่วนประกอบหน้าจอ'], ['other', 'อื่น ๆ']];
+const catOf = (p) => (p.match(/^\/src\/art\/([^/]+)\//)?.[1]) && CATS.some(([c]) => c === p.split('/')[3]) ? p.split('/')[3] : 'other';
+let imgCat = 'all';
+async function putImage(p, file) {
+  if (!file) return;
+  await call('PUT', `/admin/api/image?path=${encodeURIComponent(p)}&name=${encodeURIComponent(file.name)}`, file, file.type);
+  await load(); drawNav(); toast('เปลี่ยนรูปแล้ว');
+}
+async function resetImage(p) { await call('DELETE', `/admin/api/image?path=${encodeURIComponent(p)}`); await load(); drawNav(); toast('คืนรูปเดิมแล้ว'); }
 function drawImgs() {
   const f = $('#imgQ').value.trim().toLowerCase(), only = $('#imgOnly').checked;
-  const list = S.pictures.filter((p) => (!f || p.path.toLowerCase().includes(f)) && (!only || S.data.images[p.path]));
-  $('#imgs').innerHTML = list.map((p) => {
+  const all = S.pictures.filter((p) => (!f || p.path.toLowerCase().includes(f)) && (!only || S.data.images[p.path]));
+  const n = (c) => all.filter((p) => c === 'all' || catOf(p.path) === c).length;
+  $('#imgCats').innerHTML = [['all', 'ทั้งหมด'], ...CATS].filter(([c]) => c === 'all' || n(c)).map(([c, l]) => `<button class="chip${imgCat === c ? ' on' : ''}" data-c="${c}">${l} <small>${n(c)}</small></button>`).join('');
+  const tile = (p) => {
     const o = S.data.images[p.path];
-    const src = o ? `/media/${o.id}` : p.path;
-    return `<div class="tile${o ? ' changed' : ''}" data-p="${esc(p.path)}"><div class="pic"><img loading="lazy" src="${esc(src)}" alt=""></div>
-      <div class="name">${o ? '<span class="tag">เปลี่ยนแล้ว</span> ' : ''}${esc(p.path.replace(/^\/src\/art\//, ''))}</div>
-      <div class="acts"><label class="btn">เปลี่ยน<input type="file" accept="image/webp,image/png,image/jpeg,image/gif,image/svg+xml" hidden></label>${o ? `<button class="btn" data-a="orig">ดูรูปเดิม</button><button class="btn danger" data-a="reset">คืนรูปเดิม</button>` : ''}</div></div>`;
-  }).join('') || '<p class="note">ไม่มีรูปที่ตรงกับที่ค้นหา</p>';
+    return `<div class="tile${o ? ' changed' : ''}" data-p="${esc(p.path)}"><div class="pic"><img loading="lazy" src="${esc(o ? `/media/${o.id}` : p.path)}" alt=""></div>
+      <div class="name">${o ? '<span class="tag">เปลี่ยนแล้ว</span> ' : ''}${esc(p.path.split('/').pop())}</div>
+      <div class="acts"><label class="btn sm">เปลี่ยน<input type="file" accept="image/webp,image/png,image/jpeg,image/gif,image/svg+xml" hidden></label>${o ? `<button class="btn sm" data-a="orig">ดูรูปเดิม</button><button class="btn sm danger" data-a="reset">คืนรูปเดิม</button>` : ''}</div></div>`;
+  };
+  const html = CATS.filter(([c]) => imgCat === 'all' || imgCat === c).map(([c, l]) => {
+    const list = all.filter((p) => catOf(p.path) === c);
+    return list.length ? `<div class="imgsec"><h4>${l} <span class="note" style="margin:0">${list.length}</span></h4><div class="grid">${list.map(tile).join('')}</div></div>` : '';
+  }).join('');
+  $('#imgs').innerHTML = html || '<p class="note">ไม่มีรูปที่ตรงกับที่ค้นหา</p>';
 }
+$('#imgCats').addEventListener('click', (e) => { const c = e.target.closest('.chip')?.dataset.c; if (c) { imgCat = c; drawImgs(); } });
 $('#imgQ').oninput = drawImgs; $('#imgOnly').onchange = drawImgs;
 $('#imgs').addEventListener('change', async (e) => {
-  const inp = e.target, t = inp.closest('.tile'); const file = inp.files?.[0];
+  const t = e.target.closest('.tile'); const file = e.target.files?.[0];
   if (!file || !t) return;
-  try { await call('PUT', `/admin/api/image?path=${encodeURIComponent(t.dataset.p)}&name=${encodeURIComponent(file.name)}`, file, file.type); await load(); drawImgs(); toast('เปลี่ยนรูปแล้ว'); } catch (err) { fail(err); }
+  try { await putImage(t.dataset.p, file); drawImgs(); } catch (err) { fail(err); }
 });
 $('#imgs').addEventListener('click', async (e) => {
   const a = e.target.closest('button')?.dataset.a, t = e.target.closest('.tile');
   if (!a || !t) return;
-  if (a === 'orig') { const im = t.querySelector('img'); const o = S.data.images[t.dataset.p]; const showingOrig = !im.src.includes('/media/'); im.src = showingOrig ? `/media/${o.id}` : `${t.dataset.p}?orig=${Date.now()}`; e.target.textContent = showingOrig ? 'ดูรูปเดิม' : 'ดูรูปใหม่'; return; }
-  if (a === 'reset') { try { await call('DELETE', `/admin/api/image?path=${encodeURIComponent(t.dataset.p)}`); await load(); drawImgs(); toast('คืนรูปเดิมแล้ว'); } catch (err) { fail(err); } }
+  if (a === 'orig') { const im = $('img', t); const o = S.data.images[t.dataset.p]; const showingOrig = !im.src.includes('/media/'); im.src = showingOrig ? `/media/${o.id}` : `${t.dataset.p}?orig=${Date.now()}`; e.target.textContent = showingOrig ? 'ดูรูปเดิม' : 'ดูรูปใหม่'; return; }
+  if (a === 'reset') { try { await resetImage(t.dataset.p); drawImgs(); } catch (err) { fail(err); } }
 });
 
 // ---------- sounds ----------
@@ -206,8 +732,8 @@ function drawSnds() {
   $('#snds').innerHTML = S.sounds.map((n) => {
     const o = S.data.sounds[n];
     return `<div class="snd${o ? ' changed' : ''}" data-n="${n}"><div><b>${esc(SND_NAME[n] || n)}</b> <span class="note">${n}</span>${o ? `<br><span class="tag">ใช้ไฟล์</span> <span class="note">${esc(o.name || o.id)}</span>` : ''}</div>
-      <div class="row"><button class="btn" data-a="orig">▶ เดิม</button>${o ? '<button class="btn" data-a="new">▶ ใหม่</button>' : ''}</div>
-      <div class="row" style="grid-column:1/-1"><label class="btn">${o ? 'เปลี่ยนไฟล์' : 'ใส่ไฟล์เสียง'}<input type="file" accept="audio/*" hidden></label>${o ? '<button class="btn danger" data-a="reset">กลับไปใช้เสียงเดิม</button>' : ''}</div></div>`;
+      <div class="row"><button class="btn sm" data-a="orig">▶ เดิม</button>${o ? '<button class="btn sm" data-a="new">▶ ใหม่</button>' : ''}</div>
+      <div class="row" style="grid-column:1/-1"><label class="btn sm">${o ? 'เปลี่ยนไฟล์' : 'ใส่ไฟล์เสียง'}<input type="file" accept="audio/*" hidden></label>${o ? '<button class="btn sm danger" data-a="reset">กลับไปใช้เสียงเดิม</button>' : ''}</div></div>`;
   }).join('');
 }
 $('#snds').addEventListener('click', async (e) => {
@@ -218,7 +744,7 @@ $('#snds').addEventListener('click', async (e) => {
     const s = await sound();
     if (a === 'orig') s.sfxOriginal(n);
     if (a === 'new') await s.playUrl(`/media/${S.data.sounds[n].id}`);
-    if (a === 'reset') { await call('DELETE', `/admin/api/sound?name=${n}`); await load(); drawSnds(); toast('กลับไปใช้เสียงเดิมแล้ว'); }
+    if (a === 'reset') { await call('DELETE', `/admin/api/sound?name=${n}`); await load(); drawSnds(); drawNav(); toast('กลับไปใช้เสียงเดิมแล้ว'); }
   } catch (err) { fail(err); }
 });
 $('#snds').addEventListener('change', async (e) => {
@@ -227,68 +753,54 @@ $('#snds').addEventListener('change', async (e) => {
   try {
     const type = file.type || ({ mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', webm: 'audio/webm' })[file.name.split('.').pop().toLowerCase()] || '';
     const r = await call('PUT', `/admin/api/sound?name=${t.dataset.n}&fname=${encodeURIComponent(file.name)}`, file, type);
-    await load(); drawSnds(); toast('ใส่เสียงแล้ว'); (await sound()).playUrl(r.url).catch(() => {});
+    await load(); drawSnds(); drawNav(); toast('ใส่เสียงแล้ว'); (await sound()).playUrl(r.url).catch(() => {});
   } catch (err) { fail(err); }
 });
 
 // ---------- texts (the language dictionary of v5/i18n.js) ----------
-async function loadI18n() {
-  try {
-    const m = await import('/v5/i18n.js');
-    let pats = [];
-    try { pats = (await import('/v5/lang/patterns.js')).PATTERNS || []; } catch {}
-    const keys = new Set(pats);
-    for (const l of Object.keys(m.STRINGS)) for (const k of Object.keys(m.STRINGS[l])) keys.add(k);
-    for (const l of S.langs) for (const k of Object.keys(S.data.strings[l] || {})) keys.add(k);
-    I18N = { STRINGS: m.STRINGS, keys: [...keys].sort((a, b) => a.localeCompare(b, 'th')) };
-  } catch { I18N = null; }
-}
-const langOpts = () => S.langs.map((l) => `<option value="${l}">${LANG_NAME[l]}</option>`).join('');
 const LIMIT = 300;
+let txtLang = 'en', domLang = 'th';
 function drawTxts() {
-  $('#txtNone').hidden = !!I18N;
-  if (!I18N) { $('#txts').innerHTML = ''; return; }
-  const l = $('#txtLang').value, f = $('#txtQ').value.trim().toLowerCase(), only = $('#txtOnly').checked;
+  $('#txtNone').hidden = !!G;
+  if (!G) { $('#txts').innerHTML = ''; return; }
+  const l = txtLang, f = $('#txtQ').value.trim().toLowerCase(), only = $('#txtOnly').checked;
   const ov = S.data.strings[l] || {};
-  const def = (k) => (l === 'th' ? k : I18N.STRINGS[l]?.[k] ?? k);
-  const list = I18N.keys.filter((k) => (!only || ov[k] != null) && (!f || k.toLowerCase().includes(f) || String(def(k)).toLowerCase().includes(f) || String(ov[k] || '').toLowerCase().includes(f)));
+  const def = (k) => defText(l, k);
+  const list = G.keys.filter((k) => (!only || ov[k] != null) && (!f || k.toLowerCase().includes(f) || String(def(k)).toLowerCase().includes(f) || String(ov[k] || '').toLowerCase().includes(f)));
   $('#txtCount').textContent = `${list.length} ข้อความ${list.length > LIMIT ? ` · แสดง ${LIMIT} แรก ค้นหาเพื่อหาที่เหลือ` : ''}`;
   $('#txts').innerHTML = list.slice(0, LIMIT).map((k) => `<tr data-k="${esc(k)}"><td class="src">${esc(k)}${l !== 'th' ? `<div class="def">${esc(def(k))}</div>` : ''}</td>
     <td><textarea rows="1" class="${ov[k] != null ? 'changed' : ''}" placeholder="${esc(def(k))}">${esc(ov[k] ?? '')}</textarea></td></tr>`).join('');
 }
-$('#txtQ').oninput = drawTxts; $('#txtOnly').onchange = drawTxts; $('#txtLang').onchange = drawTxts;
+$('#txtQ').oninput = drawTxts; $('#txtOnly').onchange = drawTxts;
 $('#txts').addEventListener('change', async (e) => {
-  const ta = e.target, k = ta.closest('tr')?.dataset.k, l = $('#txtLang').value;
+  const ta = e.target, k = ta.closest('tr')?.dataset.k;
   if (!k) return;
   const v = ta.value === '' ? null : ta.value;
-  const holes = (s) => (String(s).match(/\{\d+\}/g) || []).sort().join();
   if (v != null && holes(v) !== holes(k)) toast('ข้อความเดิมมี ' + (holes(k) || 'ไม่มี {0}') + ' ตรวจว่าใส่ครบ', true);
-  try { await call('POST', '/admin/api/text', { part: 'strings', lang: l, key: k, value: v }); (S.data.strings[l] ||= {}); if (v == null) delete S.data.strings[l][k]; else S.data.strings[l][k] = v; ta.classList.toggle('changed', v != null); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
+  try { await saveText(txtLang, k, v); ta.classList.toggle('changed', v != null); toast('บันทึกแล้ว'); drawNav(); } catch (err) { fail(err); }
 });
 
 // ---------- texts changed on the game page ----------
 function drawDoms() {
-  const l = $('#domLang').value, m = S.data.dom[l] || {};
-  $('#doms').innerHTML = Object.entries(m).map(([k, v]) => `<tr data-k="${esc(k)}"><td class="src">${esc(k)}</td><td><textarea rows="1">${esc(v)}</textarea></td><td><button class="btn danger" data-a="del">ลบ</button></td></tr>`).join('')
-    + `<tr class="add"><td><textarea rows="1" id="domNewK" placeholder="ข้อความบนหน้าจอ (ตรงทั้งก้อน)"></textarea></td><td><textarea rows="1" id="domNewV" placeholder="เปลี่ยนเป็น"></textarea></td><td><button class="btn primary" data-a="add">เพิ่ม</button></td></tr>`;
+  const m = S.data.dom[domLang] || {};
+  $('#doms').innerHTML = Object.entries(m).map(([k, v]) => `<tr data-k="${esc(k)}"><td class="src">${esc(k)}</td><td><textarea rows="1">${esc(v)}</textarea></td><td><button class="btn sm danger" data-a="del">ลบ</button></td></tr>`).join('')
+    + `<tr class="add"><td><textarea rows="1" id="domNewK" placeholder="ข้อความบนหน้าจอ (ตรงทั้งก้อน)"></textarea></td><td><textarea rows="1" id="domNewV" placeholder="เปลี่ยนเป็น"></textarea></td><td><button class="btn sm primary" data-a="add">เพิ่ม</button></td></tr>`;
 }
-$('#domLang').onchange = drawDoms;
-async function setDom(l, k, v) { await call('POST', '/admin/api/text', { part: 'dom', lang: l, key: k, value: v }); (S.data.dom[l] ||= {}); if (v == null) delete S.data.dom[l][k]; else S.data.dom[l][k] = v; }
+async function setDom(l, k, v) { await call('POST', '/admin/api/text', { part: 'dom', lang: l, key: k, value: v }); (S.data.dom[l] ||= {}); if (v == null) delete S.data.dom[l][k]; else S.data.dom[l][k] = v; drawNav(); }
 $('#doms').addEventListener('change', async (e) => {
   const tr = e.target.closest('tr'); if (!tr?.dataset.k) return;
-  try { await setDom($('#domLang').value, tr.dataset.k, e.target.value); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
+  try { await setDom(domLang, tr.dataset.k, e.target.value); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
 });
 $('#doms').addEventListener('click', async (e) => {
   const a = e.target.closest('button')?.dataset.a; if (!a) return;
-  const l = $('#domLang').value;
   try {
-    if (a === 'del') { await setDom(l, e.target.closest('tr').dataset.k, null); drawDoms(); toast('ลบแล้ว'); }
-    if (a === 'add') { const k = $('#domNewK').value.trim(), v = $('#domNewV').value; if (!k) return; await setDom(l, k, v); drawDoms(); toast('เพิ่มแล้ว'); }
+    if (a === 'del') { await setDom(domLang, e.target.closest('tr').dataset.k, null); drawDoms(); toast('ลบแล้ว'); }
+    if (a === 'add') { const k = $('#domNewK').value.trim(), v = $('#domNewV').value; if (!k) return; await setDom(domLang, k, v); drawDoms(); toast('เพิ่มแล้ว'); }
   } catch (err) { fail(err); }
 });
 
 // ---------- CSS ----------
-$('#cssSave').onclick = async () => { try { await call('POST', '/admin/api/css', { css: $('#cssText').value }); S.data.css = $('#cssText').value; toast('บันทึก CSS แล้ว'); } catch (err) { fail(err); } };
+$('#cssSave').onclick = async () => { try { await call('POST', '/admin/api/css', { css: $('#cssText').value }); S.data.css = $('#cssText').value; drawNav(); toast('บันทึก CSS แล้ว'); } catch (err) { fail(err); } };
 
 // ---------- storage, backup ----------
 function drawStore() {
@@ -298,7 +810,11 @@ function drawStore() {
   $('#store').innerHTML = gh
     ? `<p>✅ เก็บถาวรใน GitHub: <b>${esc(gh)}</b> โฟลเดอร์ admin-data · ${esc(state)}</p>`
     : `<p class="err">⚠️ ยังไม่ได้ตั้งที่เก็บถาวร: การแก้ไขอยู่ในดิสก์ของเซิร์ฟเวอร์ (${esc(st.dir)}) ซึ่ง Render แบบฟรีลบทิ้งเมื่อเซิร์ฟเวอร์หลับหรือรีสตาร์ต ตั้ง GITHUB_TOKEN ตาม server/README.md หรือดาวน์โหลดไฟล์สำรองไว้</p>`;
-  $('#storeWarn').innerHTML = gh ? (st.sync.state === 'error' ? `<div class="warn">⚠️ บันทึกลง GitHub ไม่ได้ (${esc(st.sync.error)}) ดูแท็บ "สำรอง / ที่เก็บ"</div>` : '') : '<div class="warn">⚠️ การแก้ไขยังไม่ถาวร: เซิร์ฟเวอร์ฟรีหลับเมื่อไรก็หาย ดูแท็บ "สำรอง / ที่เก็บ"</div>';
+  $('#homeStore').innerHTML = gh ? `✅ เก็บถาวรใน GitHub · ${esc(state)}` : '⚠️ ยังไม่ถาวร: เซิร์ฟเวอร์ฟรีหลับเมื่อไรการแก้ไขก็หาย';
+  $('#storeWarn').innerHTML = gh ? (st.sync.state === 'error' ? `<div class="warn">⚠️ บันทึกลง GitHub ไม่ได้ (${esc(st.sync.error)}) ดู <a href="#" data-go="bak">สำรอง / ที่เก็บ</a></div>` : '') : '<div class="warn">⚠️ การแก้ไขยังไม่ถาวร: เซิร์ฟเวอร์ฟรีหลับเมื่อไรก็หาย ดู <a href="#" data-go="bak">สำรอง / ที่เก็บ</a></div>';
+  const dot = $('#syncDot');
+  dot.className = `syncdot${!gh ? ' warn' : st.sync.state === 'error' ? ' bad' : ''}`;
+  $('span', dot).textContent = !gh ? 'ยังไม่ถาวร' : st.sync.state === 'error' ? 'บันทึกลง GitHub ไม่ได้' : st.sync.state === 'waiting' ? 'กำลังบันทึก…' : 'บันทึกครบแล้ว';
 }
 $('#bakDown').onclick = async () => {
   try {
@@ -318,21 +834,52 @@ $('#resetAll').onclick = async () => {
   try { await call('POST', '/admin/api/reset', {}); await refreshAll(); toast('คืนค่าเดิมแล้ว'); } catch (err) { fail(err); }
 };
 
+// ---------- members (server/accounts.mjs) ----------
+let MEM = null;
+async function loadMem() { try { MEM = await call('GET', `/admin/api/users?q=${encodeURIComponent($('#memQ').value.trim())}`); drawMem(); } catch (err) { $('#mems').innerHTML = `<tr><td colspan="6" class="err">${esc(err.message)}</td></tr>`; } }
+const day = (s) => (s ? new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
+function drawMem() {
+  const st = MEM.store;
+  $('#memStore').innerHTML = st.github
+    ? (st.state === 'error' ? `<div class="warn">⚠️ เก็บข้อมูลสมาชิกลง GitHub ไม่ได้: ${esc(st.error)}</div>` : `<p class="note">✅ ข้อมูลสมาชิกเก็บถาวร (เข้ารหัส) ใน GitHub branch admin-data ไฟล์ admin-data/accounts.bin${st.key ? '' : ' · ใช้กุญแจจาก GITHUB_TOKEN เพราะยังไม่ได้ตั้ง ACCOUNTS_KEY'}</p>`)
+    : '<div class="warn">⚠️ ข้อมูลสมาชิกยังไม่ถาวร: ตั้ง GITHUB_TOKEN (และ ACCOUNTS_KEY) ตาม server/README.md ไม่อย่างนั้นบัญชีหายเมื่อเซิร์ฟเวอร์ฟรีหลับ</div>';
+  $('#memCount').textContent = `ทั้งหมด ${MEM.total} คน`;
+  $('#mems').innerHTML = MEM.list.map((u) => `<tr data-uid="${esc(u.uid)}"${u.banned ? ' style="opacity:.6"' : ''}><td><b>${esc(u.user)}</b>${u.banned ? ' <span class="tag red">ระงับ</span>' : ''}</td><td>${esc(u.name)}</td><td>${u.games} / ${u.wins}</td><td>${u.friends}</td><td class="note">${day(u.created)}<br>${day(u.last)}</td>
+    <td><div class="row"><button class="btn sm" data-m="rename">เปลี่ยนชื่อ</button><button class="btn sm" data-m="reset">ตั้งรหัสใหม่</button><button class="btn sm" data-m="${u.banned ? 'unban' : 'ban'}">${u.banned ? 'เลิกระงับ' : 'ระงับ'}</button><button class="btn sm danger" data-m="delete">ลบ</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="note">ยังไม่มีสมาชิก</td></tr>';
+  $('#memGames').innerHTML = MEM.matches.length ? MEM.matches.map((g) => `<div>${day(g.at)} · ห้อง ${esc(g.code)} · ${g.rounds} รอบ · ${g.players.map((p, i) => `${i + 1}. ${esc(p.name || 'บอท')} (${esc(p.master)}${p.winner ? ' 🏆' : ''} ${p.vp} VP)`).join(', ')}</div>`).join('') : 'ยังไม่มี';
+}
+$('#memQ').addEventListener('input', () => { clearTimeout(loadMem.t); loadMem.t = setTimeout(loadMem, 300); });
+$('#mems').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-m]'); if (!b) return;
+  const uid = b.closest('tr').dataset.uid, act = b.dataset.m, u = MEM.list.find((x) => x.uid === uid);
+  const body = { uid, act };
+  if (act === 'rename') { const n = prompt('ชื่อที่แสดงใหม่', u.name); if (!n) return; body.name = n; }
+  if (act === 'delete' && !confirm(`ลบบัญชี ${u.user}? ลบแล้วกู้คืนไม่ได้`)) return;
+  if (act === 'reset' && !confirm(`ตั้งรหัสผ่านใหม่ให้ ${u.user}? รหัสเดิมใช้ไม่ได้อีก`)) return;
+  try {
+    const r = await call('POST', '/admin/api/users/act', body);
+    if (r.pass) prompt(`รหัสผ่านใหม่ของ ${u.user} (คัดลอกส่งให้เจ้าของบัญชี ขึ้นครั้งเดียว)`, r.pass);
+    toast('เรียบร้อย'); loadMem();
+  } catch (err) { fail(err); }
+});
+
 async function refreshAll() {
   await load();
   $('#cssText').value = S.data.css || '';
-  drawPlay(); drawImgs(); drawSnds(); drawTxts(); drawDoms(); drawStore();
+  TH = clone(S.data.theme);
+  drawNav(); drawHome(); drawSvGrid(); if (svOpen) drawSvEd(); drawTheme(); drawImgs(); drawSnds(); drawTxts(); drawDoms(); drawStore(); loadMem();
 }
 (async () => {
   if (!key) { document.body.innerHTML = '<main><p>ไม่พบ</p></main>'; return; }
   try {
     await load();
-    for (const id of ['#txtLang', '#domLang']) { $(id).innerHTML = langOpts(); }
-    $('#txtLang').value = 'en';
-    await loadI18n();
-    await refreshAll();
+    await loadGame();
+    langSeg($('#txtLang'), txtLang, (l) => { txtLang = l; drawTxts(); });
+    langSeg($('#domLang'), domLang, (l) => { domLang = l; drawDoms(); });
     let t = null; try { t = sessionStorage.getItem('fdnc-admin-tab'); } catch {}
-    if (t) document.querySelector(`#tabs button[data-t="${t}"]`)?.click();
+    cur = t || 'home';
+    await refreshAll();
+    go(cur);
     setInterval(async () => { try { const s = await call('GET', '/admin/api/state'); S.storage = s.storage; drawStore(); } catch {} }, 15000);
   } catch (err) { document.body.innerHTML = `<main><p class="err">${esc(err.message)}</p></main>`; }
 })();

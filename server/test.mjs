@@ -10,9 +10,21 @@ import { botDecide } from '../v5/bot.js';
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const URL_ = `ws://localhost:${PORT}/ws`;
 const N = 3;
-const server = spawn(process.execPath, [fileURLToPath(new URL('./index.mjs', import.meta.url))], { env: { ...process.env, PORT: String(PORT), THINK_MS: '2000' }, stdio: ['ignore', 'pipe', 'inherit'] });
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'fdnc-test-')); // a members' store of its own, no GitHub
+const server = spawn(process.execPath, [fileURLToPath(new URL('./index.mjs', import.meta.url))], { env: { ...process.env, PORT: String(PORT), THINK_MS: '2000', DATA_DIR: DATA, GITHUB_TOKEN: '' }, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((r) => server.stdout.once('data', r));
-const stop = (code, msg) => { if (msg) console.log(msg); server.kill(); process.exit(code); };
+// the server saves its members when it is stopped (SIGTERM), so the test's folder goes once it has exited
+let stopping = false;
+const stop = (code, msg) => {
+  if (msg) console.log(msg);
+  if (stopping) return;
+  stopping = true;
+  const end = () => { try { fs.rmSync(DATA, { recursive: true, force: true }); } catch { /* a temp folder: left to the system */ } process.exit(code); };
+  if (server.exitCode !== null || server.signalCode !== null) end(); else { server.once('exit', end); server.kill(); }
+};
 setTimeout(() => stop(1, 'FAIL: the game did not end within 15 minutes'), 15 * 60_000).unref();
 
 let code = null;
@@ -25,12 +37,22 @@ function client(i, resume = null) {
     const mir = new Mirror();
     const answered = new Set();
     let token = null, gameNo = 0;
-    ws.onopen = () => ws.send(JSON.stringify(resume ? { t: 'resume', code, token: resume } : i === 0 ? { t: 'create', name: 'host' } : { t: 'join', code, name: `p${i}` }));
+    // the host is a member (its game goes into its profile); the others are guests
+    ws.onopen = () => {
+      if (i === 0 && !resume) ws.send(JSON.stringify({ t: 'signup', user: 'host_test', pass: 'secret12', name: 'host' }));
+      ws.send(JSON.stringify(resume ? { t: 'resume', code, token: resume } : i === 0 ? { t: 'create', name: 'host' } : { t: 'join', code, name: `p${i}` }));
+    };
     ws.onerror = (e) => reject(e);
     ws.onmessage = (ev) => {
       const m = JSON.parse(ev.data);
       msgs++; bytes += ev.data.length;
       if (m.t === 'error') reject(new Error(m.msg));
+      if (m.t === 'autherr') stop(1, `FAIL: sign up ${m.msg}`);
+      if (m.t === 'profile') {
+        const st = m.p?.stats;
+        const ok = st?.games === 1 && m.p.hist.length === 1 && m.p.hist[0].n === 7;
+        stop(ok ? 0 : 1, `${ok ? 'OK' : 'FAIL'}: the host's profile after the game: ${JSON.stringify(st)} · ${JSON.stringify(m.p?.hist?.[0])}`);
+      }
       if (m.t === 'joined') { token = m.token; if (i === 0) code = m.code; resolve({ ws, token: () => token }); }
       if (m.t !== 'state') return;
       if (m.game !== gameNo) { gameNo = m.game; }
@@ -63,7 +85,9 @@ function client(i, resume = null) {
         ends[i] = `${g.winner?.name} round ${g.round}`;
         if (ends.filter(Boolean).length === N) {
           const same = new Set(ends).size === 1;
-          stop(same ? 0 : 1, `${same ? 'OK' : 'FAIL'}: ${ends.join(' | ')} · ${msgs} messages, ${(bytes / 1e6).toFixed(1)} MB, ${timeouts} timeouts, rejoined ${rejoined}`);
+          console.log(`${same ? 'OK' : 'FAIL'}: ${ends.join(' | ')} · ${msgs} messages, ${(bytes / 1e6).toFixed(1)} MB, ${timeouts} timeouts, rejoined ${rejoined}`);
+          if (!same) stop(1);
+          setTimeout(() => host.ws.send(JSON.stringify({ t: 'profile', user: 'host_test' })), 500); // the match history has the game
         }
       }
     };
