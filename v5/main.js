@@ -7,7 +7,7 @@
 import { T, TX, lang, setLang, LANGS, tplRe, anyRe, rxEsc } from './i18n.js';
 import {
   Game, AREAS, PATH, TYPES, MASTERS, TERRAIN, WORKSHOP, RECON_VP, SKILL_MANA, MANA_MAX, REGULAR, PLAY,
-  CS_MANA, CS_POWER, CS_VP, STEP_COST, TSUBAME, UBW_PLAY, RIDE_MAX, GANDR, SERVANTS, SAMPLE, SNAKE,
+  CS_MANA, CS_POWER, CS_VP, STEP_COST, TSUBAME, UBW_PLAY, RIDE_MAX, GANDR, SERVANTS, SAMPLE, SNAKE, KANSHOU, BLACK_SHADOW,
   STEPS, WINDOWS, WHEN_NAME, WHERE, COND, cardLines,
 } from './game.js';
 import { botDecide, destValue, gateTypes } from './bot.js';
@@ -1848,6 +1848,68 @@ function showRules(at, backTo = null) {
   if (at) requestAnimationFrame(() => $(`#modal #${at}`)?.scrollIntoView({ block: 'start' }));
 }
 
+// ---------- the encyclopedia (B 15 Nov 2026: "เพิ่มระบบสารานุกรม ให้ผู้เล่นไว้ดูรายละเอียดเซอและมาสเตอร์ทุกราย") ----------
+// Every Servant and Master with all its cards, read from SERVANTS / MASTERS as this page has them,
+// so the admin page's card changes (applied in data.js when the page loads) show here too.
+const codex = { tab: 'sv', key: null };
+const MS_CARDS = { shirou: [KANSHOU], rin: [GANDR], sakura: [BLACK_SHADOW], kuzuki: SNAKE };
+const cxCost = (c) => (c.fx?.manaX || c.fx?.gate ? 'X' : c.mana);
+function cxItem(c, n = 1) {
+  const fx = c.text ? clean(c.text) : tags(c).join(' · ');
+  const art = CARD_ART[c.name];
+  const big = art ? ` <button class="btn sm ghost cx-art" data-act="bigart" data-src="${art.full}">${T("ดูรูปการ์ด")}<img hidden src="${art.full}" alt="${esc(c.name)}"></button>` : '';
+  return `<div class="dk">${tile({ ...c, down: false }, { note: '', cost: cxCost(c) })}<div class="dk-tx"><b>${esc(cardName(c))}${n > 1 ? ` <span class="cx-n">×${n}</span>` : ''}</b>
+    <span class="dk-meta">${pills(c)}${typeHtml(c)} ${T("· พลัง {0} · มานา", c.power)} ${cxCost(c)}</span>
+    <span>${esc(fx || T("ไม่มีผลพิเศษ"))}</span>${big}</div></div>`;
+}
+// the same card more than once in a deck is one row with ×n
+function cxDeck(deck) {
+  const rows = [];
+  for (const c of byType(deck)) {
+    const k = [c.name, c.type, c.power, c.mana, c.text].join('|');
+    const r = rows.find((x) => x.k === k);
+    if (r) r.n += 1; else rows.push({ k, c, n: 1 });
+  }
+  return rows.map((r) => cxItem(r.c, r.n)).join('');
+}
+const cxStat = (label, v) => `<div class="cx-stat"><small>${label}</small><b>${v}</b></div>`;
+function cxServant(sv) {
+  const d = sv.deck;
+  const total = d.reduce((a, c) => a + c.power, 0);
+  const counts = ['S', 'A', 'M', 'X'].map((t) => [t, d.filter((c) => c.type === t).length]).filter(([, n]) => n).map(([t, n]) => `${typeIc(t)} ${n}`).join(' ');
+  const best = sv.skills.reduce((a, c) => Math.max(a, c.power), 0);
+  return `<div class="summon cx-head">${svArt(sv, 'big')}<div class="cx-main"><span class="cls">${esc(sv.cls.toUpperCase())}${sv.extra ? ` · <span class="hm-tag">${T("ตัวเสริม")}</span>` : ''}</span><h2>${esc(sv.name)}</h2>
+      ${sv.note ? `<p class="lede">${esc(sv.note)}</p>` : ''}
+      <div class="cx-stats">${cxStat(T("การ์ดในสำรับ"), T("{0} ใบ", d.length))}${cxStat(T("ชนิด"), counts)}${cxStat(T("พลังเฉลี่ยในสำรับ"), d.length ? (total / d.length).toFixed(1) : '0')}${cxStat(T("การ์ด NP/สกิล"), T("{0} ใบ · พลังสูงสุด {1}", sv.skills.length, best))}</div></div></div>
+    <div class="pop-sec"><p class="row-lab">${T("การ์ด NP/สกิล · ใช้ได้เมื่อมีมานา {0} ขึ้นไป แล้วจ่ายมานาตามการ์ด", SKILL_MANA)}</p><div class="dkl">${sv.skills.map((c) => cxItem({ ...c, skill: true })).join('')}</div></div>
+    <div class="pop-sec"><p class="row-lab">${T("สำรับโจมตี {0} ใบ · เรียงตามชนิด", d.length)}</p><div class="dkl">${cxDeck(d)}</div></div>`;
+}
+function cxMaster(m) {
+  const cards = MS_CARDS[m.key] || [];
+  return `<div class="cx-mhead" style="--c:${m.color}"><span class="cx-tok" aria-hidden="true">${esc(m.tok)}</span><div class="cx-main"><span class="cls">${esc(m.en.toUpperCase())}</span><h2>${esc(m.name)}</h2>
+      <div class="cx-stats">${cxStat(T("ระดับความยาก"), esc(m.level))}${cxStat(T("มานาเริ่ม"), m.mana)}${cxStat('Command Spell', csDots(m.cs))}${m.gems ? cxStat(T("อัญมณี"), m.gems) : ''}</div></div></div>
+    <div class="pop-sec"><p class="row-lab">${T("ความสามารถ Master")}</p><ul class="abil">${m.abil.map(([t, d]) => `<li><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</li>`).join('')}</ul></div>
+    ${cards.length ? `<div class="pop-sec"><p class="row-lab">${T("การ์ดของ Master")}</p><div class="dkl">${cards.map((c) => cxItem(c)).join('')}</div></div>` : ''}`;
+}
+function showCodex(tab = codex.tab, key = null) {
+  codex.tab = tab === 'ms' ? 'ms' : 'sv';
+  const list = codex.tab === 'sv' ? SERVANTS : MASTERS;
+  if (key) codex.key = key;
+  const cur = list.find((x) => x.key === codex.key) || list[0];
+  codex.key = cur.key;
+  const tabBtn = (k, label) => `<button class="btn sm${codex.tab === k ? ' on' : ''}" data-act="codex" data-tab="${k}" aria-pressed="${codex.tab === k}">${label}</button>`;
+  const items = codex.tab === 'sv'
+    ? SERVANTS.map((sv) => `<button class="scard${sv.key === cur.key ? ' sel' : ''}" data-act="codex" data-tab="sv" data-k="${sv.key}" aria-pressed="${sv.key === cur.key}">${svArt(sv, 'sm')}<span class="nm"><b>${esc(sv.name)}</b><span class="en">${esc(sv.cls.toUpperCase())}</span></span></button>`).join('')
+    : MASTERS.map((m) => `<button class="scard cx-mi${m.key === cur.key ? ' sel' : ''}" style="--c:${m.color}" data-act="codex" data-tab="ms" data-k="${m.key}" aria-pressed="${m.key === cur.key}"><span class="cx-tok sm" aria-hidden="true">${esc(m.tok)}</span><span class="nm"><b>${esc(m.short)}</b><span class="en">${esc(m.en.toUpperCase())}</span></span></button>`).join('');
+  const i = list.indexOf(cur);
+  const step = (dd, label) => `<button class="btn" data-act="codex" data-tab="${codex.tab}" data-k="${list[(i + dd + list.length) % list.length].key}" aria-label="${label}">${dd < 0 ? '‹' : '›'}</button>`;
+  openModal(`<div class="dlg codex"><span class="eyebrow">${T("สารานุกรม · ข้อมูล Servant และ Master ทุกตน")}</span><div class="cx-top"><h2>${T("สารานุกรม")}</h2><div class="seg">${tabBtn('sv', T("Servant {0} ตน", SERVANTS.length))}${tabBtn('ms', T("Master {0} คน", MASTERS.length))}</div></div>
+    <div class="servants cx-list">${items}</div>
+    <div class="cx-body">${codex.tab === 'sv' ? cxServant(cur) : cxMaster(cur)}</div>
+    <div class="acts"><div class="acts cv-nav">${step(-1, T("ก่อนหน้า"))}<span class="dim">${i + 1} / ${list.length}</span>${step(1, T("ถัดไป"))}</div><button class="btn primary" data-act="back-home">${T("← ล็อบบี้")}</button></div></div>`, true);
+  $('#modal').scrollTop = 0;
+}
+
 function showResults(results) {
   const ents = (r) => {
     const sorted = [...r.ents].sort((a, b) => (a.defeated - b.defeated) || (b.won - a.won) || (b.power ?? 0) - (a.power ?? 0));
@@ -2225,6 +2287,7 @@ document.addEventListener('click', (ev) => {
     case 'online': openOnline(); break;
     case 'home': pop = null; popBack = null; drawPop(); openHome(); break;
     case 'back-home': openHome(); break;
+    case 'codex': showCodex(t.dataset.tab, t.dataset.k); break;
     case 'master': case 'servant': { const y = $('#modal').scrollTop; if (act === 'master') setup.master = t.dataset.m; else setup.servant = t.dataset.s; showStart(); $('#modal').scrollTop = y; break; }
     case 'start': case 'again': if (online.on) { onlineAgain(); break; } closeModal(); startGame(); break;
     case 'tutorial': closeModal(); startGame(true); break;
@@ -2399,6 +2462,7 @@ online.hooks = {
   showStart, // เล่นกับบอท: the Master and Servant picker
   tutorial() { closeModal(); startGame(true); },
   rules() { showRules(undefined, 'back-home'); },
+  codex() { showCodex(); },
   settings() { showSettings('home'); },
   langSeg: () => langSeg(' hm-lang'),
   tutDone,

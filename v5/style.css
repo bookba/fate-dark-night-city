@@ -1446,3 +1446,29 @@ html.no-anim *, html.no-anim *::before, html.no-anim *::after { animation: none 
 .fx-vignette.gold { background: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--grail) 55%, transparent), transparent 65%); box-shadow: inset 0 0 120px 20px color-mix(in srgb, var(--grail) 40%, transparent); }
 .fx-vignette.dim { background: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--grail) 25%, transparent), transparent 60%); }
 .fx-gold { width: 7px; height: 11px; border-radius: 2px; background: linear-gradient(var(--grail), #fff2c2); box-shadow: 0 0 6px var(--grail); }
+
+/* ---------- the encyclopedia (main.js showCodex, B 15 Nov 2026) ---------- */
+.dlg.codex { max-width: 1040px; }
+.cx-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.cx-top .seg { display: inline-flex; gap: 4px; }
+.cx-list.servants { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.cx-main { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.cx-main .lede { margin: 0; }
+.cx-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.cx-stat { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--r); background: var(--night-3); border: 1px solid var(--line); }
+.cx-stat small { font-size: 11.5px; color: var(--dim); }
+.cx-stat b { font: 700 17px/1.2 var(--ff-head); color: var(--bone); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.cx-body { display: grid; gap: 16px; }
+.cx-n { font: 700 12px/1 var(--ff-crest); color: var(--grail); margin-left: 4px; }
+.cx-art { justify-self: start; margin-top: 4px; }
+.cx-mhead { --c: #888; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: start; padding: 14px; border-radius: 12px; background: var(--night-3); border: 1px solid var(--line); border-left: 5px solid var(--c); }
+.cx-mhead .cls { font: 700 13px/1 var(--ff-crest); letter-spacing: .2em; color: var(--grail); }
+.cx-tok { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; background: var(--c, #888); color: #fff; font: 700 30px/1 var(--ff-head); border: 2px solid color-mix(in srgb, #fff 35%, var(--c, #888)); flex: none; }
+.cx-tok.sm { width: 40px; height: 40px; font-size: 15px; }
+.codex > .acts { justify-content: space-between; align-items: center; }
+@media (max-width: 560px) {
+  .cx-list.servants { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cx-mhead { grid-template-columns: minmax(0, 1fr); }
+  .cx-tok { width: 60px; height: 60px; font-size: 22px; }
+  .cx-tok.sm { width: 30px; height: 30px; font-size: 12px; }
+}
