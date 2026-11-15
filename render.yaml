@@ -1,0 +1,26 @@
+# Render (render.com) blueprint for the online game server: server/README.md has the steps.
+services:
+  - type: web
+    name: fdnc # the web address: https://fdnc.onrender.com (if the name is free on Render)
+    runtime: node
+    plan: free
+    buildCommand: echo "no build step"
+    startCommand: node server/index.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # the admin page (server/README.md): https://fdnc.onrender.com/admin?key=<ADMIN_KEY>
+      - key: ADMIN_KEY
+        sync: false # typed in on Render, never in the repo
+      # where the admin page's edits are kept for good (Render's free disk is wiped when it sleeps)
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: bookba/fate-dark-night-city
+      - key: GITHUB_BRANCH
+        value: admin-data
+      # the members' data (accounts, friends, match history) is kept encrypted with this key in the
+      # admin-data branch; Render makes a random one. Never change it afterwards (the data would not open)
+      - key: ACCOUNTS_KEY
+        generateValue: true

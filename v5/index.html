@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Dominate Grail War</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Noto+Serif+Thai:wght@600;700&display=swap" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud"></header>
+      <div id="bar" aria-live="polite"></div>
+      <main id="board"></main>
+      <aside id="side">
+        <section id="dock"></section>
+        <section id="standings"></section>
+        <section id="logbox"><h2>บันทึกสงคราม</h2><div id="log"></div></section>
+      </aside>
+      <nav id="nav" aria-label="ข้อมูลเพิ่มเติม"></nav>
+    </div>
+    <div id="pop" hidden></div>
+    <div id="cpop" hidden></div>
+    <div id="sheet" hidden></div>
+    <div id="modal" hidden></div>
+    <div id="toasts" aria-live="polite"></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
