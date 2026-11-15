@@ -329,6 +329,7 @@ function menu() {
     it('bots', '🤖', T("เล่นกับบอท"), busy || T("เลือก Master และ Servant แล้วเล่นกับบอท 6 ตัว"), { dis: !!r }),
     it('tutorial', '🎓', T("สอนเล่น"), busy || (solo ? T("รอบแรกทีละขั้น · เกมที่ค้างอยู่จะเริ่มใหม่") : T("รอบแรกทีละขั้น เป็นชิโร่กับ Saber")), { dis: !!r, tag: !r && !H().tutDone() ? T("แนะนำ") : '' }),
     it('rules', '📖', T("กติกา"), T("กติกาแบบย่อ และไอคอนทั้งหมด")),
+    it('codex', '📚', T("สารานุกรม"), T("Servant และ Master ทุกตน พร้อมการ์ดทั้งหมด")),
     it('friends', '👥', T("เพื่อน"), acc.me ? T("ออนไลน์ {0} จาก {1} คน", acc.friends.list.filter((f) => f.on).length, acc.friends.list.length) : T("สำหรับสมาชิก · ชวนเข้าห้องได้"), { num: acc.me ? acc.friends.in.length : 0 }),
     it('top', '🏆', T("อันดับ"), T("สมาชิกที่ชนะมากที่สุด")),
     it('chat', '💬', T("แชต"), T("คุยกับทุกคนในล็อบบี้")),
@@ -599,6 +600,7 @@ document.addEventListener('click', (ev) => {
     } else if (k === 'bots') H().showStart();
     else if (k === 'tutorial') H().tutorial();
     else if (k === 'rules') H().rules();
+    else if (k === 'codex') H().codex();
     else if (k === 'settings') H().settings();
     else if (PANELS.includes(k)) view(k);
   }
