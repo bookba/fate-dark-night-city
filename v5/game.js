@@ -454,7 +454,7 @@ export class Game {
     } else {
       for (const c of up) {
         if (c.fx?.mana) this.gain(p, c.fx.mana);
-        if (c.fx?.archer) { this.addVP(p, c.fx.archer); this.log(T("{0} ใช้ {1} ได้ {2} VP · ถ้าแพ้การต่อสู้รอบนี้เสีย {3} VP", p.name, c.name, c.fx.archer, c.fx.archerLose), p.isHuman ? 'good' : ''); }
+        if (c.fx?.archer) { this.addVP(p, c.fx.archer); this.log(T("{0} ใช้ {1} ได้ {2} VP · ถ้าแพ้การต่อสู้รอบนี้เสีย {3} VP", p.name, c.name, c.fx.archer, c.fx.archerLose || 0), p.isHuman ? 'good' : ''); }
       }
       // 2nd Strike holds this battlefield for the round [FD]
       if (up.some((c) => c.fx?.block) && AREAS[p.at].field) { this.block[p.at] = p; this.log(T("{0} ใช้ 2nd Strike: คนอื่นที่{1}ใช้ความสามารถ Action และ Combat และ Command Spell ไม่ได้รอบนี้", p.name, AREAS[p.at].name), 'reveal'); }

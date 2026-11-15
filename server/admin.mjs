@@ -13,7 +13,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { SFX_NAMES } from '../v5/sound.js';
 import { BG_PLACES, THEME_COLORS } from '../v5/custom.js';
-import { SERVANTS, applyGameEdits, plainCard } from '../v5/data.js';
+import { SERVANTS, MASTER_CARDS, applyGameEdits, cleanList, originalCards } from '../v5/data.js';
 
 const KEY = (process.env.ADMIN_KEY || '').trim(); // a space pasted around the key on Render does not count
 const DIR = path.resolve(process.env.DATA_DIR || fileURLToPath(new URL('./data', import.meta.url)));
@@ -107,38 +107,43 @@ function cleanTheme(t) {
   }
   return out;
 }
-// the Servants: a name, and the numbers of the NP/skill cards and of the plain deck cards (v5/data.js)
+// the Servants: a name and their NP/skill and deck cards (whole lists: cards can be made, changed
+// and taken out), and the numbers of the Masters' own cards; checked by v5/data.js, which uses them
 const int = (v, lo, hi) => (v !== '' && v != null && Number.isFinite(+v) ? Math.max(lo, Math.min(hi, Math.round(+v))) : null);
 function cleanServant(sv, e) {
   if (!okJson(e)) return null;
   const o = {};
   if (typeof e.name === 'string' && e.name.trim()) o.name = e.name.trim().slice(0, 40);
-  if (okJson(e.skills)) {
-    const sk = {};
-    sv.skills.forEach((_, j) => {
-      const x = e.skills[j];
-      if (!okJson(x)) return;
-      const y = {};
-      const p = int(x.power, 0, 30), m = int(x.mana, 0, 12);
-      if (p != null) y.power = p;
-      if (m != null) y.mana = m;
-      if (Object.keys(y).length) sk[j] = y;
-    });
-    if (Object.keys(sk).length) o.skills = sk;
-  }
-  if (okJson(e.deck)) {
-    const dk = {};
-    sv.deck.forEach((c, j) => { const p = plainCard(c) ? int(e.deck[j], 0, 15) : null; if (p != null) dk[j] = p; });
-    if (Object.keys(dk).length) o.deck = dk;
+  const orig = originalCards(sv.key);
+  for (const part of ['skills', 'deck']) {
+    if (e[part] == null) continue;
+    const list = cleanList(e[part], orig[part], part === 'deck');
+    // the original list, untouched, is no change at all
+    if (list && !(list.length === orig[part].length && list.every((x, j) => x.o === j && Object.keys(x).length === 1))) o[part] = list;
   }
   return Object.keys(o).length ? o : null;
 }
+function cleanMasterCards(m) {
+  const out = {};
+  if (!okJson(m)) return out;
+  for (const k of Object.keys(MASTER_CARDS)) {
+    if (!okJson(m[k])) continue;
+    const y = {};
+    const p = int(m[k].power, 0, 30), n = int(m[k].mana, 0, 12);
+    if (p != null) y.power = p;
+    if (n != null) y.mana = n;
+    if (Object.keys(y).length) out[k] = y;
+  }
+  return out;
+}
 function cleanGame(g) {
   const out = {};
-  if (!okJson(g) || !okJson(g.servants)) return out;
+  if (!okJson(g)) return out;
   const svs = {};
-  for (const sv of SERVANTS) { const e = cleanServant(sv, g.servants[sv.key]); if (e) svs[sv.key] = e; }
+  if (okJson(g.servants)) for (const sv of SERVANTS) { const e = cleanServant(sv, g.servants[sv.key]); if (e) svs[sv.key] = e; }
   if (Object.keys(svs).length) out.servants = svs;
+  const mc = cleanMasterCards(g.cards);
+  if (Object.keys(mc).length) out.cards = mc;
   return out;
 }
 export const ready = (async () => {
@@ -360,16 +365,23 @@ async function api(req, res, url, what, root) {
     send(res, 200, { ok: true, theme: data.theme });
     return;
   }
-  if (what === 'servant' && M === 'POST') { // { key, edit }: one Servant's name and numbers (edit null = back to the original)
+  if (what === 'servant' && M === 'POST') { // { key, edit }: one Servant's name and cards (edit null = back to the original)
     const b = await json(req);
     const sv = SERVANTS.find((x) => x.key === b.key);
     if (!sv) throw new Error('ไม่มี Servant นี้');
     const e = cleanServant(sv, b.edit);
     const all = { ...(data.game.servants || {}) };
     if (e) all[sv.key] = e; else delete all[sv.key];
-    data.game = Object.keys(all).length ? { servants: all } : {};
+    data.game = cleanGame({ ...data.game, servants: all });
     save();
-    send(res, 200, { ok: true, edit: e });
+    send(res, 200, { ok: true, edit: e, game: data.game });
+    return;
+  }
+  if (what === 'mastercards' && M === 'POST') { // { cards }: the numbers of the Masters' own cards, all at once
+    const b = await json(req);
+    data.game = cleanGame({ ...data.game, cards: b.cards });
+    save();
+    send(res, 200, { ok: true, game: data.game });
     return;
   }
   if (what === 'upload' && M === 'PUT') { // a picture of its own (a background), not in place of one of the site's

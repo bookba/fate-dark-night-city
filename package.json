@@ -10,7 +10,8 @@
     "sim": "node scripts/sim.js",
     "online": "node server/index.mjs",
     "online:test": "node server/test.mjs",
-    "online:test-social": "node server/test-social.mjs"
+    "online:test-social": "node server/test-social.mjs",
+    "online:test-cards": "node server/test-cards.mjs"
   },
   "devDependencies": {
     "vite": "^6.0.0"

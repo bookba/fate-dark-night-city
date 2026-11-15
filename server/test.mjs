@@ -14,6 +14,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'fdnc-test-')); // a members' store of its own, no GitHub
+if (process.env.TEST_OVERRIDES) fs.copyFileSync(process.env.TEST_OVERRIDES, path.join(DATA, 'overrides.json')); // test-cards.mjs: the admin page's card edits
 const server = spawn(process.execPath, [fileURLToPath(new URL('./index.mjs', import.meta.url))], { env: { ...process.env, PORT: String(PORT), THINK_MS: '2000', DATA_DIR: DATA, GITHUB_TOKEN: '' }, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise((r) => server.stdout.once('data', r));
 // the server saves its members when it is stopped (SIGTERM), so the test's folder goes once it has exited
@@ -83,6 +84,8 @@ function client(i, resume = null) {
       }
       if (g.over && !ends[i]) {
         ends[i] = `${g.winner?.name} round ${g.round}`;
+        // test-cards.mjs: the cards dealt on the server are the edited ones
+        if (process.env.TEST_CARD && !g.players.every((q) => q.skills.some((c) => c.name === process.env.TEST_CARD) && q.skills.length === 4)) stop(1, `FAIL: page ${i} has no "${process.env.TEST_CARD}" card in every NP/skill slot`);
         if (ends.filter(Boolean).length === N) {
           const same = new Set(ends).size === 1;
           console.log(`${same ? 'OK' : 'FAIL'}: ${ends.join(' | ')} · ${msgs} messages, ${(bytes / 1e6).toFixed(1)} MB, ${timeouts} timeouts, rejoined ${rejoined}`);

@@ -168,6 +168,46 @@
   .sv-nav .sp { flex: 1; }
   .sticky-bar { position: sticky; top: 0; z-index: 4; background: rgba(11, 15, 28, .9); backdrop-filter: blur(6px); padding: 10px 0; margin: -10px 0 10px; }
 
+  /* ---------- one card (dialog) ---------- */
+  .phead { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .cacts { margin-top: 6px; gap: 6px; flex-wrap: wrap; }
+  .fxs { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 8px; }
+  .fxs span { font-size: 12px; background: var(--gold-soft); color: var(--gold); border-radius: 999px; padding: 1px 8px; }
+  .ctext { font-size: 13.5px; margin: 0 0 6px; white-space: pre-wrap; }
+  .gone { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .dc .dacts { display: flex; gap: 3px; }
+  .dc .dacts .btn { padding: 1px 6px; }
+  .cdlg { width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--gold); border-radius: 14px; background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+  .cdlg::backdrop { background: rgba(4, 6, 12, .7); }
+  .cdform { padding: 16px 18px 0; }
+  .cdhead { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; }
+  .lgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .lbox { display: grid; gap: 2px; font-size: 12px; color: var(--dim); }
+  .cdnums { display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .cdnums > label { display: grid; gap: 2px; font-size: 12.5px; color: var(--dim); width: 120px; }
+  .cdnums > label.chk { display: flex; width: auto; gap: 6px; align-items: center; font-size: 13.5px; color: var(--ink); }
+  .cdtypes { display: flex; gap: 4px 12px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+  .cdtypes > span { width: 100%; font-size: 12.5px; color: var(--dim); }
+  .cdtypes label { display: flex; gap: 4px; align-items: center; }
+  .cdfx { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+  .cdfx summary { cursor: pointer; font-weight: 600; }
+  .fxg { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 4px 12px; margin: 8px 0; }
+  .fxg > b { grid-column: 1 / -1; font-size: 13px; color: var(--gold); }
+  .fxrow { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 6px; border-radius: 8px; }
+  .fxrow.on { background: var(--gold-soft); }
+  .fxrow > span { flex: 1; }
+  .fxrow input[type=number] { width: 68px; padding: 3px 6px; }
+  .fxrow select { width: auto; max-width: 180px; padding: 3px 6px; }
+  .fxrow .pair { display: flex; gap: 4px; align-items: center; flex: 0; }
+  .fxrow .pair input { width: 56px; }
+  .userow { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: end; padding: 8px 0; border-top: 1px solid var(--line); }
+  .userow label { display: grid; gap: 2px; font-size: 12px; color: var(--dim); }
+  .userow label.chk { display: flex; gap: 4px; align-items: center; color: var(--ink); font-size: 13px; }
+  .userow select { width: auto; max-width: 190px; padding: 4px 6px; }
+  .userow input[type=number] { width: 64px; padding: 4px 6px; }
+  .cdbar { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 14px; background: var(--card); border-top: 1px solid var(--line); }
+  .cdbar .sp { flex: 1; }
+
   /* ---------- backgrounds & colours ---------- */
   .theme { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
   .tpv { position: sticky; top: 16px; }
@@ -278,8 +318,9 @@
     <!-- Servant -->
     <section class="pg" id="sv">
       <div id="svList">
-        <div class="page-head"><div><div class="crumb">เนื้อหาเกม</div><h2>Servant และการ์ด</h2><p>เลือก Servant เพื่อแก้ชื่อ รูป คำอธิบาย การ์ด NP / สกิล (ชื่อ พลัง มานา ข้อความ รูปการ์ด) และพลังของการ์ดในสำรับ</p></div></div>
+        <div class="page-head"><div><div class="crumb">เนื้อหาเกม</div><h2>Servant และการ์ด</h2><p>เลือก Servant เพื่อแก้ชื่อ รูป คำอธิบาย และการ์ด: เปลี่ยนพลัง มานา ชื่อ ชนิด ผล ข้อความ สร้างการ์ด NP / สกิลและการ์ดในสำรับใหม่ หรือลบการ์ดออก</p></div></div>
         <div class="svgrid" id="svGrid"></div>
+        <div class="panel" style="margin-top:18px"><h3>การ์ดของ Master</h3><p class="note">พลังและมานาของการ์ดที่ Master มีเอง (กติกาของการ์ดเป็นความสามารถของ Master) ว่าง = ค่าเดิม บันทึกเมื่อออกจากช่อง · ถ้าตัวเลขอยู่ในข้อความบนการ์ดด้วย แก้ข้อความได้ในแท็บข้อความทุกภาษา</p><div class="kcards" id="mcList"></div></div>
       </div>
       <div class="sved" id="svEd"></div>
     </section>
@@ -378,6 +419,7 @@
     </section>
   </main>
 </div>
+<dialog id="cardDlg" class="cdlg"></dialog>
 <div id="toast"></div>
 
 <script>window.__OVR = {}; // the game modules imported here show their original texts, numbers and sounds</script>
@@ -448,7 +490,7 @@ async function loadGame() {
     const path = (u) => { try { return new URL(u, location.href).pathname; } catch { return ''; } };
     const cardArt = {};
     for (const [n, a] of Object.entries(art.CARD_ART || {})) cardArt[n] = { art: path(a.art), full: path(a.full) };
-    G = { STRINGS: i18n.STRINGS, keys: [...keys].sort((a, b) => a.localeCompare(b, 'th')), SERVANTS: data.SERVANTS, TYPES: data.TYPES, plainCard: data.plainCard, CARD_ART: cardArt, themeCss: custom.themeCss, BG_PLACES: custom.BG_PLACES };
+    G = { STRINGS: i18n.STRINGS, keys: [...keys].sort((a, b) => a.localeCompare(b, 'th')), SERVANTS: data.SERVANTS, TYPES: data.TYPES, plainCard: data.plainCard, buildCard: data.buildCard, originalCards: data.originalCards, originalMasterCard: data.originalMasterCard, MASTER_CARDS: data.MASTER_CARDS, EFFECT_KEYS: data.EFFECT_KEYS, USE_KEYS: data.USE_KEYS, WINDOWS: data.WINDOWS, WHERE: data.WHERE, COND: data.COND, CARD_LIMITS: data.CARD_LIMITS, CARD_ART: cardArt, themeCss: custom.themeCss, BG_PLACES: custom.BG_PLACES };
   } catch (e) { console.error(e); G = null; }
   try { if (prev == null) localStorage.removeItem('dgw-lang'); else localStorage.setItem('dgw-lang', prev); } catch {}
 }
@@ -476,7 +518,7 @@ function counts() {
   const per = (o) => Object.values(o || {}).reduce((n, m) => n + Object.keys(m).length, 0);
   return {
     img: Object.keys(d.images).length, snd: Object.keys(d.sounds).length, txt: per(d.strings), dom: per(d.dom),
-    sv: Object.keys(d.game.servants || {}).length, css: !!(d.css || '').trim(),
+    sv: Object.keys(d.game.servants || {}).length + Object.keys(d.game.cards || {}).length, css: !!(d.css || '').trim(),
     theme: Object.keys(d.theme.bg || {}).length + Object.keys(d.theme.colors || {}).length,
   };
 }
@@ -484,18 +526,36 @@ function counts() {
 // ---------- overview ----------
 function drawHome() {
   const n = counts();
-  const st = [['sv', n.sv, 'Servant ที่แก้'], ['txt', n.txt, 'ข้อความที่แก้'], ['theme', n.theme, 'ฉากหลัง / สีที่เปลี่ยน'], ['img', n.img, 'รูปที่เปลี่ยน'], ['snd', n.snd, 'เสียงที่เปลี่ยน'], ['dom', n.dom, 'ข้อความบนหน้าเกม']];
+  const st = [['sv', n.sv, 'Servant / การ์ดที่แก้'], ['txt', n.txt, 'ข้อความที่แก้'], ['theme', n.theme, 'ฉากหลัง / สีที่เปลี่ยน'], ['img', n.img, 'รูปที่เปลี่ยน'], ['snd', n.snd, 'เสียงที่เปลี่ยน'], ['dom', n.dom, 'ข้อความบนหน้าเกม']];
   $('#stats').innerHTML = st.map(([t, v, l]) => `<button class="stat" data-go="${t}"><b>${v}</b><span>${l}</span></button>`).join('');
   $('#playLangs').innerHTML = S.langs.map((l) => `<a class="btn${l === 'th' ? ' primary' : ''}" href="/v5/?edit=1&lang=${l}" target="_blank">เปิดเกม (${LANG_NAME[l]})</a>`).join('');
 }
 
 // ---------- Servants ----------
+// B 15 Nov 2026: change any card's power, and make, change and take out NP/skill and deck cards.
+// A Servant's lists are kept whole (v5/data.js applyGameEdits): { o: original index, ...changes }
+// for an original card, no o for a new one.
 const T_NAME = { S: 'กำลัง', A: 'ว่องไว', M: 'เวท', X: 'พิเศษ', N: 'NP', Z: 'ไม่มีชนิด' };
 const typeOf = (c) => (c.types || [c.type]).map((t) => T_NAME[t] || t).join(' · ');
 const pic = (p) => S.pictures.some((x) => x.path === p) ? p : null;
 const shown = (p) => { const o = S.data.images[p]; return o ? `/media/${o.id}` : p; }; // a replaced picture: the new one
 const svEdit = (k) => S.data.game.servants?.[k] || null;
-let svLang = 'th', svOpen = null;
+// the effects a card can have (the keys and their numbers are v5/data.js EFFECT_KEYS)
+const FX_GROUPS = [
+  ['การลง', [['reveal', 'เปิดชื่อจริงเมื่อลง'], ['once', 'ใช้ได้ครั้งเดียวต่อเกม'], ['no8', 'ไม่ต้องมีมานา 8 ก็ลงได้ (การ์ด NP/สกิล)'], ['hiddenOnly', 'ลงได้เฉพาะตอนชื่อจริงยังซ่อน'], ['hiddenDisc', 'ตอนชื่อจริงยังซ่อน มานาลดลง'], ['extra', 'ลงเพิ่มได้ นอกเหนือการ์ด 2 ใบ'], ['permanent', 'ถาวร: อยู่ในสนาม ให้พลังทุกรอบ']]],
+  ['ตอนใช้ (ตอนลงการ์ด)', [['mana', 'ได้มานา'], ['playVP', 'ได้ VP'], ['terrainMul', 'ได้เปรียบพื้นที่ คูณ'], ['move', 'ย้าย การ์ดตามไปด้วย'], ['archer', 'ได้ VP (ลงได้เฉพาะครึ่งแรกของลำดับเล่น)'], ['archerLose', 'ถ้าแพ้การต่อสู้รอบนี้ เสีย VP']]],
+  ['ตอนปะทะ', [['win', 'ถ้าชนะ ได้ VP เพิ่ม'], ['strike', 'ถ้าชนะ ได้ VP ต่อคู่ต่อสู้ 1 คน และคู่ต่อสู้แต่ละคนเสีย VP เท่ากัน'], ['zeroOpp', 'การ์ดชนิดนี้ของคู่ต่อสู้ พลังพื้นฐานเป็น 0'], ['duel', 'ถ้ามีคู่ต่อสู้คนเดียว คนนั้นแพ้'], ['petrify', 'คู่ต่อสู้ที่ไม่ได้ลงการ์ดชนิดพิเศษ แพ้ทั้งหมด'], ['enuma', 'คู่ต่อสู้ที่มี NP ชนิดพิเศษลงอยู่ แพ้ทั้งหมด'], ['presence', 'ล้มคนพลังสูงสุด (เราพลังน้อยกว่า ในสนามรบ 3 คนขึ้นไป)'], ['luck', 'ไม่สนสถานะแพ้'], ['zab', 'ถ้าชนะ VP ที่ได้ ×2 · เหลือคู่แข่งคนเดียว คนนั้นแพ้'], ['godHand', 'ถ้าแพ้ ได้ VP และผู้ชนะแต่ละคนเสีย VP เท่ากัน แล้วการ์ดออกจากเกม'], ['excal', 'ไคลแมกซ์ พลังรวมเพิ่ม · ชนะตอนเหลือ 2 คน = ชนะเกม']]],
+  ['ผลเฉพาะของการ์ดเดิม', [['riding', 'Riding: ลงการ์ดพลังไม่เกิน 3 จากมือเพิ่มได้ (ใบ)'], ['riderDraw', 'ลงคู่กับการ์ดพื้นฐาน จั่วเพิ่ม'], ['ubw', 'UBW: สำรับทั้งหมดขึ้นมือ ลงได้ถึง (ใบ)'], ['bell', 'Bellerophon: ย้ายแล้วยึดได้เปรียบพื้นที่ทั้ง 2 ช่อง'], ['gate', 'Gate of Babylon: เลือกชนิดเพิ่ม มานา = จำนวนชนิด'], ['ruleBreaker', 'Rule Breaker: Master ในสนามรบเสีย Command Spell 1 · หมดแล้วแพ้ เราพลังรวม +'], ['rain', 'Rain of Light: ถ้าแพ้ Rule Breaker กลับมาใช้ได้'], ['manaX', 'มานา X = 16 − รอบ × 2'], ['workshop', 'ถาวร: วางหมากที่โรงฝึกเวท ได้มานาและ VP'], ['sword', 'ดาบของ Tsubame Gaeshi (ที่ 1–3)'], ['strike1', '1st Strike: ลงการ์ดกำลังพื้นฐานแทน ได้มานา'], ['strike3', '3rd Strike: ลงเพิ่มถ้ามีการ์ดว่องไว 2 ใบ'], ['block', '2nd Strike: ปิดความสามารถคนอื่นในสนามรบเรา'], ['hide', 'ซ่อนชื่อจริงกลับ'], ['offOnReveal', 'เปิดชื่อจริงเมื่อไร การ์ดนี้ปิด']]],
+];
+const FX_OPTS = { move: [['next', 'ไปพื้นที่ถัดไป 1 ช่อง'], ['any', 'ไปที่ไหนก็ได้ ยกเว้นโรงฝึกเวท']], zeroOpp: [['S', 'กำลัง'], ['A', 'ว่องไว'], ['M', 'เวท']] };
+const USE_LABEL = { mana: 'ได้มานา', vp: 'ได้ VP', freeMove: 'ย้ายได้แม้ติดพัน', peek: 'ดูอีเวนต์ชินโตะที่คว่ำอยู่' };
+const FX_LABEL = Object.fromEntries(FX_GROUPS.flatMap(([, l]) => l));
+const fxSummary = (c) => [
+  ...Object.entries(c.fx || {}).map(([k, v]) => `${FX_LABEL[k] || k}${v === true ? '' : k === 'workshop' ? ` (มานา ${v.mana} · ${v.vp} VP)` : FX_OPTS[k] ? `: ${(FX_OPTS[k].find((o) => o[0] === v) || [, v])[1]}` : ` ${v}`}`),
+  ...(c.use || []).map((u) => `${G.WINDOWS[u.when]?.name || u.when}${u.where && u.where !== 'any' ? ` · ${G.WHERE[u.where]}` : ''}${u.cond ? ` · ${G.COND[u.cond]}` : ''}: ${Object.entries(u.fx).map(([k, v]) => `${USE_LABEL[k]}${v === true ? '' : ` ${v}`}`).join(' · ')}`),
+  ...(c.limit === 'round' ? ['รอบละครั้ง'] : []),
+];
+let svLang = 'th', svOpen = null, W = null; // W: the open Servant's lists as they are being edited
 function drawSvGrid() {
   if (!G) { $('#svGrid').innerHTML = '<p class="err">โหลดข้อมูลเกมไม่ได้</p>'; return; }
   $('#svGrid').innerHTML = G.SERVANTS.map((sv) => {
@@ -504,44 +564,84 @@ function drawSvGrid() {
     return `<button class="svc" data-k="${sv.key}">${p ? `<img src="${esc(shown(p))}" alt="" loading="lazy">` : `<span class="crest">${esc(sv.cls[0])}</span>`}
       ${edited ? '<span class="tag">แก้แล้ว</span>' : ''}<div class="cap"><div class="cls">${esc(sv.cls.toUpperCase())}</div><div class="nm">${esc(e?.name || sv.name)}</div></div></button>`;
   }).join('');
+  drawMasterCards();
 }
+// the Masters' own cards: their numbers only (their rules are the Masters' abilities)
+const MC_INFO = { kanshou: 'เอมิยะ ชิโร่ · ช่องสกิล', gandr: 'โทซากะ ริน · อัญมณี', shadow: 'มาโต้ ซากุระ · Broken Vessel', snake0: 'คุซุกิ · ในสำรับ (กำลัง)', snake1: 'คุซุกิ · ในสำรับ (ว่องไว)' };
+function drawMasterCards() {
+  const mc = S.data.game.cards || {};
+  $('#mcList').innerHTML = Object.entries(G.MASTER_CARDS).map(([k, c]) => {
+    const o = G.originalMasterCard(k), x = mc[k] || {};
+    return `<div class="kc t${c.type}${x.power != null || x.mana != null ? ' edited' : ''}"><div><div class="art">${esc(T_NAME[c.type]?.[0] || '?')}</div></div><div>
+      <div class="hd"><b>${esc(c.name)}</b><span class="ty" style="color:var(--t)">${esc(typeOf(c))}</span><span class="note" style="margin:0">${esc(MC_INFO[k] || '')}</span></div>
+      <div class="nums">
+        <label class="num"><span>พลัง <span class="orig">(เดิม ${o.power})</span></span><input type="number" min="0" max="30" data-mc="${k}" data-f="power" value="${x.power ?? ''}" placeholder="${o.power}" class="${x.power != null ? 'changed' : ''}"></label>
+        <label class="num"><span>มานา <span class="orig">(เดิม ${o.mana})</span></span><input type="number" min="0" max="12" data-mc="${k}" data-f="mana" value="${x.mana ?? ''}" placeholder="${o.mana}" class="${x.mana != null ? 'changed' : ''}"></label>
+      </div></div></div>`;
+  }).join('');
+}
+$('#mcList').addEventListener('change', async (e) => {
+  const el = e.target;
+  if (!el.dataset.mc) return;
+  const cards = {};
+  for (const inp of $$('#mcList input[data-mc]')) if (inp.value !== '') (cards[inp.dataset.mc] ||= {})[inp.dataset.f] = +inp.value;
+  try { const r = await call('POST', '/admin/api/mastercards', { cards }); S.data.game = r.game || {}; drawMasterCards(); drawNav(); toast('บันทึกแล้ว'); } catch (err) { fail(err); }
+});
 const svKeys = (sv) => [sv.note, ...sv.skills.map((c) => c.text)].filter(Boolean);
 const svTextsEdited = (sv) => svKeys(sv).some((k) => S.langs.some((l) => S.data.strings[l]?.[k] != null));
 $('#svGrid').addEventListener('click', (e) => { const k = e.target.closest('.svc')?.dataset.k; if (k) openSv(k); });
-function openSv(k) { svOpen = k; $('#svList').hidden = true; $('#svEd').classList.add('on'); drawSvEd(); window.scrollTo({ top: 0 }); }
-function closeSv() { svOpen = null; $('#svList').hidden = false; $('#svEd').classList.remove('on'); drawSvGrid(); }
+const workOf = (k) => { const e = svEdit(k) || {}, o = G.originalCards(k); return { skills: e.skills ? clone(e.skills) : o.skills.map((_, j) => ({ o: j })), deck: e.deck ? clone(e.deck) : o.deck.map((_, j) => ({ o: j })) }; };
+function openSv(k) { svOpen = k; W = workOf(k); $('#svList').hidden = true; $('#svEd').classList.add('on'); drawSvEd(); window.scrollTo({ top: 0 }); }
+function closeSv() { svOpen = null; W = null; $('#svList').hidden = false; $('#svEd').classList.remove('on'); drawSvGrid(); }
 const defText = (l, k) => (l === 'th' ? k : G.STRINGS[l]?.[k] ?? k);
-const textBox = (k, rows = 2) => {
-  const v = S.data.strings[svLang]?.[k];
-  return `<textarea rows="${rows}" data-text="${esc(k)}" class="${v != null ? 'changed' : ''}" placeholder="${esc(defText(svLang, k))}">${esc(v ?? '')}</textarea>`;
+const textBox = (k, rows = 2, lang = svLang) => {
+  const v = S.data.strings[lang]?.[k];
+  return `<textarea rows="${rows}" data-text="${esc(k)}" data-lang="${lang}" class="${v != null ? 'changed' : ''}" placeholder="${esc(defText(lang, k))}">${esc(v ?? '')}</textarea>`;
 };
 const imgActs = (p, label) => p ? `<label class="btn sm">${label}<input type="file" data-img="${esc(p)}" accept="image/webp,image/png,image/jpeg,image/gif,image/svg+xml" hidden></label>${S.data.images[p] ? `<button class="btn sm danger" data-imgreset="${esc(p)}">คืนรูปเดิม</button>` : ''}` : '';
+// the card an entry of the list makes, as the game will have it
+const cardOf = (part, x) => G.buildCard(x, x.o != null ? G.originalCards(svOpen)[part][x.o] : null, part === 'deck');
+const changedEntry = (x) => x.o == null || Object.keys(x).length > 1;
+const langOf = (v) => (v && (v[svLang] || v.th)) || '';
 function drawSvEd() {
   const i = G.SERVANTS.findIndex((x) => x.key === svOpen), sv = G.SERVANTS[i];
   if (!sv) { closeSv(); return; }
-  const e = svEdit(sv.key) || {};
+  const e = svEdit(sv.key) || {}, orig = G.originalCards(sv.key);
   const portrait = pic(`/src/art/servants/${sv.key}.webp`), icon = pic(`/src/art/icons/${sv.key}.webp`);
   const prev = G.SERVANTS[(i - 1 + G.SERVANTS.length) % G.SERVANTS.length], next = G.SERVANTS[(i + 1) % G.SERVANTS.length];
-  const skills = sv.skills.map((c, j) => {
-    const x = e.skills?.[j] || {};
-    const art = G.CARD_ART[c.name];
+  const acts = (part, j, n) => `<div class="row cacts">
+      <button class="btn sm" data-edit="${part}:${j}">แก้ไขการ์ด</button><button class="btn sm" data-dup="${part}:${j}">ทำซ้ำ</button>
+      <button class="btn sm" data-mv="${part}:${j}:-1"${j ? '' : ' disabled'} aria-label="เลื่อนขึ้น">↑</button><button class="btn sm" data-mv="${part}:${j}:1"${j < n - 1 ? '' : ' disabled'} aria-label="เลื่อนลง">↓</button>
+      <button class="btn sm danger" data-del="${part}:${j}">ลบ</button></div>`;
+  const skills = W.skills.map((x, j) => {
+    const c = cardOf('skills', x), base = x.o != null ? orig.skills[x.o] : null;
+    const art = base && G.CARD_ART[base.name];
     const artP = art && pic(art.art);
-    const t = (c.types || [c.type])[0];
-    return `<div class="kc t${t}${x.power != null || x.mana != null || S.langs.some((l) => S.data.strings[l]?.[c.text] != null) || (artP && S.data.images[artP]) ? ' edited' : ''}">
+    const t = c.type;
+    const txt = base && base.text && !x.text ? `<div class="field"><span>ข้อความบนการ์ด (${LANG_NAME[svLang]})</span>${textBox(base.text, 3)}</div>` : `<p class="ctext">${esc(langOf(x.text)) || '<span class="note">ไม่มีข้อความ · เกมแสดงชนิด พลัง มานา และผลแทน</span>'}</p>`;
+    const fx = fxSummary(c);
+    return `<div class="kc t${t}${changedEntry(x) || (base && S.langs.some((l) => S.data.strings[l]?.[base.text] != null)) || (artP && S.data.images[artP]) ? ' edited' : ''}">
       <div><div class="art">${artP ? `<img src="${esc(shown(artP))}" alt="">` : esc(t === 'N' ? 'NP' : T_NAME[t]?.[0] || '?')}</div>${artP ? `<div class="row" style="margin-top:6px">${imgActs(artP, 'เปลี่ยนรูป')}</div>` : ''}</div>
       <div>
-        <div class="hd"><b>${esc(c.name)}</b><span class="ty" style="color:var(--t)">${esc(typeOf(c))}</span></div>
+        <div class="hd"><b>${esc(c.name)}</b><span class="ty" style="color:var(--t)">${esc(typeOf(c))}</span>${base ? '' : '<span class="tag">การ์ดใหม่</span>'}</div>
         <div class="nums">
-          <label class="num"><span>พลัง <span class="orig">(เดิม ${c.power})</span></span><input type="number" min="0" max="30" data-sk="${j}" data-f="power" value="${x.power ?? ''}" placeholder="${c.power}" class="${x.power != null ? 'changed' : ''}"></label>
-          <label class="num"><span>มานา <span class="orig">(เดิม ${c.mana})</span></span><input type="number" min="0" max="12" data-sk="${j}" data-f="mana" value="${x.mana ?? ''}" placeholder="${c.mana}" class="${x.mana != null ? 'changed' : ''}"></label>
+          <label class="num"><span>พลัง${base ? ` <span class="orig">(เดิม ${base.power})</span>` : ''}</span><input type="number" min="0" max="30" data-q="skills:${j}" data-f="power" value="${x.power ?? ''}" placeholder="${base ? base.power : c.power}" class="${x.power != null && base ? 'changed' : ''}"></label>
+          <label class="num"><span>มานา${base ? ` <span class="orig">(เดิม ${base.mana})</span>` : ''}</span><input type="number" min="0" max="12" data-q="skills:${j}" data-f="mana" value="${x.mana ?? ''}" placeholder="${base ? base.mana : c.mana}" class="${x.mana != null && base ? 'changed' : ''}"></label>
         </div>
-        ${c.text ? `<div class="field"><span>ข้อความบนการ์ด (${LANG_NAME[svLang]})</span>${textBox(c.text, 3)}</div>` : ''}
+        ${fx.length ? `<p class="fxs">${fx.map((f) => `<span>${esc(f)}</span>`).join('')}</p>` : ''}
+        ${txt}
+        ${acts('skills', j, W.skills.length)}
       </div></div>`;
   }).join('');
-  const deck = sv.deck.map((c, j) => {
-    const can = G.plainCard(c), v = e.deck?.[j];
-    const t = c.type;
-    return `<div class="dc t${t}${v != null ? ' edited' : ''}"><small>${esc(c.name || T_NAME[t] || t)}</small>${can ? `<input type="number" min="0" max="15" data-dk="${j}" value="${v ?? ''}" placeholder="${c.power}" class="${v != null ? 'changed' : ''}">` : `<span class="fixed">${c.power}</span>`}<small>${can ? `มานา ${Math.max(0, (v ?? c.power) - 3)}` : 'การ์ดพิเศษ'}</small></div>`;
+  const gone = (part) => orig[part].map((c, j) => [c, j]).filter(([, j]) => !W[part].some((x) => x.o === j));
+  const goneRow = (part) => { const g = gone(part); return g.length ? `<p class="note gone">การ์ดเดิมที่ลบออก: ${g.map(([c, j]) => `<button class="btn sm" data-back="${part}:${j}">${esc(c.name || `${T_NAME[c.type]} ${c.power}`)} ↩ เอากลับ</button>`).join(' ')}</p>` : ''; };
+  const deck = W.deck.map((x, j) => {
+    const c = cardOf('deck', x), base = x.o != null ? orig.deck[x.o] : null;
+    const plain = G.plainCard(c);
+    return `<div class="dc t${c.type}${changedEntry(x) ? ' edited' : ''}" title="${esc(fxSummary(c).join(' · '))}"><small>${esc(c.name || T_NAME[c.type] || c.type)}${base ? '' : ' ✦'}</small>
+      <input type="number" min="0" max="30" data-q="deck:${j}" data-f="power" value="${x.power ?? ''}" placeholder="${base ? base.power : c.power}" class="${x.power != null && base ? 'changed' : ''}" aria-label="พลัง">
+      <small>มานา ${c.mana}${plain ? '' : c.fx || c.use ? ' · มีผล' : ''}</small>
+      <span class="dacts"><button class="btn sm" data-edit="deck:${j}" aria-label="แก้ไขการ์ด">✎</button><button class="btn sm danger" data-del="deck:${j}" aria-label="ลบ">✕</button></span></div>`;
   }).join('');
   $('#svEd').innerHTML = `
     <div class="sv-nav sticky-bar"><button class="btn" data-a="back">← Servant ทั้งหมด</button><span class="sp"></span>
@@ -560,45 +660,162 @@ function drawSvEd() {
         <label class="field"><span>ชื่อที่แสดง <span class="orig">เดิม: <b>${esc(sv.name)}</b></span></span><input type="text" maxlength="40" id="svName" value="${esc(e.name ?? '')}" placeholder="${esc(sv.name)}" class="${e.name ? 'changed' : ''}"></label>
         <div class="field"><span>คลาส</span><div><span class="tag" style="background:var(--card2);color:var(--gold);border:1px solid var(--line)">${esc(sv.cls)}</span></div></div>
         ${sv.note ? `<div class="field"><span>คำอธิบาย Servant (${LANG_NAME[svLang]}) · ขึ้นตอนเลือก Servant</span>${textBox(sv.note, 3)}</div>` : ''}
-        <p class="note">ช่องที่ว่างไว้ใช้ค่าเดิม ตัวเลขบันทึกเมื่อออกจากช่อง ข้อความบันทึกแยกตามภาษา</p>
-        <button class="btn sm danger" data-a="svreset"${e && Object.keys(e).length ? '' : ' disabled'}>คืนชื่อและตัวเลขของ Servant นี้เป็นค่าเดิม</button>
+        <p class="note">ช่องที่ว่างไว้ใช้ค่าเดิม ตัวเลขบันทึกเมื่อออกจากช่อง ข้อความบันทึกแยกตามภาษา การเปลี่ยนการ์ดใช้กับเกมที่เริ่มหลังบันทึก ทั้งเล่นกับบอทและออนไลน์</p>
+        <button class="btn sm danger" data-a="svreset"${e && Object.keys(e).length ? '' : ' disabled'}>คืนชื่อและการ์ดทั้งหมดของ Servant นี้เป็นค่าเดิม</button>
       </div>
     </div></div>
-    <div class="panel"><h3>การ์ด NP / สกิล <span class="note" style="margin:0">${sv.skills.length} ใบ</span></h3><p class="note">พลังและมานาใช้ทั้งเกมเล่นกับบอทและเกมออนไลน์ (เกมใหม่ที่เริ่มหลังบันทึก)</p><div class="kcards">${skills}</div></div>
-    <div class="panel"><h3>สำรับ <span class="note" style="margin:0">${sv.deck.length} ใบ</span></h3><p class="note">การ์ดพื้นฐาน (กำลัง ว่องไว เวท) แก้พลังได้ มานาเป็นพลัง − 3 ตามกติกา การ์ดพิเศษ (Luck, Surveil ฯลฯ) แก้ข้อความได้ในแท็บข้อความทุกภาษา</p><div class="deck">${deck}</div></div>`;
+    <div class="panel"><div class="phead"><h3>การ์ด NP / สกิล <span class="note" style="margin:0">${W.skills.length} ใบ</span></h3><button class="btn sm primary" data-new="skills"${W.skills.length >= G.CARD_LIMITS.skills ? ' disabled' : ''}>+ สร้างการ์ด NP / สกิลใหม่</button></div>
+      <p class="note">แก้พลัง มานา ได้ที่ช่องตัวเลข · "แก้ไขการ์ด" เปลี่ยนชื่อ ชนิด ผล และช่วงที่ใช้ได้ · ลบแล้วเอากลับได้</p>${goneRow('skills')}<div class="kcards">${skills || '<p class="note">ไม่มีการ์ด NP / สกิล</p>'}</div></div>
+    <div class="panel"><div class="phead"><h3>สำรับ <span class="note" style="margin:0">${W.deck.length} ใบ</span></h3><button class="btn sm primary" data-new="deck"${W.deck.length >= G.CARD_LIMITS.deck ? ' disabled' : ''}>+ เพิ่มการ์ดในสำรับ</button></div>
+      <p class="note">ช่องตัวเลขคือพลัง การ์ดพื้นฐาน (กำลัง ว่องไว เวท) มานาเป็นพลัง − 3 ตามกติกา ถ้าไม่ได้ตั้งเอง · ✎ แก้ชื่อ ชนิด มานา และผล · ✦ การ์ดใหม่ · สำรับควรมีอย่างน้อย 3 ใบ</p>${goneRow('deck')}<div class="deck">${deck}</div></div>`;
   langSeg($('#svLang'), svLang, (l) => { svLang = l; drawSvEd(); });
 }
 async function saveSv() {
   const sv = G.SERVANTS.find((x) => x.key === svOpen);
-  const edit = { name: $('#svName').value.trim(), skills: {}, deck: {} };
-  for (const inp of $$('#svEd input[data-sk]')) if (inp.value !== '') (edit.skills[inp.dataset.sk] ||= {})[inp.dataset.f] = +inp.value;
-  for (const inp of $$('#svEd input[data-dk]')) if (inp.value !== '') edit.deck[inp.dataset.dk] = +inp.value;
+  const edit = { name: $('#svName').value.trim(), skills: W.skills, deck: W.deck };
   const r = await call('POST', '/admin/api/servant', { key: sv.key, edit });
-  const all = { ...(S.data.game.servants || {}) };
-  if (r.edit) all[sv.key] = r.edit; else delete all[sv.key];
-  S.data.game = Object.keys(all).length ? { servants: all } : {};
+  S.data.game = r.game || {};
+  W = workOf(sv.key);
 }
 async function saveText(l, k, v) {
   await call('POST', '/admin/api/text', { part: 'strings', lang: l, key: k, value: v });
   (S.data.strings[l] ||= {}); if (v == null) delete S.data.strings[l][k]; else S.data.strings[l][k] = v;
 }
 const holes = (s) => (String(s).match(/\{\d+\}/g) || []).sort().join();
+const at = (s) => { const [part, j, d] = String(s).split(':'); return [part, +j, d != null ? +d : null]; };
 $('#svEd').addEventListener('change', async (e) => {
   const el = e.target;
   try {
     if (el.matches('input[type=file][data-img]')) { await putImage(el.dataset.img, el.files[0]); drawSvEd(); return; }
-    if (el.dataset.text != null) { const v = el.value === '' ? null : el.value; await saveText(svLang, el.dataset.text, v); el.classList.toggle('changed', v != null); toast('บันทึกข้อความแล้ว'); drawNav(); return; }
-    if (el.id === 'svName' || el.dataset.sk != null || el.dataset.dk != null) { await saveSv(); drawSvEd(); drawNav(); toast('บันทึกแล้ว'); }
+    if (el.dataset.text != null) { const v = el.value === '' ? null : el.value; await saveText(el.dataset.lang || svLang, el.dataset.text, v); el.classList.toggle('changed', v != null); toast('บันทึกข้อความแล้ว'); drawNav(); return; }
+    if (el.dataset.q) { const [part, j] = at(el.dataset.q); const x = W[part][j]; if (el.value === '') delete x[el.dataset.f]; else x[el.dataset.f] = +el.value; }
+    if (el.id === 'svName' || el.dataset.q) { await saveSv(); drawSvEd(); drawNav(); toast('บันทึกแล้ว'); }
   } catch (err) { fail(err); }
 });
 $('#svEd').addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
   try {
-    if (b.dataset.a === 'back') closeSv();
-    if (b.dataset.open) openSv(b.dataset.open);
-    if (b.dataset.imgreset) { await resetImage(b.dataset.imgreset); drawSvEd(); }
-    if (b.dataset.a === 'svreset' && confirm('คืนชื่อ พลัง และมานาของ Servant นี้เป็นค่าเดิม? (รูปและข้อความไม่เปลี่ยน)')) { await call('POST', '/admin/api/servant', { key: svOpen, edit: null }); const all = { ...(S.data.game.servants || {}) }; delete all[svOpen]; S.data.game = Object.keys(all).length ? { servants: all } : {}; drawSvEd(); drawNav(); toast('คืนค่าเดิมแล้ว'); }
+    if (d.a === 'back') closeSv();
+    if (d.open) openSv(d.open);
+    if (d.imgreset) { await resetImage(d.imgreset); drawSvEd(); }
+    if (d.edit) { const [part, j] = at(d.edit); openCard(part, j); return; }
+    if (d.new) { openCard(d.new, null); return; }
+    let changed = false;
+    if (d.dup) { const [part, j] = at(d.dup); const x = clone(W[part][j]); const c = cardOf(part, x); delete x.o; x.name ||= { th: c.name || '' }; if (!x.name.th) delete x.name; x.types ||= c.types || [c.type]; x.power ??= c.power; x.mana ??= c.mana; x.fx ??= clone(c.fx || {}); x.use ??= clone(c.use || []); if (part === 'deck') x.basic ??= !!c.basic; if (c.limit && x.limit == null) x.limit = c.limit; W[part].splice(j + 1, 0, x); changed = true; }
+    if (d.mv) { const [part, j, k] = at(d.mv); const l = W[part]; if (l[j + k]) { [l[j], l[j + k]] = [l[j + k], l[j]]; changed = true; } }
+    if (d.del) { const [part, j] = at(d.del); const c = cardOf(part, W[part][j]); if (part === 'deck' && W.deck.length <= 3) { toast('สำรับต้องมีอย่างน้อย 3 ใบ', true); return; } if (confirm(`ลบการ์ด "${c.name || `${T_NAME[c.type]} ${c.power}`}" ออกจาก Servant นี้?${W[part][j].o != null ? ' (การ์ดเดิม เอากลับได้ทีหลัง)' : ''}`)) { W[part].splice(j, 1); changed = true; } }
+    if (d.back) { const [part, j] = at(d.back); const l = W[part]; let pos = l.findIndex((x) => x.o != null && x.o > j); if (pos < 0) pos = l.length; l.splice(pos, 0, { o: j }); changed = true; }
+    if (changed) { await saveSv(); drawSvEd(); drawNav(); toast('บันทึกแล้ว'); }
+    if (d.a === 'svreset' && confirm('คืนชื่อและการ์ดทั้งหมดของ Servant นี้เป็นค่าเดิม? (การ์ดที่สร้างใหม่จะหายไป รูปและข้อความของการ์ดเดิมไม่เปลี่ยน)')) { const r = await call('POST', '/admin/api/servant', { key: svOpen, edit: null }); S.data.game = r.game || {}; W = workOf(svOpen); drawSvEd(); drawNav(); toast('คืนค่าเดิมแล้ว'); }
   } catch (err) { fail(err); }
+});
+
+// ---------- one card, all of it (a dialog) ----------
+let CD = null; // { part, j (null: a new card), x (the entry being edited), base }
+const optList = (o, cur, none) => `${none != null ? `<option value="">${none}</option>` : ''}${Object.entries(o).map(([k, v]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}`;
+function openCard(part, j) {
+  const deck = part === 'deck';
+  const x = j == null ? (deck ? { types: ['S'], power: 3, basic: true } : { name: { th: 'การ์ดใหม่' }, types: ['X'], power: 3, mana: 3, fx: {} }) : clone(W[part][j]);
+  const base = x.o != null ? G.originalCards(svOpen)[part][x.o] : null;
+  CD = { part, j, x, base };
+  const c = cardOf(part, x);
+  const types = c.types || [c.type];
+  const fx = c.fx || {};
+  const fxRow = ([k, label]) => {
+    const rule = G.EFFECT_KEYS[k], v = fx[k];
+    let inp;
+    if (rule === 'on') inp = `<input type="checkbox" data-fx="${k}"${v ? ' checked' : ''}>`;
+    else if (rule === 'workshop') inp = `<span class="pair">มานา <input type="number" min="0" max="12" data-fx="${k}" data-sub="mana" value="${v?.mana ?? ''}"> VP <input type="number" min="0" max="20" data-fx="${k}" data-sub="vp" value="${v?.vp ?? ''}"></span>`;
+    else if (typeof rule[0] === 'number') inp = `<input type="number" min="${rule[0]}" max="${rule[1]}" data-fx="${k}" value="${v ?? ''}" placeholder="—">`;
+    else inp = `<select data-fx="${k}">${optList(Object.fromEntries((FX_OPTS[k] || rule.map((r) => [r, r]))), v, '— ไม่มี —')}</select>`;
+    return `<label class="fxrow${v ? ' on' : ''}">${rule === 'on' ? inp : ''}<span>${esc(label)}</span>${rule === 'on' ? '' : inp}</label>`;
+  };
+  const use = [...(c.use || [])];
+  while (use.length < G.CARD_LIMITS.use) use.push(null);
+  const useRow = (u, i) => `<div class="userow" data-u="${i}">
+      <label>ช่วง<select data-uf="when">${optList(Object.fromEntries(Object.entries(G.WINDOWS).map(([k, w]) => [k, `${w.code} ${w.name}`])), u?.when, '— ไม่ใช้ —')}</select></label>
+      <label>ที่<select data-uf="where">${optList(G.WHERE, u?.where || 'any')}</select></label>
+      <label>เงื่อนไข<select data-uf="cond">${optList(G.COND, u?.cond || '', 'ไม่มี')}</select></label>
+      <label>มานา +<input type="number" min="0" max="12" data-uf="mana" value="${u?.fx?.mana ?? ''}"></label>
+      <label>VP +<input type="number" min="0" max="20" data-uf="vp" value="${u?.fx?.vp ?? ''}"></label>
+      <label class="chk"><input type="checkbox" data-uf="freeMove"${u?.fx?.freeMove ? ' checked' : ''}> ย้ายได้แม้ติดพัน</label>
+      <label class="chk"><input type="checkbox" data-uf="peek"${u?.fx?.peek ? ' checked' : ''}> ดูอีเวนต์ชินโตะ</label></div>`;
+  const langBox = (field, rows) => S.langs.map((l) => {
+    const v = x[field]?.[l] ?? '';
+    const ph = base ? (field === 'name' ? (l === 'th' ? base.name || '' : '') : '') : '';
+    return `<label class="lbox"><span>${LANG_NAME[l]}</span>${rows ? `<textarea rows="${rows}" data-lf="${field}" data-l="${l}">${esc(v)}</textarea>` : `<input type="text" maxlength="40" data-lf="${field}" data-l="${l}" value="${esc(v)}" placeholder="${esc(ph)}">`}</label>`;
+  }).join('');
+  const textPart = base && base.text && !x.text
+    ? `<div class="field"><span>ข้อความบนการ์ด · การ์ดเดิมใช้ข้อความของพจนานุกรม (ว่าง = ข้อความเดิม)</span><div class="lgrid">${S.langs.map((l) => `<label class="lbox"><span>${LANG_NAME[l]}</span>${textBox(base.text, 3, l)}</label>`).join('')}</div></div>`
+    : `<div class="field"><span>ข้อความบนการ์ด (ว่าง = เกมแสดงชนิด พลัง มานา และผลให้เอง) · ภาษาอื่นว่างไว้ ใช้ภาษาไทย</span><div class="lgrid">${langBox('text', 3)}</div></div>`;
+  $('#cardDlg').innerHTML = `<form method="dialog" class="cdform">
+    <div class="cdhead"><h3>${j == null ? (deck ? 'เพิ่มการ์ดในสำรับ' : 'สร้างการ์ด NP / สกิลใหม่') : 'แก้ไขการ์ด'}</h3><span class="note" style="margin:0">${esc(G.SERVANTS.find((s) => s.key === svOpen)?.name || '')} · ${deck ? 'สำรับ' : 'ช่อง NP / สกิล'}${base ? ` · การ์ดเดิม: ${esc(base.name || `${T_NAME[base.type]} ${base.power}`)}` : ' · การ์ดใหม่'}</span></div>
+    <div class="field"><span>ชื่อการ์ด${base ? ' (ว่าง = ชื่อเดิม)' : deck ? ' (ว่าง = การ์ดพื้นฐานไม่มีชื่อ เช่น "กำลัง 4")' : ''}</span><div class="lgrid">${langBox('name', 0)}</div></div>
+    <div class="cdnums">
+      <label>ชนิดหลัก<select id="cdType">${optList(Object.fromEntries(['S', 'A', 'M', 'X', 'N'].map((t) => [t, T_NAME[t]])), types[0])}</select></label>
+      <div class="cdtypes"><span>ชนิดเพิ่ม (การ์ดมีได้หลายชนิด)</span>${['S', 'A', 'M', 'X', 'N'].map((t) => `<label class="chk"><input type="checkbox" data-t2="${t}"${types.slice(1).includes(t) ? ' checked' : ''}> ${T_NAME[t]}</label>`).join('')}</div>
+      <label>พลัง<input type="number" min="0" max="30" id="cdPower" value="${c.power}"></label>
+      <label>มานา<input type="number" min="0" max="12" id="cdMana" value="${deck && x.mana == null && G.plainCard(c) ? '' : c.mana}" placeholder="${deck ? 'พลัง − 3' : ''}"></label>
+      ${deck ? `<label class="chk"><input type="checkbox" id="cdBasic"${c.basic ? ' checked' : ''}> การ์ดพื้นฐาน</label>` : ''}
+      <label class="chk"><input type="checkbox" id="cdLimit"${c.limit === 'round' ? ' checked' : ''}> ใช้ได้รอบละครั้ง</label>
+    </div>
+    ${textPart}
+    <details class="cdfx" open><summary>ผลของการ์ด</summary><p class="note">ผลที่เกมรู้จักแล้ว ติ๊กหรือใส่ตัวเลขเพื่อเปิด ปล่อยว่างเท่ากับไม่มี</p>${FX_GROUPS.map(([g, l]) => `<div class="fxg"><b>${g}</b>${l.map(fxRow).join('')}</div>`).join('')}</details>
+    <details class="cdfx"${(c.use || []).length ? ' open' : ''}><summary>ใช้ในช่วงของรอบ (การ์ดช่วง)</summary><p class="note">การ์ดที่ใช้จากมือหรือช่องสกิลในช่วงที่เลือก ไม่นับเป็นการ์ด 2 ใบที่ลง จ่ายมานาตามการ์ด การ์ด NP/สกิลยังต้องมีมานา 8</p>${use.map(useRow).join('')}</details>
+    <div class="cdbar"><span class="sp"></span><button class="btn" value="cancel" formnovalidate>ยกเลิก</button><button class="btn primary" value="ok" id="cdSave">บันทึกการ์ด</button></div>
+  </form>`;
+  $('#cardDlg').showModal();
+}
+$('#cardDlg').addEventListener('input', (e) => { const r = e.target.closest('.fxrow'); if (r) { const i = $('[data-fx]', r); r.classList.toggle('on', i.type === 'checkbox' ? i.checked : !!i.value); } });
+$('#cardDlg').addEventListener('close', async () => {
+  if ($('#cardDlg').returnValue !== 'ok' || !CD) { CD = null; return; }
+  const { part, j, base } = CD, x = CD.x, deck = part === 'deck', dlg = $('#cardDlg');
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  for (const f of ['name', 'text']) {
+    const v = {};
+    for (const inp of $$(`[data-lf="${f}"]`, dlg)) if (inp.value.trim()) v[inp.dataset.l] = inp.value.trim();
+    if (Object.keys(v).length) x[f] = v; else delete x[f];
+  }
+  const main = $('#cdType', dlg).value;
+  const types = [main, ...$$('[data-t2]', dlg).filter((i) => i.checked && i.dataset.t2 !== main).map((i) => i.dataset.t2)];
+  if (base && same(types, base.types || [base.type])) delete x.types; else x.types = types;
+  for (const [id, f] of [['cdPower', 'power'], ['cdMana', 'mana']]) {
+    const v = $(`#${id}`, dlg).value;
+    if (v === '' || (base && +v === base[f] && x.power == null)) delete x[f]; else x[f] = +v;
+  }
+  const fx = {};
+  for (const inp of $$('[data-fx]', dlg)) {
+    const k = inp.dataset.fx;
+    if (inp.dataset.sub) { if (inp.value !== '') (fx[k] ||= {})[inp.dataset.sub] = +inp.value; }
+    else if (inp.type === 'checkbox') { if (inp.checked) fx[k] = true; }
+    else if (inp.value !== '') fx[k] = inp.type === 'number' ? +inp.value : inp.value;
+  }
+  const baseFx = base ? (base.fx || {}) : null;
+  if (base && same(Object.keys(fx).sort().map((k) => [k, fx[k]]), Object.keys(baseFx).sort().map((k) => [k, baseFx[k]]))) delete x.fx; else x.fx = fx;
+  const use = $$('.userow', dlg).map((r) => {
+    const g = (f) => $(`[data-uf="${f}"]`, r);
+    if (!g('when').value) return null;
+    const ufx = {};
+    if (g('mana').value) ufx.mana = +g('mana').value;
+    if (g('vp').value) ufx.vp = +g('vp').value;
+    if (g('freeMove').checked) ufx.freeMove = true;
+    if (g('peek').checked) ufx.peek = true;
+    return Object.keys(ufx).length ? { when: g('when').value, where: g('where').value || 'any', ...(g('cond').value ? { cond: g('cond').value } : {}), fx: ufx } : null;
+  }).filter(Boolean);
+  if (base && same(use, (base.use || []).map((u) => ({ when: u.when, where: u.where || 'any', ...(u.cond ? { cond: u.cond } : {}), fx: u.fx })))) delete x.use; else x.use = use;
+  const limit = $('#cdLimit', dlg).checked ? 'round' : null;
+  if (base && limit === (base.limit || null)) delete x.limit; else x.limit = limit;
+  if (deck) { const bs = $('#cdBasic', dlg).checked; if (base && bs === !!base.basic) delete x.basic; else x.basic = bs; }
+  if (j == null) W[part].push(x); else W[part][j] = x;
+  CD = null;
+  try { await saveSv(); drawSvEd(); drawNav(); toast('บันทึกการ์ดแล้ว'); } catch (err) { fail(err); }
+});
+
+$('#cardDlg').addEventListener('change', async (e) => {
+  const el = e.target;
+  if (el.dataset.text == null) return;
+  try { const v = el.value === '' ? null : el.value; await saveText(el.dataset.lang || svLang, el.dataset.text, v); el.classList.toggle('changed', v != null); toast('บันทึกข้อความแล้ว'); drawNav(); } catch (err) { fail(err); }
 });
 
 // ---------- backgrounds and colours ----------
