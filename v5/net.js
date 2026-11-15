@@ -16,6 +16,9 @@ const BY_PATH = new Map(); // path → object
 (() => {
   const seen = new Set();
   const walk = (v, path) => {
+    // a Servant's cards can change on the admin page while the server runs (data.js applyGameEdits),
+    // so they are always sent as they are, never by a path that may mean another card by then
+    if (/^SERVANTS\.\d+\.(skills|deck)$/.test(path)) return;
     if (!v || typeof v !== 'object' || seen.has(v)) return;
     seen.add(v);
     STATIC.set(v, path); BY_PATH.set(path, v);

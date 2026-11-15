@@ -4,7 +4,7 @@
 // (text only, the numbers printed on card images are unknown), [p.N] manual page, [4G] play
 // reports used in paper v3.0. ph = placeholder.
 
-import { T } from './i18n.js';
+import { T, STRINGS } from './i18n.js';
 import { OVR } from './custom.js';
 export const TYPES = { S: T("กำลัง"), A: T("ว่องไว"), M: T("เวท"), X: T("พิเศษ"), N: 'NP', Z: T("ไม่มีชนิด") };
 export const ALL_TYPES = ['S', 'A', 'M', 'X', 'N']; // Z (Archer Class) has no type, so it never matches one
@@ -238,30 +238,148 @@ export const EVENTS = [
   ev(T("ผู้เห็นเหตุการณ์"), 2, { loserVP: 1 }, T("ผู้แพ้ได้ 1 VP")),
 ];
 
-// ---------- the admin page's changes to the Servants (server/admin.mjs, B 14 Nov 2026) ----------
-// OVR.game.servants[key] = { name, skills: { index: { power, mana } }, deck: { index: power } }.
-// Applied here on the page and, by server/admin.mjs, on the server too (it runs the online games),
-// always from the original values, so taking a change back is just applying again without it.
-// The texts of the cards are language texts (the admin page's strings), not here.
-const ORIG = SERVANTS.map((sv) => ({ name: sv.name, skills: sv.skills.map((c) => ({ power: c.power, mana: c.mana })), deck: sv.deck.map((c) => ({ power: c.power, mana: c.mana })) }));
-// a plain Strength / Agility / Magic card of the deck: its power can change, its mana follows (power − 3)
+// ---------- the admin page's changes to the cards (server/admin.mjs; B 14 and 15 Nov 2026) ----------
+// B 15 Nov 2026: "แอดมินสามารถเปลี่ยนค่าพลังของการ์ดได้ และสามารถสร้าง ลบ แก้ไข การ์ดสกิล ความสามารถ".
+// OVR.game = {
+//   servants: { [key]: { name, skills: [entry], deck: [entry] } },   // a list given = the whole list
+//   cards: { kanshou | gandr | shadow | snake0 | snake1: { power, mana } }, // the Masters' cards
+// }
+// entry = { o: index of the original card (left out: a new card), name, text, types, power, mana,
+//           fx, use, limit, basic }; every field but o is optional and replaces the original's.
+// name and text are { th, en, zh, ja } (a plain string = Thai); the other languages go into the
+// dictionary under the Thai text, so the online pages (which get Thai from the server) show them too.
+// Applied here on the page and, by server/admin.mjs, on the server (it runs the online games),
+// always from the original cards, so taking a change back is applying again without it. The
+// original cards' texts are dictionary texts (the admin page's strings tab), not here.
+// The effects a card can have, by fx key: 'on' (true), [lo, hi] (a whole number), or the allowed
+// values. They are the effects game.js already knows; the names for the admin are in admin.html.
+export const EFFECT_KEYS = {
+  reveal: 'on', once: 'on', no8: 'on', hiddenOnly: 'on', hiddenDisc: [1, 12], permanent: 'on', extra: 'on',
+  mana: [1, 12], playVP: [1, 20], terrainMul: [2, 5], move: ['next', 'any'], win: [1, 20], strike: [1, 10],
+  zeroOpp: ['S', 'A', 'M'], duel: 'on', petrify: 'on', enuma: 'on', presence: 'on', luck: 'on', zab: 'on',
+  godHand: [1, 20], excal: [1, 20], archer: [1, 20], archerLose: [1, 20], riding: [1, 5], riderDraw: [1, 3],
+  ubw: [1, 8], bell: 'on', gate: 'on', ruleBreaker: [0, 30], rain: 'on', manaX: 'on', workshop: 'workshop',
+  sword: [1, 3], strike1: [1, 12], strike3: 'on', block: 'on', hide: 'on', offOnReveal: 'on',
+};
+// what one effect line of a window card can do (paper section 9, game.js useCard)
+export const USE_KEYS = { mana: [1, 12], vp: [1, 20], freeMove: 'on', peek: 'on' };
+export const CARD_LIMITS = { skills: 10, deck: 40, use: 3, name: 40, text: 600, power: 30, mana: 12 };
+export const MASTER_CARDS = { kanshou: KANSHOU, gandr: GANDR, shadow: BLACK_SHADOW, snake0: SNAKE[0], snake1: SNAKE[1] };
+const LANG_KEYS = ['th', 'en', 'zh', 'ja'];
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const num = (v, lo, hi) => (v !== '' && v != null && Number.isFinite(+v) ? Math.max(lo, Math.min(hi, Math.round(+v))) : null);
+// a plain Strength / Agility / Magic card of the deck: its mana follows its power (power − 3)
 export const plainCard = (c) => !!c && c.basic && !c.fx && !c.name && ['S', 'A', 'M'].includes(c.type);
-const num = (v, lo, hi) => (Number.isFinite(+v) && v !== '' && v != null ? Math.max(lo, Math.min(hi, Math.round(+v))) : null);
+export function cleanFx(fx, keys = EFFECT_KEYS) {
+  const out = {};
+  if (!isObj(fx)) return out;
+  for (const [k, rule] of Object.entries(keys)) {
+    const v = fx[k];
+    if (v == null || v === false || v === '') continue;
+    if (rule === 'on') out[k] = true;
+    else if (rule === 'workshop') { if (isObj(v)) { const m = num(v.mana, 0, 12) || 0, p = num(v.vp, 0, 20) || 0; if (m || p) out[k] = { mana: m, vp: p }; } }
+    else if (typeof rule[0] === 'number') { const n = num(v, rule[0], rule[1]); if (n != null) out[k] = n; }
+    else if (rule.includes(v)) out[k] = v;
+  }
+  return out;
+}
+export function cleanUse(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const u of list.slice(0, CARD_LIMITS.use)) {
+    if (!isObj(u) || !WINDOWS[u.when]) continue;
+    const fx = cleanFx(u.fx, USE_KEYS);
+    if (!Object.keys(fx).length) continue;
+    out.push({ when: u.when, where: WHERE[u.where] ? u.where : 'any', ...(COND[u.cond] ? { cond: u.cond } : {}), fx });
+  }
+  return out;
+}
+export function cleanLang(v, max) {
+  if (typeof v === 'string') v = { th: v };
+  if (!isObj(v)) return null;
+  const out = {};
+  for (const l of LANG_KEYS) if (typeof v[l] === 'string' && v[l].trim()) out[l] = v[l].trim().slice(0, max);
+  return Object.keys(out).length ? out : null;
+}
+// one card of a list, checked: base = the original card it starts from (null: a new card)
+export function cleanCard(x, base, deck) {
+  if (!isObj(x)) return null;
+  const o = {};
+  if (base) o.o = x.o;
+  const name = cleanLang(x.name, CARD_LIMITS.name), text = cleanLang(x.text, CARD_LIMITS.text);
+  if (name) o.name = name;
+  if (text) o.text = text;
+  if (Array.isArray(x.types)) { const t = [...new Set(x.types.filter((k) => ALL_TYPES.includes(k)))]; if (t.length) o.types = t; }
+  const p = num(x.power, 0, CARD_LIMITS.power), m = num(x.mana, 0, CARD_LIMITS.mana);
+  if (p != null) o.power = p;
+  if (m != null) o.mana = m;
+  if (isObj(x.fx)) o.fx = cleanFx(x.fx);
+  const use = cleanUse(x.use);
+  if (use) o.use = use;
+  if (x.limit === 'round') o.limit = 'round'; else if (x.limit === '' || x.limit === null) o.limit = null;
+  if (deck && typeof x.basic === 'boolean') o.basic = x.basic;
+  if (!base && !o.name && !deck) o.name = { th: T("การ์ดใหม่") };
+  return o;
+}
+// a Servant's NP/skill or deck list as the admin page sent it. The older form of 14 Nov 2026
+// ({ index: { power, mana } } for the skills, { index: power } for the deck) is turned into this one.
+export function cleanList(list, orig, deck) {
+  if (isObj(list)) list = orig.map((c, j) => (deck ? (list[j] != null ? { o: j, power: list[j] } : { o: j }) : { o: j, ...(isObj(list[j]) ? list[j] : {}) }));
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const x of list.slice(0, deck ? CARD_LIMITS.deck : CARD_LIMITS.skills)) {
+    const j = isObj(x) && x.o != null ? Number(x.o) : null;
+    if (j != null && !(Number.isInteger(j) && orig[j])) continue;
+    const c = cleanCard(x, j != null ? orig[j] : null, deck);
+    if (c) out.push(c);
+  }
+  return out;
+}
+// what the original lists were, per Servant (the admin page and the server start from these)
+const ORIG = Object.fromEntries(SERVANTS.map((sv) => [sv.key, { name: sv.name, skills: sv.skills.slice(), deck: sv.deck.slice() }]));
+export const originalCards = (key) => ORIG[key] || null;
+const ORIG_MC = Object.fromEntries(Object.entries(MASTER_CARDS).map(([k, c]) => [k, { power: c.power, mana: c.mana }]));
+export const originalMasterCard = (k) => ORIG_MC[k] || null;
+// a text of the admin's in every language: the Thai one is the key, the others go into the dictionary
+function said(v, fallback) {
+  if (!v) return fallback;
+  const th = v.th || v.en || v.zh || v.ja;
+  for (const l of LANG_KEYS) if (l !== 'th' && v[l] && STRINGS[l]) STRINGS[l][th] = v[l];
+  return T(th);
+}
+export function buildCard(x, base, deck) {
+  const c = base ? { ...base } : { type: 'X', power: 0, mana: 0, fx: deck ? null : {}, custom: true, ...(deck ? { basic: false } : {}) };
+  if (x.types) { c.type = x.types[0]; if (x.types.length > 1) c.types = x.types; else delete c.types; }
+  if (x.power != null) c.power = x.power;
+  if (x.mana != null) c.mana = x.mana;
+  if (x.fx) c.fx = Object.keys(x.fx).length ? x.fx : deck ? null : {};
+  if (x.use) { if (x.use.length) c.use = x.use; else delete c.use; }
+  if (x.limit === 'round') c.limit = 'round'; else if (x.limit === null) delete c.limit;
+  if (deck && x.basic != null) c.basic = x.basic;
+  if (x.name) c.name = said(x.name, c.name);
+  if (x.text) c.text = said(x.text, c.text);
+  if (!deck && !c.fx) c.fx = {};
+  // a plain Strength / Agility / Magic card whose mana was not set: power − 3, the basic cards' rule
+  if (deck && x.mana == null && (x.power != null || !base) && plainCard(c)) c.mana = Math.max(0, c.power - 3);
+  return c;
+}
 export function applyGameEdits(game) {
-  const all = (game && game.servants) || {};
-  SERVANTS.forEach((sv, i) => {
-    const o = ORIG[i], e = all[sv.key] || {};
+  const all = (isObj(game) && isObj(game.servants)) ? game.servants : {};
+  for (const sv of SERVANTS) {
+    const o = ORIG[sv.key], e = isObj(all[sv.key]) ? all[sv.key] : {};
     sv.name = typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 40) : o.name;
-    sv.skills.forEach((c, j) => {
-      const x = (e.skills && e.skills[j]) || {};
-      c.power = num(x.power, 0, 30) ?? o.skills[j].power;
-      c.mana = num(x.mana, 0, 12) ?? o.skills[j].mana;
-    });
-    sv.deck.forEach((c, j) => {
-      const p = plainCard(c) ? num(e.deck && e.deck[j], 0, 15) : null;
-      c.power = p ?? o.deck[j].power;
-      c.mana = p != null ? Math.max(0, p - 3) : o.deck[j].mana;
-    });
-  });
+    for (const part of ['skills', 'deck']) {
+      const deck = part === 'deck';
+      const list = e[part] != null ? cleanList(e[part], o[part], deck) : null;
+      // a new array each time: a game already running keeps the cards it was dealt
+      sv[part] = list ? list.map((x) => buildCard(x, x.o != null ? o[part][x.o] : null, deck)) : o[part].slice();
+    }
+  }
+  const mc = (isObj(game) && isObj(game.cards)) ? game.cards : {};
+  for (const [k, c] of Object.entries(MASTER_CARDS)) {
+    const x = isObj(mc[k]) ? mc[k] : {};
+    c.power = num(x.power, 0, CARD_LIMITS.power) ?? ORIG_MC[k].power;
+    c.mana = num(x.mana, 0, CARD_LIMITS.mana) ?? ORIG_MC[k].mana;
+  }
 }
 applyGameEdits(OVR.game);
