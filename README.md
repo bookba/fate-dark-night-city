@@ -13,7 +13,7 @@ npm run dev
 
 แล้วเปิด http://localhost:5173
 
-เอกสารออกแบบเกม: [docs/game-design.md](docs/game-design.md)
+เอกสารออกแบบเกม: [design/README.md](design/README.md) (ฉบับเก่า: [docs/game-design.md](docs/game-design.md))
 
 ## โครงสร้างโค้ด
 
